@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto", "Dotto\Dotto.csproj", "{63350F0F-C36F-4324-BEF2-5D0873D7DC59}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Commands", "Commands\Commands.csproj", "{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services", "Services\Services.csproj", "{DE41B25C-64C9-4D15-B636-752882512ED8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{63350F0F-C36F-4324-BEF2-5D0873D7DC59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63350F0F-C36F-4324-BEF2-5D0873D7DC59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63350F0F-C36F-4324-BEF2-5D0873D7DC59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63350F0F-C36F-4324-BEF2-5D0873D7DC59}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE41B25C-64C9-4D15-B636-752882512ED8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE41B25C-64C9-4D15-B636-752882512ED8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE41B25C-64C9-4D15-B636-752882512ED8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE41B25C-64C9-4D15-B636-752882512ED8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
