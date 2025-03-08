@@ -25,6 +25,19 @@ public class DownloadCommand(IDownloaderService dlService)
             message.WithContent("upload file limit exceeded, it's over");
             return message;
         }
+        catch (ApplicationException ex)
+        {
+            message.WithContent(ex.Message)
+                .WithEmbeds([
+                    new()
+                    {
+                        Color = new(230, 70, 70),
+                        Description = ex.InnerException!.Message
+                    }
+                ]);
+            
+            return message;
+        }
 
         var fileName = Path.ChangeExtension(video.Metadata.Title ?? Guid.NewGuid().ToString(), "mp4");
 
