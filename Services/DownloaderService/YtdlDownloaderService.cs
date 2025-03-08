@@ -170,12 +170,12 @@ public class YtdlDownloaderService : IDownloaderService
                / (bv[filesize_approx<8M][vcodec~='^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize_approx<2M])
                / (best[filesize<9900K][vcodec~='^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
                / (best[filesize_approx<9500K][vcodec~='^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
-               / (bv[filesize<8M][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize<2M])
-               / (bv[filesize<8M][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize_approx<2M])
-               / (bv[filesize_approx<8M][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize<2M])
-               / (bv[filesize_approx<8M][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize_approx<2M])
-               / (best[filesize<9800K][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
-               / (best[filesize_approx<9500K][vcodec~=?'^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
+               / (bv[filesize<8M][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize<2M])
+               / (bv[filesize<8M][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize_approx<2M])
+               / (bv[filesize_approx<8M][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize<2M])
+               / (bv[filesize_approx<8M][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)']+ba[filesize_approx<2M])
+               / (best[filesize<9800K][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
+               / (best[filesize_approx<9500K][vcodec~=?'^(unknown|hevc.*|h265.*|vp0?9.*|avc.*|h264.*)'])
                )
                """.Replace("\n", string.Empty).Replace("\r", string.Empty).Replace("\t", string.Empty); 
     }
