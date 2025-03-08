@@ -15,8 +15,7 @@ public class SlashCommand(DownloadCommand dl) : ApplicationCommandModule<Applica
         }
 
         var respTask = RespondAsync(InteractionCallback.DeferredMessage());
-
-        var hydrateTask = dl.HydrateMessage(uri, new InteractionMessageProperties());
+        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri);
 
         await respTask;
         await FollowupAsync(await hydrateTask);

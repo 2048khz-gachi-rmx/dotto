@@ -4,15 +4,16 @@ using Services.DownloaderService;
 
 namespace Dotto.Commands.Download;
 
-public partial class DownloadCommand(IDownloaderService dlService)
+public class DownloadCommand(IDownloaderService dlService)
 {
     private const long UploadLimitNoNitro = 10 << 20;
     private const long UploadLimitYesNitro = 25 << 20; 
 
-    public async Task<T> HydrateMessage<T>(Uri uri, T messageProperties)
-        where T: IMessageProperties
+    public async Task<T> CreateMessage<T>(Uri uri)
+        where T: IMessageProperties, new()
     {
         var uploadLimit = UploadLimitNoNitro; // TODO: check server nitro level
+        var message = new T();
         
         DownloadedMedia video;
         try
@@ -21,17 +22,17 @@ public partial class DownloadCommand(IDownloaderService dlService)
         }
         catch (IndexOutOfRangeException)
         {
-            messageProperties.WithContent("upload file limit exceeded, it's over");
-            return messageProperties;
+            message.WithContent("upload file limit exceeded, it's over");
+            return message;
         }
 
         var fileName = Path.ChangeExtension(video.Metadata.Title ?? Guid.NewGuid().ToString(), "mp4");
 
-        messageProperties.AddAttachments(new AttachmentProperties(fileName, video.Video))
+        message.AddAttachments(new AttachmentProperties(fileName, video.Video))
             .WithContent($"-# {video.Metadata.Resolution ?? "unknown resolution"}" +
                          $" | {StringUtils.HumanReadableSize(video.Video.Length)}" +
                          $" | {StringUtils.VideoCodecToFriendlyName(video.Metadata.VideoCodec ?? "unknown codec")}");
             
-        return messageProperties;
+        return message;
     }
 }
