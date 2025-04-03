@@ -1,4 +1,6 @@
-﻿using Dotto.Application.Entities;
+﻿using System.Collections.Immutable;
+using System.Collections.ObjectModel;
+using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
@@ -6,8 +8,6 @@ using Microsoft.Extensions.Caching.Hybrid;
 namespace Dotto.Application.InternalServices.ChannelFlagsService;
 
 // I see no good reason to mock this, so no interfaces
-// Also, while i _could_ do fancy stuff like not selecting the entity to avoid an extra roundtrip,
-// flag updates are going to be so rare that it just won't be worth it
 public class ChannelFlagsService(
     IDottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
@@ -16,11 +16,14 @@ public class ChannelFlagsService(
 {
     public async Task<bool> AddChannelFlag(ulong channelId, string flagName, CancellationToken ct = default)
     {
+        // While i _could_ do fancy stuff like not selecting the entity to avoid an extra roundtrip,
+        // flag updates are going to be so rare that it just won't be worth it.
+        // Plus it's logic moved to the DB, which sucks (checking if a channel reached max flags?)
         var flags = await dbContext.ChannelFlags.FirstOrDefaultAsync(f => f.ChannelId == channelId, ct);
 
         if (flags == null)
         {
-            flags = new ChannelFlags() { ChannelId = channelId };
+            flags = new ChannelFlags(channelId);
             dbContext.ChannelFlags.Add(flags);
         }
         
@@ -51,14 +54,14 @@ public class ChannelFlagsService(
 
     private string GetCacheKey(ulong channelId) => $"channelflags-{channelId}";
     
-    public ValueTask<IList<string>?> GetChannelFlags(ulong channelId, CancellationToken ct = default)
+    public ValueTask<IImmutableList<string>> GetChannelFlags(ulong channelId, CancellationToken ct = default)
     {
-        return hybridCache.GetOrCreateAsync<IList<string>?>(GetCacheKey(channelId),
+        return hybridCache.GetOrCreateAsync<IImmutableList<string>>(GetCacheKey(channelId),
             async token =>
             { 
                 return (await dbContext.ChannelFlags
                     .FirstOrDefaultAsync(f => f.ChannelId == channelId, token))
-                    ?.Flags;
+                    ?.Flags.ToImmutableList() ?? ImmutableList<string>.Empty;
             },
             cancellationToken: ct);
     }

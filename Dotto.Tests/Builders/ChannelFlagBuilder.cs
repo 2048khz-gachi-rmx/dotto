@@ -15,9 +15,8 @@ public class ChannelFlagBuilder(DottoDbContext dbContext, IDateTimeProvider date
     
     public async Task<ChannelFlags> GetAsync()
     {
-        var flag = new ChannelFlags()
+        var flag = new ChannelFlags(_channelId ?? ++_counter)
         {
-            ChannelId = _channelId ?? ++_counter,
             Flags = _flags ?? [],
             UpdatedOn = _updatedOn ?? dateTimeProvider.UtcNow
         };

@@ -22,9 +22,8 @@ public class AddFlagMessageRequestHandler<T>(ChannelFlagsService flagsService)
     public async Task<T> Handle(AddFlagRequest<T> request, CancellationToken cancellationToken)
     {
         await flagsService.AddChannelFlag(request.ChannelId, request.FlagName, cancellationToken);
-        var newFlags = await flagsService.GetChannelFlags(request.ChannelId, cancellationToken)
-            ?? ["WTF"];
-
+        
+        var newFlags = await flagsService.GetChannelFlags(request.ChannelId, cancellationToken);
         var newFlagsStr = string.Join("; ", newFlags.Select(f => Format.SmallCodeBlock(f)));
         
         var msg = new T();

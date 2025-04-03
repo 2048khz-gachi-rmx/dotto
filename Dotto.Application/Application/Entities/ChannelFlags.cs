@@ -8,7 +8,12 @@ public record ChannelFlags
     
     public DateTime UpdatedOn { get; set; }
 
-    public ChannelFlags() { }
+    protected ChannelFlags() { /* EF */ }
+
+    public ChannelFlags(ulong channelId)
+    {
+        ChannelId = channelId;
+    }
     
     /// <returns>Whether the flag was actually added. If the flag was already present, returns false</returns>
     public bool AddFlag(string flag, DateTime when)

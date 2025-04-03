@@ -22,7 +22,7 @@ public class ListFlagsHandler<T>(ChannelFlagsService flagsService)
 
         var msg = new T();
 
-        if (flags.IsNullOrEmpty())
+        if (flags.IsEmpty())
         {
             msg.WithContent("Channel has no flags.");
             return msg;
