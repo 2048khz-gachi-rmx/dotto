@@ -2,17 +2,17 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto", "Dotto\Dotto.csproj", "{63350F0F-C36F-4324-BEF2-5D0873D7DC59}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Commands", "Commands\Commands.csproj", "{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Commands", "Dotto.Application\Commands\Commands.csproj", "{F4FE4199-591B-4FBA-A96E-5E58EFAFD9F4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Application", "Application\Application.csproj", "{CA709F1D-997D-45C8-B4EE-85644359F922}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Application", "Dotto.Application\Application\Application.csproj", "{CA709F1D-997D-45C8-B4EE-85644359F922}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database", "Database\Database.csproj", "{7A8532D3-7299-4E8E-BE21-03ED32E13E76}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database", "Dotto.Infrastructure\Database\Database.csproj", "{7A8532D3-7299-4E8E-BE21-03ED32E13E76}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "2_Infrastructure", "2_Infrastructure", "{B8C538E4-C0E5-4035-B9D8-4E9D9C2A4DD1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUpload", "FileUpload\FileUpload.csproj", "{AC757B00-18E2-4FB7-B790-E140ABBB869A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUpload", "Dotto.Infrastructure\FileUpload\FileUpload.csproj", "{AC757B00-18E2-4FB7-B790-E140ABBB869A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{3583AA4C-ACA5-4D18-8ABE-5951DDE82169}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Dotto.Application\Common\Common.csproj", "{3583AA4C-ACA5-4D18-8ABE-5951DDE82169}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "1_Application", "1_Application", "{B599B60B-AD25-4573-BBC6-CE75D4EEB309}"
 EndProject
@@ -20,9 +20,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3_Tests", "3_Tests", "{4B63
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3_Dotto", "3_Dotto", "{6766546E-2D81-4622-8F61-1F2A548EB630}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{22327D8B-D314-449E-A401-CFAA8E5B10E6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Dotto.Tests\Tests.csproj", "{22327D8B-D314-449E-A401-CFAA8E5B10E6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader", "Downloader\Downloader.csproj", "{43A25595-FBA1-45B1-84A9-A9FEF478C9D5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader", "Dotto.Infrastructure\Downloader\Downloader.csproj", "{43A25595-FBA1-45B1-84A9-A9FEF478C9D5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

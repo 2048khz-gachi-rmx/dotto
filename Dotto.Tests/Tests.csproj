@@ -27,8 +27,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Common\Common.csproj" />
-      <ProjectReference Include="..\Database\Database.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
+      <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
     </ItemGroup>
 
     <ItemGroup>

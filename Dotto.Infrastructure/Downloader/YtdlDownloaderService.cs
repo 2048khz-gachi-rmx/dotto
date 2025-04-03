@@ -19,7 +19,9 @@ public class YtdlDownloaderService : IDownloaderService
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken ct = default)
     {
-	    var videos = await DownloadAllVideos(uri, options, ct);
+	    var dir = Directory.CreateTempSubdirectory("dotto_dl_");
+	    
+	    var videos = await DownloadAllVideos(uri, dir, options, ct);
 	    
         return videos;
     }
@@ -52,14 +54,14 @@ public class YtdlDownloaderService : IDownloaderService
     /// </summary>
     /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DownloadOptions options, CancellationToken ct = default)
+    private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir,
+	    DownloadOptions options, CancellationToken ct = default)
     {
 	    // Grabs information about the video(s) as JSON
 	    var opts = new OptionSet
 	    {
 		    Quiet = true,
 		    NoWarnings = true,
-		    // stdout is too finnicky; for example, downloading multiple videos through stdout is a PITA
 		    Output = "-",
 		    DumpJson = true,
 		    Simulate = true,
@@ -109,7 +111,7 @@ public class YtdlDownloaderService : IDownloaderService
 
 		    // i'm worried launching multiple concurrent yt-dlp's may hit ratelimits,
 		    // but fuck it we ball
-		    var task = DownloadVideo(uri, line, index.ToString(), format.Value.formatString, options, ct)
+		    var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.Value.formatString, ct)
 			    .ContinueWith(task =>
 			    {
 					videos.Add(new DownloadedMedia()
@@ -143,26 +145,29 @@ public class YtdlDownloaderService : IDownloaderService
     /// Downloads a video in the URL given a format spec and index
     /// </summary>
     /// <param name="uri">URL to the video or playlist</param>
+    /// <param name="dirPath">Directory to save temporary video files to</param>
     /// <param name="infoJson">Info JSON to pass to yt-dlp (see: --load-info-json)</param>
     /// <param name="index">Index of the video in a playlist</param>
     /// <param name="format">Format spec to download (see: --format)</param>
-    /// <param name="options"></param>
     /// <param name="ct"></param>
     /// <returns>MemoryStream of the downloaded video</returns>
     /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    private async Task<Stream> DownloadVideo(Uri uri, string infoJson, string index, string format,
-	    DownloadOptions options, CancellationToken ct)
+    private async Task<Stream> DownloadVideo(Uri uri,
+	    string dirPath, string infoJson,
+	    string index, string format, CancellationToken ct)
     {
 	    var opts = new OptionSet
 	    {
 		    Quiet = true,
 		    NoWarnings = true,
-		    Output = "-",
+		    Output = Path.Combine(dirPath, Guid.NewGuid().ToString("N") + "%(id)s.%(ext)s"),
 		    LoadInfoJson = "-", // load infojson from stdin
+		    Print = "after_move:filepath", // emit the full downloaded path to stdout
+		    
 		    Format = format,
 		    PlaylistItems = index,
-		    MaxDownloads = 1, // we don't support >1 files via stdout
+		    MaxDownloads = 1 // format selection only applies to 1 file 
 	    };
 	    
 	    if (uri.Host.Contains("tiktok"))
@@ -178,41 +183,12 @@ public class YtdlDownloaderService : IDownloaderService
         await process.StandardInput.WriteAsync(infoJson);
         process.StandardInput.Close();
         
-	    var videoStream = new MemoryStream(65536);
-	    var errStream = new MemoryStream(8192);
+	    var errStream = new MemoryStream(255);
 
-	    var stdoutTask = Task.Run(async () =>
-	    {
-		    using var memoryBuf = MemoryPool<byte>.Shared.Rent(65535);
-		    var stdout = process.StandardOutput.BaseStream;
-		    int lastRead;
-
-		    do
-		    {
-			    lastRead = await stdout.ReadAsync(memoryBuf.Memory, ct);
-			    videoStream.Write(memoryBuf.Memory.Span[..lastRead]);
-
-			    if (videoStream.Length > options.MaxFilesize)
-			    {
-				    throw new IndexOutOfRangeException("video size exceeded upload limit");
-			    }
-		    } while (lastRead > 0);
-	    }, ct);
+	    var filepath = await process.StandardOutput.ReadLineAsync(ct);
 	    
-	    var stderrTask = Task.Run(async () =>
-	    {
-		    using var memoryBuf = MemoryPool<byte>.Shared.Rent(8192);
-		    var stderr = process.StandardError.BaseStream;
-		    int lastRead;
-
-		    do
-		    {
-			    lastRead = await stderr.ReadAsync(memoryBuf.Memory, ct);
-			    errStream.Write(memoryBuf.Memory.Span[..lastRead]);
-		    } while (lastRead > 0);
-	    }, ct);
-
-	    await Task.WhenAll(stdoutTask, stderrTask);
+	    await Task.WhenAll(process.StandardError.BaseStream.CopyToAsync(errStream, ct));
+	    
 	    var exitCode = await exitTask;
 	    
 	    // 101 means one or more downloads were aborted by --max-downloads, which is acceptable
@@ -221,9 +197,11 @@ public class YtdlDownloaderService : IDownloaderService
 			var error = Encoding.UTF8.GetString(errStream.ToArray());
 		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
 	    }
-
-	    videoStream.Seek(0, SeekOrigin.Begin);
-	    return videoStream;
+	    
+	    return new FileStream(filepath,
+		    FileMode.Open, FileAccess.Read, FileShare.Delete,
+		    16384,
+		    FileOptions.DeleteOnClose);
     }
     
     /// <summary>

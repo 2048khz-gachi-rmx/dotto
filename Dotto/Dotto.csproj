@@ -27,15 +27,12 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Commands\Commands.csproj" />
-      <ProjectReference Include="..\Database\Database.csproj" />
-      <ProjectReference Include="..\Downloader\Downloader.csproj" />
-      <ProjectReference Include="..\FileUpload\FileUpload.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\Commands\Commands.csproj" />
-      <ProjectReference Include="..\FileUpload\FileUpload.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Commands\Commands.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
+      <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
+      <ProjectReference Include="..\Dotto.Infrastructure\Downloader\Downloader.csproj" />
+      <ProjectReference Include="..\Dotto.Infrastructure\FileUpload\FileUpload.csproj" />
     </ItemGroup>
 
 </Project>
