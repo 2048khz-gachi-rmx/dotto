@@ -10,7 +10,7 @@ public class ChannelFlagPoller(IServiceProvider serviceProvider) : BackgroundSer
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await DoPoll();
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5 * 60));
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
