@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Serialization;
-using YoutubeDLSharp.Metadata;
 
-namespace Services.DownloaderService;
+namespace Dotto.Application.InternalServices.DownloaderService.Metadata;
 
 // The metadata class provided by YoutubeDlSharp uses Newtonsoft's JSON attributes, but i want to use System.Text.Json
 public class DownloadedMediaMetadata
@@ -11,9 +10,6 @@ public class DownloadedMediaMetadata
 
     [JsonPropertyName("extractor_key")]
     public string? ExtractorKey { get; set; }
-
-    [JsonPropertyName("entries")]
-    public VideoData[]? Entries { get; set; }
 
     [JsonPropertyName("id")]
     public string? ID { get; set; }
@@ -47,9 +43,6 @@ public class DownloadedMediaMetadata
 
     [JsonPropertyName("display_id")]
     public string? DisplayID { get; set; }
-
-    [JsonPropertyName("thumbnails")]
-    public ThumbnailData[]? Thumbnails { get; set; }
 
     [JsonPropertyName("thumbnail")]
     public string? Thumbnail { get; set; }
@@ -114,12 +107,6 @@ public class DownloadedMediaMetadata
     [JsonPropertyName("location")]
     public string? Location { get; set; }
 
-    [JsonPropertyName("subtitles")]
-    public Dictionary<string, SubtitleData[]>? Subtitles { get; set; }
-
-    [JsonPropertyName("automatic_captions")]
-    public Dictionary<string, SubtitleData[]>? AutomaticCaptions { get; set; }
-
     [JsonPropertyName("duration")]
     public float? Duration { get; set; }
 
@@ -143,9 +130,6 @@ public class DownloadedMediaMetadata
 
     [JsonPropertyName("comment_count")]
     public long? CommentCount { get; set; }
-
-    [JsonPropertyName("comments")]
-    public CommentData[]? Comments { get; set; }
 
     [JsonPropertyName("age_limit")]
     public int? AgeLimit { get; set; }
@@ -186,9 +170,6 @@ public class DownloadedMediaMetadata
 
     [JsonPropertyName("playable_in_embed")]
     public bool? PlayableInEmbed { get; set; }
-
-    [JsonPropertyName("chapters")]
-    public ChapterData[]? Chapters { get; set; }
 
     [JsonPropertyName("chapter")]
     public string? Chapter { get; set; }
@@ -274,4 +255,7 @@ public class DownloadedMediaMetadata
     
     [JsonPropertyName("vcodec")]
     public string? VideoCodec { get; set; }
+    
+    [JsonPropertyName("filename")]
+    public string? FilePath { get; set; }
 }

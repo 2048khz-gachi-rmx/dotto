@@ -1,4 +1,5 @@
-﻿using NetCord.Rest;
+﻿using Dotto.Application.Modules.Download;
+using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
 namespace Dotto.Commands.Download;

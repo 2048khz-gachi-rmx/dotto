@@ -15,19 +15,27 @@
     </ItemGroup>
     
     <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.3">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.2" />
-      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.2" />
-      <PackageReference Include="NetCord" Version="1.0.0-alpha.349" />
-      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.349" />
-      <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.349" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.3" />
+      <PackageReference Include="NetCord" Version="1.0.0-alpha.355" />
+      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.355" />
+      <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.355" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Commands\Commands.csproj" />
+      <ProjectReference Include="..\Database\Database.csproj" />
+      <ProjectReference Include="..\Downloader\Downloader.csproj" />
+      <ProjectReference Include="..\FileUpload\FileUpload.csproj" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Commands\Commands.csproj" />
+      <ProjectReference Include="..\FileUpload\FileUpload.csproj" />
     </ItemGroup>
 
 </Project>

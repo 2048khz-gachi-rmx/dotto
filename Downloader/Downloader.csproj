@@ -4,14 +4,13 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Dotto.Commands</RootNamespace>
+        <RootNamespace>Dotto.Infrastructure.Downloader</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.355" />
-      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.355" />
+      <PackageReference Include="YoutubeDLSharp" Version="1.1.1" />
     </ItemGroup>
-
+    
     <ItemGroup>
       <ProjectReference Include="..\Application\Application.csproj" />
     </ItemGroup>

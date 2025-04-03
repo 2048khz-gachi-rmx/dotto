@@ -4,16 +4,20 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Dotto.Commands</RootNamespace>
+        <RootNamespace>Dotto.Infrastructure.Database</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.355" />
-      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.355" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.3" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Application\Application.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Migrations\" />
     </ItemGroup>
 
 </Project>

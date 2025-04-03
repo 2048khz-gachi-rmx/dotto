@@ -4,20 +4,17 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Dotto.Infrastructure.Services</RootNamespace>
+        <RootNamespace>Dotto.Infrastructure.FileUpload</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.3" />
-      <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="9.3.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.3" />
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.3" />
-      <PackageReference Include="Minio.AspNetCore" Version="6.0.1" />
-      <PackageReference Include="YoutubeDLSharp" Version="1.1.1" />
+      <PackageReference Include="Minio" Version="6.0.1" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Common\Common.csproj" />
+      <ProjectReference Include="..\Application\Application.csproj" />
     </ItemGroup>
 
 </Project>

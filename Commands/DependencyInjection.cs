@@ -1,4 +1,5 @@
-﻿using Dotto.Commands.Download;
+﻿using Dotto.Application.Modules.Download;
+using Dotto.Commands.Download;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dotto.Commands;

@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace Dotto.Commands.Common;
+namespace Dotto.Common;
 
 public static class StringUtils
 {
