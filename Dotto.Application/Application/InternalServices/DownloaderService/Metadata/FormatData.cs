@@ -1,5 +1,11 @@
 ﻿using System.Text.Json.Serialization;
 
+// Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+#pragma warning disable CS8618
+
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+// ReSharper disable UnusedMember.Global
+
 namespace Dotto.Application.InternalServices.DownloaderService.Metadata;
 
 public class FormatData
@@ -11,7 +17,7 @@ public class FormatData
     public string ManifestUrl { get; set; }
 
     [JsonPropertyName("ext")]
-    public string Extension { get; set; }
+    public string? Extension { get; set; }
 
     [JsonPropertyName("format")]
     public string Format { get; set; }
@@ -89,5 +95,5 @@ public class FormatData
     public bool? NoResume { get; set; }
 
     [JsonPropertyName("has_drm")]
-    public bool? HasDRM { get; set; }
+    public bool? HasDrm { get; set; }
 }

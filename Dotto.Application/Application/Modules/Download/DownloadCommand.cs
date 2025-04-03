@@ -25,7 +25,7 @@ public class DownloadCommand(IDownloaderService dlService,
         IList<DownloadedMedia> videos;
         try
         {
-            videos = await dlService.Download(uri, new DownloadOptions()
+            videos = await dlService.Download(uri, new DownloadOptions
             {
                 MaxFilesize = uploadLimit,
             }, ct);
@@ -95,10 +95,8 @@ public class DownloadCommand(IDownloaderService dlService,
                     : "unknown bitrate";
 
             var codecString = media.VideoFormat?.VideoCodec != null
-                ? (media.VideoFormat.VideoCodec ?? "unknown codec")
-                : (media.AudioFormat?.AudioCodec != null)
-                    ? media.AudioFormat.AudioCodec
-                    : "unknown codec";
+                ? media.VideoFormat.VideoCodec ?? "unknown codec"
+                : media.AudioFormat?.AudioCodec ?? "unknown codec";
             
             messageLines.AppendLine($"-# {videoName} | {resolutionString}" +
                              $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +

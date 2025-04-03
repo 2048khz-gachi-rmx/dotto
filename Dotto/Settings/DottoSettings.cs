@@ -4,8 +4,6 @@ namespace Dotto.Settings;
 
 public class DottoSettings
 {
-    public const string SectionName = "Dotto";
-    
-    public string ConnectionString { get; init; }
+    public string ConnectionString { get; init; } = null!;
     public MinioSettings? Minio { get; init; }
 }

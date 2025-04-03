@@ -13,7 +13,7 @@ public sealed class FluentValidationPipelineBehavior<TRequest, TResponse>(IEnume
         CancellationToken cancellationToken)
     {
         // Skip validation if no validators are registered
-        if (!validators.Any()) return await next();
+        if (!validators.Any()) return await next(cancellationToken);
         
         var context = new ValidationContext<TRequest>(request);
         var validationResults = await Task.WhenAll(
@@ -28,6 +28,6 @@ public sealed class FluentValidationPipelineBehavior<TRequest, TResponse>(IEnume
         if (failures.Count != 0)
             throw new ValidationException(failures);
             
-        return await next();
+        return await next(cancellationToken);
     }
 }

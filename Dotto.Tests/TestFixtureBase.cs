@@ -18,15 +18,15 @@ public class TestFixtureBase
     private ServiceProvider _rootProvider;
     private IServiceScope? _scope;
     
-    public IServiceProvider ServiceProvider => _scope!.ServiceProvider;
+    protected IServiceProvider ServiceProvider => _scope!.ServiceProvider;
     
-    public TestDateTimeProvider TestDateTimeProvider => ServiceProvider.GetRequiredService<TestDateTimeProvider>();
-    public DottoDbContext DbContext => ServiceProvider.GetRequiredService<DottoDbContext>();
-    public IMediator Mediator => ServiceProvider.GetRequiredService<IMediator>();
+    protected TestDateTimeProvider TestDateTimeProvider => ServiceProvider.GetRequiredService<TestDateTimeProvider>();
+    protected DottoDbContext DbContext => ServiceProvider.GetRequiredService<DottoDbContext>();
+    protected IMediator Mediator => ServiceProvider.GetRequiredService<IMediator>();
     
-    public ChannelFlagsService ChannelFlags => ServiceProvider.GetRequiredService<ChannelFlagsService>();
+    protected ChannelFlagsService ChannelFlags => ServiceProvider.GetRequiredService<ChannelFlagsService>();
     
-    public ChannelFlagBuilder ChannelFlagBuilder => ServiceProvider.GetRequiredService<ChannelFlagBuilder>();
+    protected ChannelFlagBuilder ChannelFlagBuilder => ServiceProvider.GetRequiredService<ChannelFlagBuilder>();
     
     [SetUp]
     public Task Setup()
@@ -52,7 +52,7 @@ public class TestFixtureBase
         _scope = _rootProvider.CreateScope();
     }
 
-    public async Task ClearDatabase()
+    private async Task ClearDatabase()
     {
         // sidenote: goddamn deepseek is good at this, just straight up fed me
         // both the truncate approach and the drop approach, fixing it when asked

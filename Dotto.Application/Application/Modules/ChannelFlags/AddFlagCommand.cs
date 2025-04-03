@@ -43,7 +43,7 @@ public class AddFlagRequestValidator<T> : AbstractValidator<AddFlagRequest<T>>
             .WithMessage("Flag name exceeds maximum length ({TotalLength} > {MaxLength})");
 
         RuleFor(c => c.FlagName)
-            .Matches(@"^[a-z0-9_]+$", RegexOptions.IgnoreCase)
+            .Matches("^[a-z0-9_]+$", RegexOptions.IgnoreCase)
             .WithMessage("Flag contains invalid characters");
     }
 }

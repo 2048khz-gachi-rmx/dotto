@@ -15,7 +15,7 @@ public class TextCommand(IMediator mediator,
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new AddFlagRequest<ReplyMessageProperties>()
+        var message = await mediator.Send(new AddFlagRequest<ReplyMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
             FlagName = flagName
@@ -30,7 +30,7 @@ public class TextCommand(IMediator mediator,
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new RemoveFlagRequest<ReplyMessageProperties>()
+        var message = await mediator.Send(new RemoveFlagRequest<ReplyMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
             FlagName = flagName
@@ -45,7 +45,7 @@ public class TextCommand(IMediator mediator,
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new ListFlagsRequest<ReplyMessageProperties>()
+        var message = await mediator.Send(new ListFlagsRequest<ReplyMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
         });
@@ -57,7 +57,7 @@ public class TextCommand(IMediator mediator,
     {
         if (Context.Channel is not TextGuildChannel textGuildChannel)
         {
-            var response = new ReplyMessageProperties()
+            var response = new ReplyMessageProperties
             {
                 Flags = MessageFlags.Ephemeral,
                 Content = "Can't set flags on a non-guild text channel."

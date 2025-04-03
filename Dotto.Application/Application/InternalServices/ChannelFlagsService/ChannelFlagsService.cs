@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +32,7 @@ public class ChannelFlagsService(
             return false;
 
         await dbContext.SaveChangesAsync(ct);
-        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags);
+        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags, cancellationToken: CancellationToken.None);
         
         return true;
     }
@@ -47,7 +46,7 @@ public class ChannelFlagsService(
             return false;
 
         await dbContext.SaveChangesAsync(ct);
-        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags, cancellationToken: ct);
+        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags, cancellationToken: CancellationToken.None);
         
         return true;
     }
@@ -73,12 +72,18 @@ public class ChannelFlagsService(
             .ToListAsync();
 
         var maxUpdate = lastUpdate;
+        var tasks = new List<Task>();
         
         newFlags.ForEach(f =>
         {
             maxUpdate = f.UpdatedOn > maxUpdate ? f.UpdatedOn : maxUpdate;
-            hybridCache.SetAsync(GetCacheKey(f.ChannelId), f.Flags);
+            var task = hybridCache.SetAsync(GetCacheKey(f.ChannelId), f.Flags);
+            
+            if (!task.IsCompleted)
+                tasks.Add(task.AsTask()); // ValueTask instances must be awaited blah blah oh shut up
         });
+
+        await Task.WhenAll(tasks);
 
         return maxUpdate;
     }

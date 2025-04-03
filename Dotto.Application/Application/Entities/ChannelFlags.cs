@@ -42,4 +42,4 @@ public record ChannelFlags
         UpdatedOn = when;
         return true;
     }
-};
+}

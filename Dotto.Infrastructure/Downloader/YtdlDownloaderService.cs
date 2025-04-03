@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -29,10 +28,10 @@ public class YtdlDownloaderService : IDownloaderService
     private Process StartYtdlp(string url, OptionSet options)
     { 
 	    var process = new Process();
-	    var processStartInfo = new ProcessStartInfo()
+	    var processStartInfo = new ProcessStartInfo
 	    {
 		    FileName = "yt-dlp.exe",
-		    Arguments = ConvertToArgs(url, options),
+		    Arguments = OptionsToArgString(url, options),
 		    CreateNoWindow = true,
 		    UseShellExecute = false,
 		    RedirectStandardOutput = true,
@@ -114,7 +113,7 @@ public class YtdlDownloaderService : IDownloaderService
 		    var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.Value.formatString, ct)
 			    .ContinueWith(task =>
 			    {
-					videos.Add(new DownloadedMedia()
+					videos.Add(new DownloadedMedia
 					{
 						Video = task.Result,
 						Number = currentIndex,
@@ -183,19 +182,21 @@ public class YtdlDownloaderService : IDownloaderService
         await process.StandardInput.WriteAsync(infoJson);
         process.StandardInput.Close();
         
-	    var errStream = new MemoryStream(255);
 
 	    var filepath = await process.StandardOutput.ReadLineAsync(ct);
-	    
-	    await Task.WhenAll(process.StandardError.BaseStream.CopyToAsync(errStream, ct));
+	    var error = await process.StandardError.ReadToEndAsync(ct);
 	    
 	    var exitCode = await exitTask;
 	    
 	    // 101 means one or more downloads were aborted by --max-downloads, which is acceptable
 	    if (exitCode != 0 && exitCode != 101)
 	    {	
-			var error = Encoding.UTF8.GetString(errStream.ToArray());
 		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
+	    }
+
+	    if (filepath.IsNullOrEmpty())
+	    {
+		    throw new ApplicationException("yt-dlp didn't return filepath to the downloaded video");
 	    }
 	    
 	    return new FileStream(filepath,
@@ -230,10 +231,8 @@ public class YtdlDownloaderService : IDownloaderService
 	    return ecTcs.Task;
     }
     
-    private string ConvertToArgs(string url, OptionSet options)
-    {
-      return options + $" -- \"{url}\"";
-    }
+    private static string OptionsToArgString(string url, OptionSet options)
+		=> options + $" -- \"{url}\"";
     
     /// <summary>
 	/// Given a list of formats, tries to pick one (merged) or multiple (audio+video) that would be the best,
@@ -249,7 +248,7 @@ public class YtdlDownloaderService : IDownloaderService
 			{
 				audioFormat = new(),
 				videoFormat = new() { Resolution = metadata.Resolution, VideoCodec = metadata.VideoCodec },
-				formatString = metadata.FormatID! // TODO: is FormatID *actually* nullable? feels like it shouldn't be
+				formatString = metadata.FormatId! // TODO: is FormatID *actually* nullable? feels like it shouldn't be
 			};
 		}
 		
@@ -277,7 +276,7 @@ public class YtdlDownloaderService : IDownloaderService
 		return TryPickOptimalFormat(audioFormats, videoFormats, options);
 	}
 
-	private readonly List<(Regex, double)> FormatQualityRatio =
+	private static readonly List<(Regex, double)> FormatQualityRatio =
 	[
 		// fuck h264
 		(new("^(avc.*|h264.*)"), 60),
@@ -296,7 +295,7 @@ public class YtdlDownloaderService : IDownloaderService
 		TryPickOptimalFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
 		(FormatData? videoFormat, FormatData? audioFormat)? choice = null;
-		long bestScore = long.MinValue;
+		var bestScore = long.MinValue;
 
 		foreach (var vformat in videoFormats)
 		{
@@ -313,12 +312,11 @@ public class YtdlDownloaderService : IDownloaderService
 				var leftover = bytesLeft - vsize;
 				var score = GetFormatScore(vformat, leftover);
 				
+				if (score <= bestScore) continue;
+				
 				// new optimal combination found
-				if (score > bestScore)
-				{
-					bestScore = score;
-					choice = (vformat, null);
-				}
+				bestScore = score;
+				choice = (vformat, null);
 			}
 			else
 			{
@@ -332,27 +330,23 @@ public class YtdlDownloaderService : IDownloaderService
 					var leftover = bytesLeft - asize;
 					var score = GetFormatScore(vformat, leftover);
 					
+					if (score <= bestScore) continue;
+					
 					// new optimal combination found
-					if (score > bestScore)
-					{
-						bestScore = score;
-						choice = (vformat, aformat);
-					}
+					bestScore = score;
+					choice = (vformat, aformat);
 				}
 			}	
 		}
 
-		if (choice.HasValue)
-		{
-			var fmt = choice.Value;
-			var fmtString = fmt is { videoFormat: not null, audioFormat: not null }
-				? $"{fmt.videoFormat.FormatId}+{fmt.audioFormat.FormatId}"
-				: $"{(fmt.videoFormat ?? fmt.audioFormat)!.FormatId}";
+		if (!choice.HasValue) return null;
+		
+		var fmt = choice.Value;
+		var fmtString = fmt is { videoFormat: not null, audioFormat: not null }
+			? $"{fmt.videoFormat.FormatId}+{fmt.audioFormat.FormatId}"
+			: $"{(fmt.videoFormat ?? fmt.audioFormat)!.FormatId}";
 
-			return (fmt.videoFormat, fmt.audioFormat, fmtString);
-		}
-
-		return null;
+		return (fmt.videoFormat, fmt.audioFormat, fmtString);
 	}
 
 	/// <summary>
@@ -364,17 +358,19 @@ public class YtdlDownloaderService : IDownloaderService
 	{
 		if (leftover < 0 || format.VideoCodec == null)
 		{
-			return -Int64.MaxValue;
+			return -long.MaxValue;
 		}
 		
 		// higher res basically always beats codec choice
-		var resScore = (format.Width * format.Height / 1e6) ?? 1.0d;
+		var resScore = format.Width * format.Height / 1e6
+		               ?? 1.0d;
 		
 		var matchedScoreMult = FormatQualityRatio.FirstOrDefault(data => data.Item1.IsMatch(format.VideoCodec));
 
-		double scoreMult = matchedScoreMult != default
+		var scoreMult = matchedScoreMult != default
 			? matchedScoreMult.Item2
 			: 1.0d;
+		
 		// less leftover, higher score
 		var score = -leftover;
 		
@@ -384,7 +380,7 @@ public class YtdlDownloaderService : IDownloaderService
 		return score;
 	}
 	
-	private readonly Regex FormatRegex = new("^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)");
+	private static readonly Regex FormatRegex = new("^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)");
 
 	private IList<FormatData> GetEligibleVideos(IList<FormatData> formats, bool allowUnkownVcodec)
 	{

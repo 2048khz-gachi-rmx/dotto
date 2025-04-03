@@ -19,7 +19,7 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new AddFlagRequest<InteractionMessageProperties>()
+        var message = await mediator.Send(new AddFlagRequest<InteractionMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
             FlagName = flagName
@@ -37,7 +37,7 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>()
+        var message = await mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
             FlagName = flagName
@@ -52,7 +52,7 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
         
-        var message = await mediator.Send(new ListFlagsRequest<InteractionMessageProperties>()
+        var message = await mediator.Send(new ListFlagsRequest<InteractionMessageProperties>
         {
             ChannelId = textGuildChannel.Id,
         });
@@ -64,7 +64,7 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
     {
         if (Context.Channel is not TextGuildChannel textGuildChannel)
         {
-            var response = new InteractionMessageProperties()
+            var response = new InteractionMessageProperties
             {
                 Flags = MessageFlags.Ephemeral,
                 Content = "Can't set flags on a non-guild text channel."

@@ -11,13 +11,13 @@ public class ChannelFlagCommandsTests : TestFixtureBase
     public async Task ShouldAddFlag()
     {
         // Arrange
-        var flag = await ChannelFlagBuilder
+        await ChannelFlagBuilder
             .WithChannelId(123)
             .WithFlags(["preflag"])
             .GetAsync();
         
         // Send
-        var msg = await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>()
+        var msg = await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>
         {
             ChannelId = 123,
             FlagName = "newflag"
@@ -35,7 +35,7 @@ public class ChannelFlagCommandsTests : TestFixtureBase
         // Arrange
         var now = TestDateTimeProvider.SetNow();
 
-        var flag = await ChannelFlagBuilder
+        await ChannelFlagBuilder
             .WithChannelId(123)
             .WithFlags(Enumerable.Repeat("flag", Constants.ChannelFlags.MaxFlagsInChannel).ToList())
             .WithUpdatedOn(now.AddDays(-1))
@@ -43,7 +43,7 @@ public class ChannelFlagCommandsTests : TestFixtureBase
         
         // Send
         NewScope();
-        var shouldThrow = async () => await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>()
+        var shouldThrow = async () => await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>
         {
             ChannelId = 123,
             FlagName = "newflag"
@@ -59,13 +59,13 @@ public class ChannelFlagCommandsTests : TestFixtureBase
     public async Task ShouldRemoveFlag()
     {
         // Arrange
-        var flag = await ChannelFlagBuilder
+        await ChannelFlagBuilder
             .WithChannelId(123)
             .WithFlags(["keepFlag", "removeFlag"])
             .GetAsync();
         
         // Send
-        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>()
+        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
         {
             ChannelId = 123,
             FlagName = "removeFlag"
@@ -81,13 +81,13 @@ public class ChannelFlagCommandsTests : TestFixtureBase
     public async Task ShouldRemoveNonExistentFlag()
     {
         // Arrange
-        var flag = await ChannelFlagBuilder
+        await ChannelFlagBuilder
             .WithChannelId(123)
             .WithFlags(["keepFlag"])
             .GetAsync();
         
         // Send
-        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>()
+        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
         {
             ChannelId = 123,
             FlagName = "nonExistentFlag"
@@ -101,13 +101,13 @@ public class ChannelFlagCommandsTests : TestFixtureBase
     public async Task ShouldListFlags()
     {
         // Arrange
-        var flag = await ChannelFlagBuilder
+        await ChannelFlagBuilder
             .WithChannelId(123)
             .WithFlags(["flag1", "flag2"])
             .GetAsync();
 
         // Send
-        var msg = await Mediator.Send(new ListFlagsRequest<InteractionMessageProperties>()
+        var msg = await Mediator.Send(new ListFlagsRequest<InteractionMessageProperties>
         {
             ChannelId = 123
         });

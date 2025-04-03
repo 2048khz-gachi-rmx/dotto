@@ -6,58 +6,58 @@ namespace Dotto.Application.InternalServices.DownloaderService.Metadata;
 public class DownloadedMediaMetadata
 {
     [JsonPropertyName("extractor")]
-    public string? Extractor { get; set; }
+    public string? Extractor { get; init; }
 
     [JsonPropertyName("extractor_key")]
-    public string? ExtractorKey { get; set; }
+    public string? ExtractorKey { get; init; }
 
     [JsonPropertyName("id")]
-    public string? ID { get; set; }
+    public string? Id { get; init; }
 
     [JsonPropertyName("title")]
-    public string? Title { get; set; }
+    public string? Title { get; init; }
 
     [JsonPropertyName("formats")]
-    public FormatData[]? Formats { get; set; }
+    public FormatData[]? Formats { get; init; }
 
     [JsonPropertyName("url")]
-    public string? Url { get; set; }
+    public string? Url { get; init; }
 
     [JsonPropertyName("ext")]
-    public string? Extension { get; set; }
+    public string? Extension { get; init; }
 
     [JsonPropertyName("format")]
-    public string? Format { get; set; }
+    public string? Format { get; init; }
 
     [JsonPropertyName("format_id")]
-    public string? FormatID { get; set; }
+    public string? FormatId { get; init; }
 
     [JsonPropertyName("player_url")]
-    public string? PlayerUrl { get; set; }
+    public string? PlayerUrl { get; init; }
 
     [JsonPropertyName("direct")]
-    public bool Direct { get; set; }
+    public bool Direct { get; init; }
 
     [JsonPropertyName("alt_title")]
-    public string? AltTitle { get; set; }
+    public string? AltTitle { get; init; }
 
     [JsonPropertyName("display_id")]
-    public string? DisplayID { get; set; }
+    public string? DisplayId { get; init; }
 
     [JsonPropertyName("thumbnail")]
-    public string? Thumbnail { get; set; }
+    public string? Thumbnail { get; init; }
 
     [JsonPropertyName("description")]
-    public string? Description { get; set; }
+    public string? Description { get; init; }
 
     [JsonPropertyName("uploader")]
-    public string? Uploader { get; set; }
+    public string? Uploader { get; init; }
 
     [JsonPropertyName("license")]
-    public string? License { get; set; }
+    public string? License { get; init; }
 
     [JsonPropertyName("creator")]
-    public string? Creator { get; set; }
+    public string? Creator { get; init; }
 
     // Not System.Text.Json's converters... but we don't need these fields
     /*
@@ -87,70 +87,70 @@ public class DownloadedMediaMetadata
     */
     
     [JsonPropertyName("uploader_id")]
-    public string? UploaderID { get; set; }
+    public string? UploaderId { get; init; }
 
     [JsonPropertyName("uploader_url")]
-    public string? UploaderUrl { get; set; }
+    public string? UploaderUrl { get; init; }
 
     [JsonPropertyName("channel")]
-    public string? Channel { get; set; }
+    public string? Channel { get; init; }
 
     [JsonPropertyName("channel_id")]
-    public string? ChannelID { get; set; }
+    public string? ChannelId { get; init; }
 
     [JsonPropertyName("channel_url")]
-    public string? ChannelUrl { get; set; }
+    public string? ChannelUrl { get; init; }
 
     [JsonPropertyName("channel_follower_count")]
-    public long? ChannelFollowerCount { get; set; }
+    public long? ChannelFollowerCount { get; init; }
 
     [JsonPropertyName("location")]
-    public string? Location { get; set; }
+    public string? Location { get; init; }
 
     [JsonPropertyName("duration")]
-    public float? Duration { get; set; }
+    public float? Duration { get; init; }
 
     [JsonPropertyName("view_count")]
-    public long? ViewCount { get; set; }
+    public long? ViewCount { get; init; }
 
     [JsonPropertyName("concurrent_view_count")]
-    public long? ConcurrentViewCount { get; set; }
+    public long? ConcurrentViewCount { get; init; }
 
     [JsonPropertyName("like_count")]
-    public long? LikeCount { get; set; }
+    public long? LikeCount { get; init; }
 
     [JsonPropertyName("dislike_count")]
-    public long? DislikeCount { get; set; }
+    public long? DislikeCount { get; init; }
 
     [JsonPropertyName("repost_count")]
-    public long? RepostCount { get; set; }
+    public long? RepostCount { get; init; }
 
     [JsonPropertyName("average_rating")]
-    public double? AverageRating { get; set; }
+    public double? AverageRating { get; init; }
 
     [JsonPropertyName("comment_count")]
-    public long? CommentCount { get; set; }
+    public long? CommentCount { get; init; }
 
     [JsonPropertyName("age_limit")]
-    public int? AgeLimit { get; set; }
+    public int? AgeLimit { get; init; }
 
     [JsonPropertyName("webpage_url")]
-    public string? WebpageUrl { get; set; }
+    public string? WebpageUrl { get; init; }
 
     [JsonPropertyName("categories")]
-    public string[]? Categories { get; set; }
+    public string[]? Categories { get; init; }
 
     [JsonPropertyName("tags")]
-    public string[]? Tags { get; set; }
+    public string[]? Tags { get; init; }
 
     [JsonPropertyName("cast")]
-    public string[]? Cast { get; set; }
+    public string[]? Cast { get; init; }
 
     [JsonPropertyName("is_live")]
-    public bool? IsLive { get; set; }
+    public bool? IsLive { get; init; }
 
     [JsonPropertyName("was_live")]
-    public bool? WasLive { get; set; }
+    public bool? WasLive { get; init; }
 
     /*
     [JsonConverter(typeof (JsonStringEnumConverter<LiveStatus>))]
@@ -163,99 +163,99 @@ public class DownloadedMediaMetadata
     */
     
     [JsonPropertyName("start_time")]
-    public float? StartTime { get; set; }
+    public float? StartTime { get; init; }
 
     [JsonPropertyName("end_time")]
-    public float? EndTime { get; set; }
+    public float? EndTime { get; init; }
 
     [JsonPropertyName("playable_in_embed")]
-    public bool? PlayableInEmbed { get; set; }
+    public bool? PlayableInEmbed { get; init; }
 
     [JsonPropertyName("chapter")]
-    public string? Chapter { get; set; }
+    public string? Chapter { get; init; }
 
     [JsonPropertyName("chapter_number")]
-    public int? ChapterNumber { get; set; }
+    public int? ChapterNumber { get; init; }
 
     [JsonPropertyName("chapter_id")]
-    public string? ChapterId { get; set; }
+    public string? ChapterId { get; init; }
 
     [JsonPropertyName("series")]
-    public string? Series { get; set; }
+    public string? Series { get; init; }
 
     [JsonPropertyName("series_id")]
-    public string? SeriesId { get; set; }
+    public string? SeriesId { get; init; }
 
     [JsonPropertyName("season")]
-    public string? Season { get; set; }
+    public string? Season { get; init; }
 
     [JsonPropertyName("season_number")]
-    public int? SeasonNumber { get; set; }
+    public int? SeasonNumber { get; init; }
 
     [JsonPropertyName("season_id")]
-    public string? SeasonId { get; set; }
+    public string? SeasonId { get; init; }
 
     [JsonPropertyName("episode")]
-    public string? Episode { get; set; }
+    public string? Episode { get; init; }
 
     [JsonPropertyName("episode_number")]
-    public int? EpisodeNumber { get; set; }
+    public int? EpisodeNumber { get; init; }
 
     [JsonPropertyName("episode_id")]
-    public string? EpisodeId { get; set; }
+    public string? EpisodeId { get; init; }
 
     [JsonPropertyName("track")]
-    public string? Track { get; set; }
+    public string? Track { get; init; }
 
     [JsonPropertyName("track_number")]
-    public int? TrackNumber { get; set; }
+    public int? TrackNumber { get; init; }
 
     [JsonPropertyName("track_id")]
-    public string? TrackId { get; set; }
+    public string? TrackId { get; init; }
 
     [JsonPropertyName("artist")]
-    public string? Artist { get; set; }
+    public string? Artist { get; init; }
 
     [JsonPropertyName("genre")]
-    public string? Genre { get; set; }
+    public string? Genre { get; init; }
 
     [JsonPropertyName("album")]
-    public string? Album { get; set; }
+    public string? Album { get; init; }
 
     [JsonPropertyName("album_type")]
-    public string? AlbumType { get; set; }
+    public string? AlbumType { get; init; }
 
     [JsonPropertyName("album_artist")]
-    public string? AlbumArtist { get; set; }
+    public string? AlbumArtist { get; init; }
 
     [JsonPropertyName("disc_number")]
-    public int? DiscNumber { get; set; }
+    public int? DiscNumber { get; init; }
 
     [JsonPropertyName("release_year")]
-    public int? ReleaseYear { get; set; }
+    public int? ReleaseYear { get; init; }
 
     [JsonPropertyName("composer")]
-    public string? Composer { get; set; }
+    public string? Composer { get; init; }
 
     [JsonPropertyName("section_start")]
-    public long? SectionStart { get; set; }
+    public long? SectionStart { get; init; }
 
     [JsonPropertyName("section_end")]
-    public long? SectionEnd { get; set; }
+    public long? SectionEnd { get; init; }
 
     [JsonPropertyName("rows")]
-    public long? StoryboardFragmentRows { get; set; }
+    public long? StoryboardFragmentRows { get; init; }
 
     [JsonPropertyName("columns")]
-    public long? StoryboardFragmentColumns { get; set; }
+    public long? StoryboardFragmentColumns { get; init; }
     
     // These are added by me:
     [JsonPropertyName("resolution")]
-    public string? Resolution { get; set; }
+    public string? Resolution { get; init; }
     
     [JsonPropertyName("vcodec")]
-    public string? VideoCodec { get; set; }
+    public string? VideoCodec { get; init; }
     
     [JsonPropertyName("filename")]
-    public string? FilePath { get; set; }
+    public string? FilePath { get; init; }
 }

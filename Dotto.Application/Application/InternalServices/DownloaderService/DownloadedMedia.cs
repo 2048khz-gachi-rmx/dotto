@@ -13,10 +13,12 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
     public void Dispose()
     {
         Video.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         await Video.DisposeAsync();
     }
 }
