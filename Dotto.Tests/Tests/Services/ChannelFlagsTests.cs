@@ -1,9 +1,8 @@
-using Dotto.Application.Entities;
 using Dotto.Common.Constants;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 
-namespace Tests.Tests;
+namespace Tests.Tests.Services;
 
 public class ChannelFlagsTests : TestFixtureBase
 {

@@ -18,9 +18,15 @@ public class TextCommand(DownloadCommand dl,
 
         // capture the typing state resource
         var typingTask = client.EnterTypingStateAsync(Context.Message.ChannelId);
-        var msg = await dl.CreateMessage<ReplyMessageProperties>(uri);
-        await ReplyAsync(msg);
         
-        typingTask?.ContinueWith(task => task.Result.Dispose());
+        try
+        {
+            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri);
+            await ReplyAsync(msg);
+        }
+        finally
+        {
+            _ = typingTask.ContinueWith(task => task.Result.Dispose());
+        }
     }
 }

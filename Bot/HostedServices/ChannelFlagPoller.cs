@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Dotto.HostedServices;
+namespace Dotto.Bot.HostedServices;
 
 public class ChannelFlagPoller(IServiceProvider serviceProvider) : BackgroundService
 {

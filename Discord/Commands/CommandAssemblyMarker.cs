@@ -1,3 +1,3 @@
 ﻿namespace Dotto.Discord.Commands;
 
-public record CommandAssemblyMarker;
+public abstract record CommandAssemblyMarker;
