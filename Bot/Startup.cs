@@ -1,11 +1,12 @@
 ﻿using Dotto.Application;
-using Dotto.Commands;
 using Dotto.Common.DateTimeProvider;
+using Dotto.Discord;
+using Dotto.Discord.Commands;
+using Dotto.Discord.ResultHandlers;
 using Dotto.HostedServices;
 using Dotto.Infrastructure.Database;
 using Dotto.Infrastructure.Downloader;
 using Dotto.Infrastructure.FileUpload;
-using Dotto.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,16 +15,12 @@ using NetCord.Hosting.Gateway;
 using NetCord.Hosting.Services;
 using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.Commands;
+using NetCord.Services.ApplicationCommands;
+using NetCord.Services.Commands;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var settings = builder.Configuration.GetSection("Dotto").Get<DottoSettings>();
-if (settings == null)
-   throw new ArgumentNullException(nameof(DottoSettings));
-
-builder.Services.AddSingleton(settings);
-
-#region Discord
+#region Netcord
 
 builder.Services
     .AddDiscordGateway((opt) =>
@@ -31,8 +28,14 @@ builder.Services
         opt.Intents = GatewayIntents.GuildMessages | GatewayIntents.DirectMessages | GatewayIntents.MessageContent
                 | GatewayIntents.GuildMessageTyping;
     })
-    .AddCommands()
-    .AddApplicationCommands()
+    .AddCommands(cfg =>
+    {
+        cfg.ResultHandler = new DottoCommandResultHandler<CommandContext>();
+    })
+    .AddApplicationCommands(cfg =>
+    {
+        cfg.ResultHandler = new DottoApplicationCommandServiceResultHandler<ApplicationCommandContext>();
+    })
     .AddGatewayEventHandlers(typeof(Program).Assembly);
 
 #endregion
@@ -41,9 +44,9 @@ builder.Services
 
 // Infrastructure
 builder.Services
-    .AddDatabase(settings?.ConnectionString)
-    .AddFileUploader(settings?.Minio)
-    .AddDownloader();
+    .AddDatabase(builder.Configuration.GetRequiredSection("ConnectionString").Value)
+    .AddFileUploader(builder.Configuration.GetRequiredSection("Minio"))
+    .AddDownloader(builder.Configuration.GetRequiredSection("Downloader"));
 
 // Application
 builder.Services

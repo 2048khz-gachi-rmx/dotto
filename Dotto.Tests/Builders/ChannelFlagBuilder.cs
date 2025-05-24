@@ -1,7 +1,6 @@
 ﻿using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Infrastructure.Database;
-using Tests.Mocks;
 
 namespace Tests.Builders;
 

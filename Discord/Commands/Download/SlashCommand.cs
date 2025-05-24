@@ -2,7 +2,7 @@
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
-namespace Dotto.Commands.Download;
+namespace Dotto.Discord.Commands.Download;
 
 public class SlashCommand(DownloadCommand dl) : ApplicationCommandModule<ApplicationCommandContext>
 {
@@ -15,8 +15,15 @@ public class SlashCommand(DownloadCommand dl) : ApplicationCommandModule<Applica
             return;
         }
 
-        var respTask = RespondAsync(InteractionCallback.DeferredMessage());
+        // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
+        // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
         var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri);
+        if (hydrateTask.IsFaulted)
+        {
+            throw hydrateTask.Exception;
+        }
+        
+        var respTask = RespondAsync(InteractionCallback.DeferredMessage());
 
         await respTask;
         await FollowupAsync(await hydrateTask);

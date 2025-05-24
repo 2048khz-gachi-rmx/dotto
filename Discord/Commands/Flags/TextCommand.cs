@@ -4,7 +4,7 @@ using NetCord;
 using NetCord.Rest;
 using NetCord.Services.Commands;
 
-namespace Dotto.Commands.Flags;
+namespace Dotto.Discord.Commands.Flags;
 
 public class TextCommand(IMediator mediator,
     RestClient client) : CommandModule<CommandContext>

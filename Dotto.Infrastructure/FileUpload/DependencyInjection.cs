@@ -1,26 +1,32 @@
 ﻿using Dotto.Application.InternalServices.UploadService;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Minio;
 
 namespace Dotto.Infrastructure.FileUpload;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddFileUploader(this IServiceCollection services, MinioSettings? settings)
+    public static IServiceCollection AddFileUploader(this IServiceCollection services, IConfigurationSection settings)
     {
-        if (settings?.BaseUrl != null)
+        if (settings.Exists())
         {
-            ArgumentNullException.ThrowIfNull(settings.AccessKey, "Settings.Minio.AccessKey");
-            ArgumentNullException.ThrowIfNull(settings.SecretKey, "Settings.Minio.SecretKey");
-            ArgumentNullException.ThrowIfNull(settings.BucketName, "Settings.Minio.BucketName");
+            services.AddOptions<MinioSettings>()
+                .Bind(settings)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            
+            services.AddSingleton(s => s.GetRequiredService<IOptions<MinioSettings>>().Value);
 
+            var minioSettings = settings.Get<MinioSettings>()!;
+            
             services.AddMinio(cfg => cfg
-                .WithEndpoint(settings.BaseUrl)
-                .WithRegion(settings.Region)
-                .WithCredentials(settings.AccessKey, settings.SecretKey));
-
-            services.AddSingleton(settings);
+                .WithEndpoint(minioSettings.BaseUrl)
+                .WithRegion(minioSettings.Region)
+                .WithCredentials(minioSettings.AccessKey, minioSettings.SecretKey));
+        
             services.AddTransient<IUploadService, MinioUploadService>();
             services.AddTransient<MinioUploadService>();
         }

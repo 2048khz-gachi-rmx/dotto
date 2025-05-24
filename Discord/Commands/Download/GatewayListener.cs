@@ -1,7 +1,7 @@
 ﻿using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 
-namespace Dotto.Commands.Download;
+namespace Dotto.Discord.Commands.Download;
 
 /// <summary>
 /// Listens to the MessageCreate event, tries matching whitelisted URL's

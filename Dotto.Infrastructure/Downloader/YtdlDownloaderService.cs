@@ -5,20 +5,25 @@ using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices.DownloaderService;
 using Dotto.Application.InternalServices.DownloaderService.Metadata;
 using Dotto.Common;
+using Dotto.Infrastructure.Downloader.Settings;
 using YoutubeDLSharp.Options;
 
 namespace Dotto.Infrastructure.Downloader;
 
-public class YtdlDownloaderService : IDownloaderService
+public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderService
 {
 	/// <summary>
-    /// Downloads a video (or videos) then returns a list of DownloadedMedia with the video contents, metadata and picked formats
+    /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
     /// </summary>
     /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken ct = default)
     {
-	    var dir = Directory.CreateTempSubdirectory("dotto_dl_");
+	    var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
+		    ? Path.Combine(Path.GetTempPath(), "dotto_dl")
+		    : settings.TempPath;
+	    
+	    var dir = Directory.CreateDirectory(tempPath);
 	    
 	    var videos = await DownloadAllVideos(uri, dir, options, ct);
 	    
@@ -260,6 +265,20 @@ public class YtdlDownloaderService : IDownloaderService
 		var videoFormats = GetEligibleVideos(metadata.Formats, false)
 			.OrderBy(f => f.FileSize ?? f.ApproximateFileSize ?? options.MaxFilesize)
 			.ToList();
+		
+		if (metadata.Extractor == "Instagram")
+		{
+			// reels are cooking some diabolical shit
+			// formats that identify themselves as vp9 are not actually source quality
+			var unknownFormat = metadata.Formats
+				.Where(f => f.VideoCodec is "unknown" or null)
+				.ToList();
+
+			if (unknownFormat.Count > 0)
+			{
+				videoFormats = unknownFormat;
+			}
+		}
 
 		var bestFormat = TryPickOptimalFormat(audioFormats, videoFormats, options);
 
@@ -382,12 +401,11 @@ public class YtdlDownloaderService : IDownloaderService
 	
 	private static readonly Regex FormatRegex = new("^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)");
 
-	private IList<FormatData> GetEligibleVideos(IList<FormatData> formats, bool allowUnkownVcodec)
+	private IList<FormatData> GetEligibleVideos(IList<FormatData> formats, bool allowUnknownVcodec)
 	{
 		return formats
-			.Where(f => f.VideoCodec != null
-					&& (allowUnkownVcodec && f.VideoCodec == "unknown"
-					    || FormatRegex.IsMatch(f.VideoCodec)))
+			.Where(f => (allowUnknownVcodec && f.VideoCodec is "unknown" or null)
+					    || (f.VideoCodec != null && FormatRegex.IsMatch(f.VideoCodec)))
 			.ToList();
 	}
 }

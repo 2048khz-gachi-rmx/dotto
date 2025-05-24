@@ -1,11 +1,12 @@
 ﻿using Dotto.Application.Entities;
 using Dotto.Application.Modules.ChannelFlags;
+using Dotto.Common.Constants;
 using MediatR;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
-namespace Dotto.Commands.Flags;
+namespace Dotto.Discord.Commands.Flags;
 
 public class SlashCommand(IMediator mediator) : ApplicationCommandModule<ApplicationCommandContext>
 {

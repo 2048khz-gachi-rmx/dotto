@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
+using NetCord;
 
-namespace Dotto.Application.Entities;
+namespace Dotto.Common.Constants;
 
 public static class Constants
 {
@@ -20,5 +21,10 @@ public static class Constants
             FunctionalFlags.VideoRecompress,
             FunctionalFlags.LinkAutodownload
         ];
+    }
+
+    public static class Colors
+    {
+        public static Color ErrorColor = new(230, 50, 50);
     }
 }

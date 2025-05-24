@@ -7,4 +7,8 @@
         <RootNamespace>Dotto.Common</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="NetCord" Version="1.0.0-alpha.375" />
+    </ItemGroup>
+
 </Project>

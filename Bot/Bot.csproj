@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>2416fc8b-d32f-43d0-8227-e18338ad92a8</UserSecretsId>
+    <RootNamespace>Dotto.Bot</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.5" />
+    <PackageReference Include="NetCord" Version="1.0.0-alpha.375" />
+    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.375" />
+    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.375" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Discord\Discord.csproj" />
+    <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
+    <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
+    <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
+    <ProjectReference Include="..\Dotto.Infrastructure\Downloader\Downloader.csproj" />
+    <ProjectReference Include="..\Dotto.Infrastructure\FileUpload\FileUpload.csproj" />
+  </ItemGroup>
+
+</Project>

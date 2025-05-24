@@ -2,7 +2,7 @@
 using NetCord.Rest;
 using NetCord.Services.Commands;
 
-namespace Dotto.Commands.Download;
+namespace Dotto.Discord.Commands.Download;
 
 public class TextCommand(DownloadCommand dl,
     RestClient client) : CommandModule<CommandContext>

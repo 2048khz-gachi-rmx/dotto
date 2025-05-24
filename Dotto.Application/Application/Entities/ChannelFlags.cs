@@ -1,4 +1,6 @@
-﻿namespace Dotto.Application.Entities;
+﻿using Dotto.Common.Constants;
+
+namespace Dotto.Application.Entities;
 
 public record ChannelFlags
 {

@@ -8,8 +8,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.355" />
-      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.355" />
+      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.375" />
+      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.375" />
     </ItemGroup>
 
     <ItemGroup>
