@@ -15,6 +15,5 @@ public record MinioSettings
     
     public string Region { get; init; } = null!;
     
-    [Required(ErrorMessage = "MinIO URL is missing")]
-    public Uri BaseUrl { get; init; } = null!;
+    public Uri? BaseUrl { get; init; } = null!;
 }

@@ -11,16 +11,16 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddFileUploader(this IServiceCollection services, IConfigurationSection settings)
     {
-        if (settings.Exists())
+        services.AddOptions<MinioSettings>()
+            .Bind(settings)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        
+        var minioSettings = settings.Get<MinioSettings>()!;
+        
+        if (minioSettings.BaseUrl != default)
         {
-            services.AddOptions<MinioSettings>()
-                .Bind(settings)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-            
             services.AddSingleton(s => s.GetRequiredService<IOptions<MinioSettings>>().Value);
-
-            var minioSettings = settings.Get<MinioSettings>()!;
             
             services.AddMinio(cfg => cfg
                 .WithEndpoint(minioSettings.BaseUrl)

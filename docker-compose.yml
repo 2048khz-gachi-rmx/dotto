@@ -1,0 +1,41 @@
+services:
+  dotto:
+    container_name: dotto
+    image: "ghcr.io/2048khz-gachi-rmx/dotto:latest"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dotto
+    environment:
+      ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
+
+  postgres:
+    container_name: dotto_postgres
+    image: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: 'dotto'
+      PGDATA: /data/postgres
+      PGPORT: 5999
+    volumes:
+       - postgres:/data/postgres
+    ports:
+      - "${POSTGRES_PUBLIC_PORT}:5999"
+    networks:
+      - dotto
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  dotto:
+
+volumes:
+    postgres:

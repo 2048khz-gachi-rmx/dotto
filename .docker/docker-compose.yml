@@ -1,3 +1,5 @@
+# Docker-compose file for development only: sets up required services
+# currently only postgres; i'll need minio... eventually
 services:
   postgres:
     container_name: dotto_postgres
@@ -7,11 +9,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: 'dotto'
       PGDATA: /data/postgres
-      PGPORT: 5432
+      PGPORT: 5999
     volumes:
        - postgres:/data/postgres
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${POSTGRES_PUBLIC_PORT}:5999"
     networks:
       - postgres
     restart: unless-stopped
