@@ -1,0 +1,50 @@
+﻿using Dotto.Application.Modules.Download;
+using NetCord;
+using NetCord.Rest;
+using NetCord.Services.ApplicationCommands;
+
+namespace Dotto.Discord.Commands.Download;
+
+public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<ApplicationCommandContext>
+{
+    private async Task Download(string uriString, bool isSilent)
+    {
+        if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
+        {
+            await RespondAsync(InteractionCallback.Message(new() { Content = "No URL matched" }));
+            return;
+        }
+
+        // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
+        // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
+        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri);
+        if (hydrateTask.IsFaulted)
+        {
+            throw hydrateTask.Exception;
+        }
+        
+        var respTask = RespondAsync(InteractionCallback.DeferredMessage(isSilent ? MessageFlags.Ephemeral : default));
+
+        await respTask;
+        await FollowupAsync(await hydrateTask);
+    }
+
+    [SlashCommand("dl", "Download from URL via yt-dlp")]
+    public Task InvokeSlash(
+        [SlashCommandParameter(Name = "url", Description = "Link to the media you want to download")]
+        string uriString,
+        [SlashCommandParameter(Name = "private", Description = "Should the downloaded video be hidden from others?")]
+        bool isSilent = false)
+        => Download(uriString, isSilent);
+    
+    [MessageCommand("Download",
+        DefaultGuildUserPermissions = Permissions.AttachFiles,
+        Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]
+    public async Task InvokeMessage(RestMessage message)
+        => await Download(message.Content, false);
+    
+    [MessageCommand("Download (private)",
+        Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]
+    public async Task InvokeMessage_Private(RestMessage message)
+        => await Download(message.Content, true);
+}
