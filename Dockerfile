@@ -7,7 +7,7 @@ COPY . ./
 # Run the restore and cache the packages on the host for faster subsequent builds.
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet restore
-    
+
 # Build and publish a release
 RUN dotnet publish -c Release -o out
 
@@ -15,17 +15,19 @@ RUN dotnet publish -c Release -o out
 FROM mcr.microsoft.com/dotnet/sdk:9.0
 WORKDIR /app
 
-# Download a prebuilt, stripped-down ffmpeg, cause the one shipped by durrbian is too fucking big
-RUN wget -q https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz && \
-    tar -xf ffmpeg-git-amd64-static.tar.xz && \
-    mv ffmpeg-git-*-static/ffmpeg /usr/local/bin/ && \
-    mv ffmpeg-git-*-static/ffprobe /usr/local/bin/ && \
-    rm -rf ffmpeg-git-*
-
-# Get yt-dlp. Static build has a huge startup delay...
-RUN apt-get update && apt-get install -y python3 \
+# Get yt-dlp (and other packages while we're at it)
+# yt-dlp static build has a huge startup delay, so we're using the system python install
+RUN apt-get update \
+	&& apt-get install -y python3 xz-utils wget \
 	&& curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
+
+# Download a prebuilt, stripped-down ffmpeg, cause the one shipped by durrbian is too fucking big
+RUN wget -q https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz \
+    && tar -xf ffmpeg-git-amd64-static.tar.xz \
+    && mv ffmpeg-git-*-static/ffmpeg /usr/local/bin/ \
+    && mv ffmpeg-git-*-static/ffprobe /usr/local/bin/ \
+    && rm -rf ffmpeg-git-*
 
 COPY --from=build /Dotto.Bot/out .
 ENTRYPOINT ["dotnet", "Bot.dll"]
