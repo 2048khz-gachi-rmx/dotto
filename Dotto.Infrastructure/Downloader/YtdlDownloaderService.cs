@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -35,7 +36,9 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 	    var process = new Process();
 	    var processStartInfo = new ProcessStartInfo
 	    {
-		    FileName = "yt-dlp.exe",
+		    FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+				? "yt-dlp.exe" // TODO: This kinda sucks. Configurable path?
+				: "yt-dlp",
 		    Arguments = OptionsToArgString(url, options),
 		    CreateNoWindow = true,
 		    UseShellExecute = false,
