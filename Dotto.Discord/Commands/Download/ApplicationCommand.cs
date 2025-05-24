@@ -1,4 +1,5 @@
 ﻿using Dotto.Application.Modules.Download;
+using Dotto.Common;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
@@ -9,9 +10,11 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
 {
     private async Task Download(string uriString, bool isSilent)
     {
+        var flags = isSilent ? MessageFlags.Ephemeral : default;
+        
         if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
         {
-            await RespondAsync(InteractionCallback.Message(new() { Content = "No URL matched" }));
+            await RespondAsync(InteractionCallback.Message(new() { Content = "No URL matched", Flags = flags }));
             return;
         }
 
@@ -23,7 +26,7 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
             throw hydrateTask.Exception;
         }
         
-        var respTask = RespondAsync(InteractionCallback.DeferredMessage(isSilent ? MessageFlags.Ephemeral : default));
+        var respTask = RespondAsync(InteractionCallback.DeferredMessage(flags));
 
         await respTask;
         await FollowupAsync(await hydrateTask);
@@ -36,15 +39,22 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
         [SlashCommandParameter(Name = "private", Description = "Should the downloaded video be hidden from others?")]
         bool isSilent = false)
         => Download(uriString, isSilent);
+
+    private Task ParseAndDownload(string messageText, bool isSilent)
+    {
+        var urls = StringUtils.MatchUrls(messageText);
+
+        return Download(urls.FirstOrDefault(""), isSilent);
+    }
     
     [MessageCommand("Download",
         DefaultGuildUserPermissions = Permissions.AttachFiles,
         Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]
     public async Task InvokeMessage(RestMessage message)
-        => await Download(message.Content, false);
+        => await ParseAndDownload(message.Content, false);
     
     [MessageCommand("Download (private)",
         Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]
     public async Task InvokeMessage_Private(RestMessage message)
-        => await Download(message.Content, true);
+        => await ParseAndDownload(message.Content, true);
 }

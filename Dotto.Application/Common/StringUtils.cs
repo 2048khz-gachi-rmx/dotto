@@ -2,7 +2,7 @@
 
 namespace Dotto.Common;
 
-public static class StringUtils
+public static partial class StringUtils
 {
     private static readonly string[] FilesizeSuffixes = [ "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" ];
     
@@ -25,5 +25,15 @@ public static class StringUtils
         if (Regex.IsMatch(vcodec, @"^vp0?9")) return "VP9";
 
 	    return vcodec;
+    }
+
+    [GeneratedRegex(@"http(s)?://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)?")]
+    private static partial Regex UrlRegex();
+    
+    public static List<string> MatchUrls(string text)
+    {
+        return UrlRegex().Matches(text)
+            .Select(match => match.Value)
+            .ToList();
     }
 }
