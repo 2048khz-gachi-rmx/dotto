@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices.DownloaderService;
 using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
@@ -25,6 +26,18 @@ public class DownloadCommand(IDownloaderService dlService,
         IList<DownloadedMedia> videos;
         try
         {
+            if (Regex.IsMatch(uri.Host, "\\.?instagram\\.com$"))
+            {
+                // instagram is a bitchcunt, has draconian ratelimits and insta-bans if you try to pass your acc's cookies to yt-dlp
+                // but someone, bless their soul, runs a service which does all the hard work for us
+                var bld = new UriBuilder(uri);
+                bld.Host = "ddinstagram.com";
+                var newLink = bld.Uri.ToString();
+
+                message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
+                return message;
+            }
+            
             videos = await dlService.Download(uri, new DownloadOptions
             {
                 MaxFilesize = uploadLimit,
