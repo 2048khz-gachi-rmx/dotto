@@ -346,9 +346,10 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 				foreach (var aformat in audioFormats)
 				{
 					var asize = aformat.FileSize ?? aformat.ApproximateFileSize ?? 0;
-					
 					if (asize > bytesLeft) break; // lists are sorted by size; break here knowing the remaining formats are even bigger
 
+					if (!IsAllowedCombination(vformat, aformat)) continue;
+					
 					var leftover = bytesLeft - asize;
 					var score = GetFormatScore(vformat, leftover);
 					
@@ -400,6 +401,20 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		score = (long)(score / scoreMult / resScore);
 		
 		return score;
+	}
+
+	/// <summary>
+	/// Some combinations can't be combined due to container restrictions (ie: webm video and m4a will result in an unembeddable MKV)
+	/// </summary>
+	private bool IsAllowedCombination(FormatData vformat, FormatData aformat)
+	{
+		// m4a audio can't be embedded in webm containers
+		if (vformat.Extension != "mp4" && aformat.Extension == "m4a")
+		{
+			return false;
+		}
+
+		return true;
 	}
 	
 	private static readonly Regex FormatRegex = new("^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)");
