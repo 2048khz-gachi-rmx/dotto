@@ -6,8 +6,7 @@ using NetCord.Services.Commands;
 
 namespace Dotto.Discord.Commands.Flags;
 
-public class TextCommand(IMediator mediator,
-    RestClient client) : CommandModule<CommandContext>
+public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
 {
     [Command("addflag")]
     public async Task AddFlag(string flagName)

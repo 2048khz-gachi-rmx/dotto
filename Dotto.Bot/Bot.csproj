@@ -28,9 +28,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Discord\Discord.csproj" />
     <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
     <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
+    <ProjectReference Include="..\Dotto.Discord\Discord.csproj" />
     <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
     <ProjectReference Include="..\Dotto.Infrastructure\Downloader\Downloader.csproj" />
     <ProjectReference Include="..\Dotto.Infrastructure\FileUpload\FileUpload.csproj" />

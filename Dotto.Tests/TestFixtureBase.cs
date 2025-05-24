@@ -13,7 +13,7 @@ namespace Tests;
 /// <summary>
 /// A fixture base, representing a block of tests
 /// </summary>
-public class TestFixtureBase
+public abstract class TestFixtureBase
 {
     private ServiceProvider _rootProvider;
     private IServiceScope? _scope;
