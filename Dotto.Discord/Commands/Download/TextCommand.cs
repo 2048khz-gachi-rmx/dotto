@@ -1,4 +1,5 @@
 ﻿using Dotto.Application.Modules.Download;
+using Dotto.Common;
 using NetCord.Rest;
 using NetCord.Services.Commands;
 
@@ -21,8 +22,13 @@ public class TextCommand(DownloadCommand dl,
         
         try
         {
-            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri);
-            await ReplyAsync(msg);
+            var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(Context.Guild);
+            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri, uploadLimit);
+            var replyTask = ReplyAsync(msg.Message);
+            
+            await Context.Message.SuppressEmbeds();
+            var newMessage = await replyTask;
+            await dl.LogDownloadedMedia(newMessage, msg, Context.User, uri);
         }
         finally
         {

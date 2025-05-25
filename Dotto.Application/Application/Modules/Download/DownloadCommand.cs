@@ -1,28 +1,38 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
+using Dotto.Application.Entities;
+using Dotto.Application.InternalServices;
 using Dotto.Application.InternalServices.DownloaderService;
 using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
+using Dotto.Common.DateTimeProvider;
 using NetCord;
+using NetCord.Gateway;
 using NetCord.Rest;
 
 namespace Dotto.Application.Modules.Download;
 
-public class DownloadCommand(IDownloaderService dlService,
+public class DownloadCommand(IDottoDbContext dbContext,
+    IDownloaderService dlService,
+    IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
     private const long UploadMinio = 100 << 20;
     private const long UploadLimitNoNitro = 10 << 20;
 
-    public async Task<T> CreateMessage<T>(Uri uri, CancellationToken ct = default)
+    public async Task<DownloadedMediaMessage<T>> CreateMessage<T>(Uri uri, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
         where T: IMessageProperties, new()
     {
         var uploadLimit = uploadService != null
             ? UploadMinio
             : UploadLimitNoNitro;
-        
-        var message = new T();
-        
+
+        var response = new DownloadedMediaMessage<T>()
+        {
+            Message = new T(),
+            SourceUrl = uri,
+        };
+
         IList<DownloadedMedia> videos;
         try
         {
@@ -34,8 +44,8 @@ public class DownloadCommand(IDownloaderService dlService,
                 bld.Host = "ddinstagram.com";
                 var newLink = bld.Uri.ToString();
 
-                message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
-                return message;
+                response.Message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
+                return response;
             }
             
             videos = await dlService.Download(uri, new DownloadOptions
@@ -45,15 +55,15 @@ public class DownloadCommand(IDownloaderService dlService,
         }
         catch (IndexOutOfRangeException)
         {
-            message.WithContent(
+            response.Message.WithContent(
                 $"Upload file limit exceeded ({StringUtils.HumanReadableSize(uploadLimit)}), it's over");
-            return message;
+            return response;
         }
         catch (InvalidOperationException)
         {
-            message.WithContent(
+            response.Message.WithContent(
                 $"Failed to pick format; perhaps there are no options under the upload limit? ({StringUtils.HumanReadableSize(uploadLimit)})");
-            return message;
+            return response;
         }
         catch (ApplicationException ex)
         {
@@ -63,7 +73,7 @@ public class DownloadCommand(IDownloaderService dlService,
                 innerMessage = "[none provided]\n" + ex.InnerException.StackTrace;
             }
             
-            message.WithContent(Format.Escape(ex.Message))
+            response.Message.WithContent(Format.Escape(ex.Message))
                 .WithEmbeds([
                     new()
                     {
@@ -72,51 +82,101 @@ public class DownloadCommand(IDownloaderService dlService,
                     }
                 ]);
             
-            return message;
+            return response;
         }
 
         if (videos.Count == 0)
         {
-            message.WithContent("no (eligible) videos found");
-            return message;
+            response.Message.WithContent("no (eligible) videos found");
+            return response;
         }
         
         var messageLines = new StringBuilder();
         
         foreach (var media in videos.OrderBy(v => v.Number))
         {
-            var extension = (media.VideoFormat ?? media.AudioFormat)!.Extension ?? "mp4";
-            var fileName = (media.Metadata.Title ?? Guid.NewGuid().ToString("N")) + $".{extension}";
+            var extension = media.GetExtension();
+            var videoName = media.GetFileName();
 
-            var videoName = fileName;
-
-            if (media.Video.Length > UploadLimitNoNitro && uploadService != null)
+            if (media.Video.Length > discordUploadLimit && uploadService != null)
             {
                 // we can't fit the video in the discord upload limits; upload externally, if possible
-                var response = await uploadService.UploadFile(media.Video, null, $"video/{extension}");
-                videoName = Format.Link(fileName, response.ToString());
+                var uploadedUrl = await uploadService.UploadFile(media.Video, null, $"video/{extension}", ct);
+                
+                response.ExternalVideos.Add(uploadedUrl);
+                videoName = Format.Link(videoName, uploadedUrl.ToString());
             }
             else
             {
-                message.AddAttachments(new AttachmentProperties(fileName, media.Video));
+                response.Message.AddAttachments(new AttachmentProperties(videoName, media.Video));
             }
 
-            var resolutionString = media.VideoFormat?.Resolution != null
-                ? media.VideoFormat?.Resolution ?? "unknown resolution"
-                : media.AudioFormat?.AudioBitrate != null
-                    ? $"{Math.Ceiling(media.AudioFormat.AudioBitrate.Value / 1024)}kb/s"
-                    : "unknown bitrate";
-
-            var codecString = media.VideoFormat?.VideoCodec != null
-                ? media.VideoFormat.VideoCodec ?? "unknown codec"
-                : media.AudioFormat?.AudioCodec ?? "unknown codec";
-            
-            messageLines.AppendLine($"-# {videoName} | {resolutionString}" +
-                             $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +
-                             $" | {StringUtils.VideoCodecToFriendlyName(codecString)}");
+            messageLines.AppendLine($"-# {videoName}" +
+                                    $" | {media.GetResolution()}" +
+                                    $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +
+                                    $" | {StringUtils.VideoCodecToFriendlyName(media.GetCodec())}");
         }
         
-        message.WithContent(messageLines.ToString());
-        return message;
+        response.Message.WithContent(messageLines.ToString());
+        
+        return response;
+    }
+
+    public static long GetMaxDiscordFileSize(Guild? guild, User? user = null)
+    {
+        var guildLimit = guild?.PremiumTier switch
+        {
+            3 => 100 << 20,
+            2 => 50 << 20,
+            _ => UploadLimitNoNitro
+        };
+
+        var userLimit = user?.PremiumType switch
+        {
+            PremiumType.NitroClassic or PremiumType.NitroBasic => 50 << 20,
+            PremiumType.Nitro => 500 << 20,
+            _ => UploadLimitNoNitro,
+        };
+
+        return Math.Max(userLimit, guildLimit);
+    }
+
+    public async Task LogDownloadedMedia<T>(RestMessage newMessage, DownloadedMediaMessage<T> mediaMessage, User invoker, Uri downloadedFrom)
+        where T : IMessageProperties
+    {
+        var attachmentMedia = newMessage.Attachments
+            .Select(e => new DownloadedMediaRecord()
+            {
+                Id = default,
+                
+                ChannelId = newMessage.ChannelId,
+                MessageId = newMessage.Id,
+                DownloadedFrom = downloadedFrom.ToString(),
+                InvokerId = invoker.Id,
+                MediaUrl = e.Url,
+                CreatedOn = dateTimeProvider.UtcNow,
+            });
+
+        var externalMedia = mediaMessage.ExternalVideos
+            .Select(e => new DownloadedMediaRecord()
+            {
+                Id = default,
+                
+                ChannelId = newMessage.ChannelId,
+                MessageId = newMessage.Id,
+                DownloadedFrom = downloadedFrom.ToString(),
+                InvokerId = invoker.Id,
+                MediaUrl = e.ToString(),
+                CreatedOn = dateTimeProvider.UtcNow,
+            });
+
+        var both = attachmentMedia
+            .UnionBy(externalMedia, r => r.MediaUrl)
+            .ToList();
+        
+        if (both.IsEmpty()) return;
+        
+        dbContext.DownloadedMedia.AddRange(both);
+        await dbContext.SaveChangesAsync();
     }
 }

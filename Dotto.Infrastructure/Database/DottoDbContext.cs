@@ -8,7 +8,8 @@ namespace Dotto.Infrastructure.Database;
 public class DottoDbContext : DbContext, IDottoDbContext
 {
     public DbSet<ChannelFlags> ChannelFlags { get; init; }
-    
+    public DbSet<DownloadedMediaRecord> DownloadedMedia { get; init; }
+
     public DottoDbContext(DbContextOptions options) : base(options)
     {
     }

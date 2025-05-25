@@ -29,10 +29,10 @@ public static class DependencyInjection
                 Assembly.GetExecutingAssembly());
         });
         
-        services.AddSingleton<DownloadCommand>();
-        
         services.AddHybridCache();
         services.AddTransient<ChannelFlagsService>();
+        
+        services.AddTransient<DownloadCommand>();
         
         return services;
     }

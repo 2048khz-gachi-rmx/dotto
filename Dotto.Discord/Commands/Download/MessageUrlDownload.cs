@@ -13,6 +13,10 @@ using NetCord.Rest;
 
 namespace Dotto.Discord.Commands.Download;
 
+/// <summary>
+/// Downloads media from messages containing an eligible URL is posted in chat, assuming the appropriate flag is set in the channel.
+/// <seealso cref="Constants.ChannelFlags.FunctionalFlags.LinkAutodownload" />
+/// </summary>
 internal class MessageUrlDownload(
     IOptionsMonitor<AutoDownloadSettings> settings,
     RestClient client,
@@ -73,11 +77,13 @@ internal class MessageUrlDownload(
 
         try
         {
-            var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri);
-            
-            await Task.WhenAll(
-                message.ReplyAsync(msg),
-                message.SuppressEmbeds());
+            var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(message.Guild);
+            var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri, uploadLimit);
+            var replyTask = message.ReplyAsync(msg.Message);
+
+            await message.SuppressEmbeds();
+            var newMessage = await replyTask;
+            await downloadCommand.LogDownloadedMedia(newMessage, msg, message.Author, uri);
         }
         finally
         {

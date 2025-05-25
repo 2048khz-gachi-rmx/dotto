@@ -21,4 +21,22 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
         GC.SuppressFinalize(this);
         await Video.DisposeAsync();
     }
+
+    public string GetExtension()
+        => (VideoFormat ?? AudioFormat)!.Extension ?? "mp4";
+
+    public string GetFileName()
+        => (Metadata.Title ?? Guid.NewGuid().ToString("N")) + $".{GetExtension()}";
+
+    public string GetResolution()
+        => VideoFormat?.Resolution != null
+            ? VideoFormat?.Resolution ?? "unknown resolution"
+            : AudioFormat?.AudioBitrate != null
+                ? $"{Math.Ceiling(AudioFormat.AudioBitrate.Value / 1024)}kb/s"
+                : "unknown bitrate";
+
+    public string GetCodec()
+        => VideoFormat?.VideoCodec != null
+            ? VideoFormat.VideoCodec ?? "unknown codec"
+            : AudioFormat?.AudioCodec ?? "unknown codec";
 }

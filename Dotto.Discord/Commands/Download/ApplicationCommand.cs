@@ -20,7 +20,8 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
 
         // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
         // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
-        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri);
+        var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(Context.Guild, Context.User);
+        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri, uploadLimit);
         if (hydrateTask.IsFaulted)
         {
             throw hydrateTask.Exception;
@@ -29,7 +30,11 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
         var respTask = RespondAsync(InteractionCallback.DeferredMessage(flags));
 
         await respTask;
-        await FollowupAsync(await hydrateTask);
+
+        var dlResponse = await hydrateTask;
+        var newMessage = await FollowupAsync(dlResponse.Message);
+
+        await dl.LogDownloadedMedia(newMessage, dlResponse, Context.User, uri);
     }
 
     [SlashCommand("dl", "Download from URL via yt-dlp")]
