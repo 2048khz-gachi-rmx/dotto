@@ -79,6 +79,10 @@ internal class MessageUrlDownload(
         {
             var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(message.Guild);
             var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri, uploadLimit);
+
+            if (msg.AttachedVideos.IsEmpty() && msg.ExternalVideos.IsEmpty())
+                return;
+            
             var replyTask = message.ReplyAsync(msg.Message);
 
             await message.SuppressEmbeds();

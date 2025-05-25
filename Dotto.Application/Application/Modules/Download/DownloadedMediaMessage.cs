@@ -19,4 +19,9 @@ public class DownloadedMediaMessage<T>
     /// Videos uploaded to external storage
     /// </summary>
     public List<Uri> ExternalVideos { get; init; } = new();
+    
+    /// <summary>
+    /// Videos uploaded to Discord
+    /// </summary>
+    public List<AttachmentProperties> AttachedVideos { get; init; } = new();
 }

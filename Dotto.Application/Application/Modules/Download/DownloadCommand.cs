@@ -108,7 +108,9 @@ public class DownloadCommand(IDottoDbContext dbContext,
             }
             else
             {
-                response.Message.AddAttachments(new AttachmentProperties(videoName, media.Video));
+                var attachment = new AttachmentProperties(videoName, media.Video);
+                response.AttachedVideos.Add(attachment);
+                response.Message.AddAttachments(attachment);
             }
 
             messageLines.AppendLine($"-# {videoName}" +
