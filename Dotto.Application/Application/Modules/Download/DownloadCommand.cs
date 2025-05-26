@@ -25,7 +25,7 @@ public class DownloadCommand(IDottoDbContext dbContext,
     {
         var uploadLimit = uploadService != null
             ? UploadMinio
-            : UploadLimitNoNitro;
+            : discordUploadLimit;
 
         var response = new DownloadedMediaMessage<T>()
         {
@@ -45,6 +45,7 @@ public class DownloadCommand(IDottoDbContext dbContext,
                 var newLink = bld.Uri.ToString();
 
                 response.Message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
+                response.HasAnyMedia = true;
                 return response;
             }
             

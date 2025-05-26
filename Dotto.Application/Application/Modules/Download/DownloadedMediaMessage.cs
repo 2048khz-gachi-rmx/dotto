@@ -1,4 +1,5 @@
-﻿using NetCord.Rest;
+﻿using Dotto.Common;
+using NetCord.Rest;
 
 namespace Dotto.Application.Modules.Download;
 
@@ -24,4 +25,16 @@ public class DownloadedMediaMessage<T>
     /// Videos uploaded to Discord
     /// </summary>
     public List<AttachmentProperties> AttachedVideos { get; init; } = new();
+    
+    /// <summary>
+    /// Does this message contain any media?
+    /// The media may be contained in the message itself, so just checking ExternalVideos/AttachedVideos isn't enough
+    /// </summary>
+    public bool HasAnyMedia
+    {
+        get => !ExternalVideos.IsEmpty() || !AttachedVideos.IsEmpty() || _hasAnyMedia;
+        set => _hasAnyMedia = value;
+    }
+
+    private bool _hasAnyMedia;
 }
