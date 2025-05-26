@@ -301,13 +301,13 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 	private static readonly List<(Regex, double)> FormatQualityRatio =
 	[
 		// fuck h264
-		(new("^(avc.*|h264.*)"), 60),
+		(new("^(avc.*|h264.*)"), 0.6d),
 		
 		// h265 is baseline quality
-		(new("^(avc.*|h264.*)"), 100),
+		(new("^(hevc.*|h265.*)"), 1d),
 		
 		// about the same for vp9, but vp9 gets a boost for being more supported :^)
-		(new("^(vp0?9.*)"), 110),
+		(new("^(vp0?9.*)"), 1.1d),
 	];
 	
 	/// <summary>
@@ -386,7 +386,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		
 		// higher res basically always beats codec choice
 		var resScore = format.Width * format.Height / 1e6
-		               ?? 1.0d;
+		               ?? Double.Epsilon;
 		
 		var matchedScoreMult = FormatQualityRatio.FirstOrDefault(data => data.Item1.IsMatch(format.VideoCodec));
 
