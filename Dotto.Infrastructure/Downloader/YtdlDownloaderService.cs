@@ -71,6 +71,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		    NoWarnings = true,
 		    Output = "-",
 		    DumpJson = true,
+		    CompatOptions = "manifest-filesize-approx",
 		    Simulate = true,
 		    MaxDownloads = (int?)options.MaxDownloads
 	    };
