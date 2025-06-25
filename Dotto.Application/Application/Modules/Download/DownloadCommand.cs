@@ -40,8 +40,8 @@ public class DownloadCommand(IDottoDbContext dbContext,
             {
                 // instagram is a bitchcunt, has draconian ratelimits and insta-bans if you try to pass your acc's cookies to yt-dlp
                 // but someone, bless their soul, runs a service which does all the hard work for us
-                var bld = new UriBuilder(uri);
-                bld.Host = "ddinstagram.com";
+                var bld = new UriBuilder(uri) { Host = "ddinstagram.com", };
+                
                 var newLink = bld.Uri.ToString();
 
                 response.Message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
@@ -114,10 +114,17 @@ public class DownloadCommand(IDottoDbContext dbContext,
                 response.Message.AddAttachments(attachment);
             }
 
+            response.Message.WithAllowedMentions(new()
+            {
+                Everyone = false,
+                ReplyMention = true,
+                AllowedUsers = []
+            });
+
             messageLines.AppendLine($"-# {videoName}" +
                                     $" | {media.GetResolution()}" +
                                     $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +
-                                    $" | {StringUtils.VideoCodecToFriendlyName(media.GetCodec())}");
+                                    $" | {Format.Escape(StringUtils.VideoCodecToFriendlyName(media.GetCodec()))}");
         }
         
         response.Message.WithContent(messageLines.ToString());

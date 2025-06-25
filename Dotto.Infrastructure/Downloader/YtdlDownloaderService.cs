@@ -45,8 +45,8 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		    RedirectStandardOutput = true,
 		    RedirectStandardError = true,
 		    RedirectStandardInput = true,
-		    StandardOutputEncoding = Encoding.ASCII,
-		    StandardErrorEncoding = Encoding.ASCII,
+		    StandardOutputEncoding = Encoding.UTF8,
+		    StandardErrorEncoding = Encoding.UTF8,
 		    StandardInputEncoding = Encoding.ASCII,
 	    };
 	    
@@ -70,6 +70,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		    Quiet = true,
 		    NoWarnings = true,
 		    Output = "-",
+		    RestrictFilenames = true,
 		    DumpJson = true,
 		    CompatOptions = "manifest-filesize-approx",
 		    Simulate = true,
