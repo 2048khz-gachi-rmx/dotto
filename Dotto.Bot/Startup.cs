@@ -58,8 +58,8 @@ builder.Services
     {
         cfg.ResultHandler = new DottoApplicationCommandServiceResultHandler<ApplicationCommandContext>();
     })
-    .AddGatewayEventHandlers(typeof(EventHandlerAssemblyMarker).Assembly)
-    .AddGatewayEventHandlers(typeof(Program).Assembly);
+    .AddGatewayHandlers(typeof(EventHandlerAssemblyMarker).Assembly)
+    .AddGatewayHandlers(typeof(Program).Assembly);
 
 #endregion
 
@@ -68,7 +68,7 @@ var host = builder.Build();
 await host.MigrateDatabase();
 
 host.AddModules(typeof(CommandAssemblyMarker).Assembly);
-host.UseGatewayEventHandlers();
+host.UseGatewayHandlers();
 _ = host.InitializeMinioUploader(); // don't care about waiting for bucket creation lololo
 
 await host.RunAsync();

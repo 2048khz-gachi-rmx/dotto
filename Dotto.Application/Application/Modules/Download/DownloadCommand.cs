@@ -111,22 +111,22 @@ public class DownloadCommand(IDottoDbContext dbContext,
             {
                 var attachment = new AttachmentProperties(videoName, media.Video);
                 response.AttachedVideos.Add(attachment);
-                response.Message.AddAttachments(attachment);
             }
-
-            response.Message.WithAllowedMentions(new()
-            {
-                Everyone = false,
-                ReplyMention = true,
-                AllowedUsers = []
-            });
 
             messageLines.AppendLine($"-# {videoName}" +
                                     $" | {media.GetResolution()}" +
                                     $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +
                                     $" | {Format.Escape(StringUtils.VideoCodecToFriendlyName(media.GetCodec()))}");
         }
+
+        response.Message.WithAllowedMentions(new()
+            {
+                Everyone = false,
+                ReplyMention = true,
+                AllowedUsers = []
+            });
         
+        response.Message.AddAttachments(response.AttachedVideos);
         response.Message.WithContent(messageLines.ToString());
         
         return response;

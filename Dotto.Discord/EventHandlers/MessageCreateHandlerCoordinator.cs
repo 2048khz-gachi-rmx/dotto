@@ -5,8 +5,7 @@ using NetCord.Hosting.Gateway;
 
 namespace Dotto.Discord.EventHandlers;
 
-[GatewayEvent(nameof(GatewayClient.MessageCreate))]
-internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) : IGatewayEventHandler<Message>
+internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) : IMessageCreateGatewayHandler
 {
     private readonly Dictionary<Type, Type[]> _handlerTypes = DiscoverHandlerTypes();
 
@@ -15,7 +14,7 @@ internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider)
         if (!_handlerTypes.TryGetValue(typeof(Message), out var handlerTypes))
             return;
 
-        ValueTask[] tasks = new ValueTask[handlerTypes.Length];
+        var tasks = new ValueTask[handlerTypes.Length];
         int idx = 0;
 
         using var scope = serviceProvider.CreateScope();
