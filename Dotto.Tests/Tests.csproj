@@ -36,6 +36,7 @@
       <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
       <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
       <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
+      <ProjectReference Include="..\Dotto.Infrastructure\Downloader\Downloader.csproj" />
     </ItemGroup>
 
 </Project>

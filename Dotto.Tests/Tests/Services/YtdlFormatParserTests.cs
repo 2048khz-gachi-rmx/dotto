@@ -1,0 +1,232 @@
+using Dotto.Application.InternalServices.DownloaderService;
+using Dotto.Application.InternalServices.DownloaderService.Metadata;
+using Dotto.Infrastructure.Downloader;
+using Shouldly;
+
+namespace Tests.Tests.Services
+{
+    public class YtdlFormatParserTests : TestFixtureBase
+    {
+        private readonly YtdlFormatParser _parser = new();
+
+        [Test]
+        public void PickFormat_ShouldReturnFallbackWhenNoFormats()
+        {
+            // Arrange
+            var metadata = new DownloadedMediaMetadata
+            {
+                Formats = [],
+                Resolution = "1080p",
+                VideoCodec = "h264",
+                FormatId = "test_id"
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.PickFormat(metadata, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat.ShouldNotBeNull();
+            result.Value.audioFormat.ShouldBeNull();
+            result.Value.formatString.ShouldBe("test_id");
+        }
+
+        [Test]
+        public void PickFormat_ShouldHandleInstagramReels()
+        {
+            // Arrange
+            var metadata = new DownloadedMediaMetadata
+            {
+                Extractor = "Instagram",
+                Formats = [
+                    new() { VideoCodec = "unknown", FormatId = "unknown_format" },
+                    new() { VideoCodec = "h264", FormatId = "h264_format" }
+                ]
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.PickFormat(metadata, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat?.FormatId.ShouldBe("unknown_format");
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldReturnBestMergedFormat()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>
+            {
+                new() { FormatId = "video1", VideoCodec = "h264", AudioCodec = "none", FileSize = 500 },
+                new() { FormatId = "video2", VideoCodec = "hevc", AudioCodec = "aac", FileSize = 450 }
+            };
+            var audioFormats = new List<FormatData>();
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat?.FormatId.ShouldBe("video2");
+            result.Value.audioFormat.ShouldBeNull();
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldReturnOptimizedCodec()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>
+            {
+                new() { FormatId = "video1", VideoCodec = "h264", AudioCodec = "none", FileSize = 500 },
+                new() { FormatId = "video2", VideoCodec = "hevc", AudioCodec = "none", FileSize = 450 }
+            };
+            var audioFormats = new List<FormatData>
+            {
+                new() { FormatId = "audio1", AudioCodec = "aac", FileSize = 200 },
+                new() { FormatId = "audio2", AudioCodec = "mp3", FileSize = 150 }
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat?.FormatId.ShouldBe("video2");
+            result.Value.audioFormat?.FormatId.ShouldBe("audio1");
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldReturnNullWhenNoValidCombination()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>
+            {
+                new() { FormatId = "video1", VideoCodec = "h264", AudioCodec = "none", FileSize = 1500 }
+            };
+            var audioFormats = new List<FormatData>();
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldBeNull();
+        }
+        
+                [Test]
+        public void PickFormat_ShouldHandleEmptyFormatsList()
+        {
+            // Arrange
+            var metadata = new DownloadedMediaMetadata
+            {
+                Formats = [],
+                Resolution = "720p",
+                VideoCodec = "vp9",
+                FormatId = "empty_format"
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.PickFormat(metadata, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat.ShouldNotBeNull();
+            result.Value.audioFormat.ShouldBeNull();
+            result.Value.formatString.ShouldBe("empty_format");
+        }
+
+        [Test]
+        public void PickFormat_ShouldPreferSupportedCodecs()
+        {
+            // Arrange
+            var metadata = new DownloadedMediaMetadata
+            {
+                Formats = [
+                    new() { FormatId = "vp9", VideoCodec = "vp9", AudioCodec = "none" },
+                    new() { FormatId = "h264", VideoCodec = "h264", AudioCodec = "none" }
+                ]
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.PickFormat(metadata, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat?.FormatId.ShouldBe("vp9");
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldHandleEmptyLists()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>();
+            var audioFormats = new List<FormatData>();
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldBeNull();
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldHandleIncompatibleCombination()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>
+            {
+                new() { FormatId = "video1", VideoCodec = "hevc", AudioCodec = "none", Extension = "mp4", Width = 100, Height = 100 },
+                new() { FormatId = "video2", VideoCodec = "vp9", AudioCodec = "none", Extension = "webm", Width = 200, Height = 200 }
+            };
+            var audioFormats = new List<FormatData>
+            {
+                new() { FormatId = "audio1", AudioCodec = "aac", Extension = "m4a" }
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            // Even though the vp9 video is better, the only audio option we have is an m4a which is incompatible with webms
+            // So we expect to receive the mp4 with audio
+            result.Value.videoFormat?.FormatId.ShouldBe("video1");
+            result.Value.audioFormat?.FormatId.ShouldBe("audio1");
+        }
+
+        [Test]
+        public void TryPickOptimalFormat_ShouldPrioritizeCloserToTargetFileSize()
+        {
+            // Arrange
+            var videoFormats = new List<FormatData>
+            {
+                new() { FormatId = "theres_a_better_one", VideoCodec = "h264", FileSize = 900 /* 900 + 70 = 970, when 980 is possible */ },
+                new() { FormatId = "PICKME", VideoCodec = "h264", FileSize = 950 /* 950 + 30 = 980, closest to 1000 */ },
+                new() { FormatId = "too_large", VideoCodec = "h264", FileSize = 990 /* 990 + 30 audio = overshoot */ },
+            };
+            var audioFormats = new List<FormatData>
+            {
+                new() { FormatId = "audio1", AudioCodec = "aac", FileSize = 30 },
+                new() { FormatId = "audio2", AudioCodec = "mp3", FileSize = 70 }
+            };
+            var options = new DownloadOptions { MaxFilesize = 1000 };
+
+            // Act
+            var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+            // Assert
+            result.ShouldNotBeNull();
+            result.Value.videoFormat?.FormatId.ShouldBe("PICKME");
+            result.Value.audioFormat?.FormatId.ShouldBe("audio1");
+        }
+    }
+}
