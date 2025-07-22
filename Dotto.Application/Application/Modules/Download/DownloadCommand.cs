@@ -20,7 +20,7 @@ public class DownloadCommand(IDottoDbContext dbContext,
     private const long UploadMinio = 100 << 20;
     private const long UploadLimitNoNitro = 10 << 20;
 
-    public async Task<DownloadedMediaMessage<T>> CreateMessage<T>(Uri uri, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
+    public async Task<DownloadedMediaMessage<T>> CreateMessage<T>(Uri uri, bool audioOnly = false, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
         where T: IMessageProperties, new()
     {
         var uploadLimit = uploadService != null
@@ -52,6 +52,7 @@ public class DownloadCommand(IDottoDbContext dbContext,
             videos = await dlService.Download(uri, new DownloadOptions
             {
                 MaxFilesize = uploadLimit,
+                AudioOnly = audioOnly
             }, ct);
         }
         catch (IndexOutOfRangeException)

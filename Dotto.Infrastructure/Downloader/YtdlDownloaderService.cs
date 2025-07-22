@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices.DownloaderService;
 using Dotto.Application.InternalServices.DownloaderService.Metadata;
 using Dotto.Common;
@@ -13,7 +12,7 @@ namespace Dotto.Infrastructure.Downloader;
 
 public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderService
 {
-	private static YtdlFormatParser _ytdlFormatParser = new();
+	private readonly YtdlFormatParser _ytdlFormatParser = new();
 	
 	/// <summary>
     /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
@@ -93,7 +92,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		var videos = new List<DownloadedMedia>();
 		var index = 0;
 
-		var tasks = new List<Task>();
+		var downloadTasks = new List<Task<DownloadedMedia>>();
 		string? error = null;
 		
 		while (await process.StandardError.ReadLineAsync(ct) is { } line)
@@ -114,41 +113,37 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 
 		    index++;
 		    var format = _ytdlFormatParser.PickFormat(metadata, options);
-            
-		    var currentIndex = index;
-		    if (!format.HasValue)
-		    {
+		    
+		    if (format == null)
 			    throw new InvalidOperationException($"failed to pick format for video #{index}");
-		    }
 
+		    var currentIndex = index;
+		    
 		    // i'm worried launching multiple concurrent yt-dlp's may hit ratelimits,
 		    // but fuck it we ball
-		    var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.Value.formatString, ct)
-			    .ContinueWith(task =>
-			    {
-					videos.Add(new DownloadedMedia
-					{
-						Video = task.Result,
-						Number = currentIndex,
-						Metadata = metadata,
-						AudioFormat = format.Value.audioFormat,
-						VideoFormat = format.Value.videoFormat
-					});
-			    }, ct);
+		    var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.FormatString, ct)
+			    .ContinueWith(task => new DownloadedMedia
+				{
+					Video = task.Result,
+					Number = currentIndex,
+					Metadata = metadata,
+					AudioFormat = format.AudioFormat,
+					VideoFormat = format.VideoFormat
+				});
 		    
-		    tasks.Add(task);
+		    downloadTasks.Add(task);
 		    
 		    // otherwise it may throw an ObjectDisposedException lol i hate the process api
 		    if (exitTask.IsCompleted) break;
 	    }
 
-	    await Task.WhenAll(tasks);
+	    var downloadedMedia = await Task.WhenAll(downloadTasks);
+	    videos.AddRange(downloadedMedia);
 	    
 		var exitCode = await exitTask;
+		
 	    if (exitCode != 0 && exitCode != 101)
-	    {	
 		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
-	    }
 
 	    return videos;
     }

@@ -23,7 +23,18 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
     }
 
     public string GetExtension()
-        => (VideoFormat ?? AudioFormat)!.Extension ?? "mp4";
+    {
+        var extension = (VideoFormat ?? AudioFormat)!.Extension ?? "mp4";
+        
+        if (VideoFormat == null)
+        {
+            // HACK: discord doesn't embed webm's with audio-only
+            if (AudioFormat?.AudioCodec == "opus")
+                extension = "opus";
+        }
+
+        return extension;
+    }
 
     public string GetFileName()
         => (Metadata.Title ?? Guid.NewGuid().ToString("N")) + $".{GetExtension()}";
@@ -32,7 +43,7 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
         => VideoFormat?.Resolution != null
             ? VideoFormat?.Resolution ?? "unknown resolution"
             : AudioFormat?.AudioBitrate != null
-                ? $"{Math.Ceiling(AudioFormat.AudioBitrate.Value / 1024)}kb/s"
+                ? $"{Math.Ceiling(AudioFormat.AudioBitrate.Value)}kbps"
                 : "unknown bitrate";
 
     public string GetCodec()

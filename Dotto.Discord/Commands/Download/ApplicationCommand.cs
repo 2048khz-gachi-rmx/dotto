@@ -8,7 +8,7 @@ namespace Dotto.Discord.Commands.Download;
 
 public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<ApplicationCommandContext>
 {
-    private async Task Download(string uriString, bool isSilent)
+    private async Task Download(string uriString, bool isSilent, bool audioOnly)
     {
         var flags = isSilent ? MessageFlags.Ephemeral : default;
         
@@ -21,7 +21,7 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
         // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
         // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
         var uploadLimit = Context.Interaction.AttachmentSizeLimit;
-        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri, uploadLimit);
+        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri, audioOnly, uploadLimit);
         if (hydrateTask.IsFaulted)
         {
             throw hydrateTask.Exception;
@@ -41,15 +41,17 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
     public Task InvokeSlash(
         [SlashCommandParameter(Name = "url", Description = "Link to the media you want to download")]
         string uriString,
-        [SlashCommandParameter(Name = "private", Description = "Should the downloaded video be hidden from others?")]
-        bool isSilent = false)
-        => Download(uriString, isSilent);
+        [SlashCommandParameter(Name = "private", Description = "Should the downloaded audio be hidden from others?")]
+        bool isSilent = false,
+        [SlashCommandParameter(Name = "audio_only", Description = "Only download the audio?")]
+        bool audioOnly = false)
+        => Download(uriString, isSilent, audioOnly);
 
     private Task ParseAndDownload(string messageText, bool isSilent)
     {
         var urls = StringUtils.MatchUrls(messageText);
 
-        return Download(urls.FirstOrDefault(""), isSilent);
+        return Download(urls.FirstOrDefault(""), isSilent, audioOnly: false);
     }
     
     [MessageCommand("Download",

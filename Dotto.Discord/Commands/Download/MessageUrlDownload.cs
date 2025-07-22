@@ -78,7 +78,7 @@ internal class MessageUrlDownload(
         try
         {
             var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(message.Guild);
-            var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri, uploadLimit);
+            var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
 
             if (!msg.HasAnyMedia)
                 return;

@@ -12,16 +12,16 @@ internal class YtdlFormatParser
 	/// taking into account their resolutions, video codecs, filesizes and the upload limit.
 	/// Difference against `TryPickOptimalFormat` is that this tries to pick among videos with known-supported vcodecs first
 	/// </summary>
-	public (FormatData? videoFormat, FormatData? audioFormat, string formatString)? PickFormat(DownloadedMediaMetadata metadata, DownloadOptions options)
+	public PickedFormat? PickFormat(DownloadedMediaMetadata metadata, DownloadOptions options)
 	{
 		if (metadata.Formats.IsNullOrEmpty())
 		{
 			// fallback for when there are no format selections (like instagram reels)
 			return new()
 			{
-				audioFormat = null,
-				videoFormat = new() { Resolution = metadata.Resolution, VideoCodec = metadata.VideoCodec },
-				formatString = metadata.FormatId! // TODO: is FormatID *actually* nullable? feels like it shouldn't be
+				AudioFormat = null,
+				VideoFormat = new() { Resolution = metadata.Resolution, VideoCodec = metadata.VideoCodec },
+				FormatString = metadata.FormatId! // TODO: is FormatID *actually* nullable? feels like it shouldn't be
 			};
 		}
 		
@@ -50,10 +50,8 @@ internal class YtdlFormatParser
 
 		var bestFormat = TryPickOptimalFormat(audioFormats, videoFormats, options);
 
-		if (bestFormat.HasValue)
-		{
-			return bestFormat.Value;
-		}
+		if (bestFormat != null)
+			return bestFormat;
 		
 		// failed to pick a format, see if there are any formats with unknown vcodec we could add to the pool...
 		videoFormats = GetEligibleVideos(metadata.Formats, true)
@@ -63,7 +61,7 @@ internal class YtdlFormatParser
 		return TryPickOptimalFormat(audioFormats, videoFormats, options);
 	}
 
-	private static readonly List<(Regex, double)> FormatQualityRatio =
+	private static readonly List<(Regex FormatPattern, double ScoreMult)> VideoFormatQualityRatio =
 	[
 		// fuck h264
 		(new("^(avc.*|h264.*)"), 0.6d),
@@ -75,15 +73,61 @@ internal class YtdlFormatParser
 		(new("^(vp0?9.*)"), 1.1d),
 	];
 	
+	private static readonly List<(Regex FormatPattern, double ScoreMult)> AudioFormatQualityRatio =
+	[
+		(new("^mp4a"), 1d),
+		
+		(new("^opus"), 1.1d),
+	];
+	
 	/// <summary>
 	/// Given a list of audio and video formats, tries to pick one (merged) or multiple (audio+video) that would be the best
 	/// </summary>
-	public (FormatData? videoFormat, FormatData? audioFormat, string formatString)?
-		TryPickOptimalFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
+	internal PickedFormat? TryPickOptimalFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
 		(FormatData? videoFormat, FormatData? audioFormat)? choice = null;
-		var bestScore = long.MinValue;
 
+		if (options.AudioOnly)
+		{
+			var audioFormat = TryPickOptimalAudioFormat(audioFormats, videoFormats, options);
+
+			if (audioFormat != null)
+				choice = (null, audioFormat);
+		}
+		else
+			choice = TryPickOptimalVideoAudioFormat(audioFormats, videoFormats, options);
+
+		if (!choice.HasValue) return null;
+		
+		var fmt = choice.Value;
+		var fmtString = fmt is { videoFormat: not null, audioFormat: not null }
+			? $"{fmt.videoFormat.FormatId}+{fmt.audioFormat.FormatId}"
+			: $"{(fmt.videoFormat ?? fmt.audioFormat)!.FormatId}";
+
+		return new PickedFormat()
+		{
+			VideoFormat = fmt.videoFormat,
+			AudioFormat = fmt.audioFormat,
+			FormatString = fmtString
+		};
+	}
+
+	private (FormatData? videoFormat, FormatData? audioFormat)?
+		TryPickOptimalVideoAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
+	{
+		var bestScore = long.MinValue;
+		(FormatData? videoFormat, FormatData? audioFormat)? choice = null;
+
+		if (videoFormats.IsEmpty())
+		{
+			// link had no videos at all; try at least returning the audio, if present
+			var audioFormat = TryPickOptimalAudioFormat(audioFormats, videoFormats, options);
+			
+			return audioFormat != null
+				? (null, audioFormat)
+				: null;
+		}
+		
 		foreach (var vformat in videoFormats)
 		{
 			var isMerged = vformat.AudioCodec != null && vformat.AudioCodec != "none";
@@ -91,12 +135,10 @@ internal class YtdlFormatParser
 			var vsize = vformat.FileSize ?? vformat.ApproximateFileSize ?? 0;
 			if (vsize > options.MaxFilesize) break; // lists are sorted by size; break here knowing the remaining formats are even bigger
 
-			var bytesLeft = options.MaxFilesize - vsize;
-
 			if (isMerged || audioFormats.IsEmpty())
 			{
 				// premerged format or no audio, don't need to pick audio separately
-				var score = GetFormatScore(vformat, bytesLeft);
+				var score = GetVideoFormatScore(vformat, options.MaxFilesize);
 				
 				if (score <= bestScore) continue;
 				
@@ -110,12 +152,11 @@ internal class YtdlFormatParser
 				foreach (var aformat in audioFormats)
 				{
 					var asize = aformat.FileSize ?? aformat.ApproximateFileSize ?? 0;
-					if (asize > bytesLeft) break; // lists are sorted by size; break here knowing the remaining formats are even bigger
 
 					if (!IsAllowedCombination(vformat, aformat)) continue;
 					
-					var leftover = bytesLeft - asize;
-					var score = GetFormatScore(vformat, leftover);
+					var leftover = options.MaxFilesize - asize;
+					var score = GetVideoFormatScore(vformat, leftover);
 					
 					if (score <= bestScore) continue;
 					
@@ -126,35 +167,101 @@ internal class YtdlFormatParser
 			}	
 		}
 
-		if (!choice.HasValue) return null;
-		
-		var fmt = choice.Value;
-		var fmtString = fmt is { videoFormat: not null, audioFormat: not null }
-			? $"{fmt.videoFormat.FormatId}+{fmt.audioFormat.FormatId}"
-			: $"{(fmt.videoFormat ?? fmt.audioFormat)!.FormatId}";
+		return choice;
+	}
+	
+	private FormatData? TryPickOptimalAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
+	{
+		var bestScore = long.MinValue;
+		FormatData? pickedFormat = null;
 
-		return (fmt.videoFormat, fmt.audioFormat, fmtString);
+		foreach (var format in audioFormats)
+		{
+			var score = GetAudioFormatScore(format, options.MaxFilesize);
+			if (score <= bestScore) continue;
+
+			bestScore = score;
+			pickedFormat = format;
+		}
+
+		// if we found an audio format without a video attached to it, we just roll with that
+		if (pickedFormat != null) return pickedFormat;
+		
+		// otherwise; there are no audio-only formats. best we can do is return a video, which will presumably have both...
+		foreach (var vformat in videoFormats)
+		{
+			// if there's no (eligible) audio channels, that probably means this video is in a premerged format and we don't need to pick audio separately
+			var score = GetVideoFormatScore(vformat, options.MaxFilesize);
+			if (score <= bestScore) continue;
+			
+			// new optimal combination found
+			bestScore = score;
+			pickedFormat = vformat;
+		}
+
+		return pickedFormat;
+	}
+
+	internal class PickedFormat
+	{
+	    public required FormatData? VideoFormat { get; set; }
+	    public required FormatData? AudioFormat { get; set; }
+	    public required string FormatString { get; set; }
 	}
 
 	/// <summary>
-	/// Scores a selected format, so it can be prioritized against others
+	/// Scores a selected video format, so it can be prioritized against others
 	/// (i.e. better resolutions should trump worse ones, better codecs should beat worse ones,
 	/// videos closer to the upload limit are preferred)
 	/// </summary>
-	private long GetFormatScore(FormatData format, long leftover)
+	private long GetVideoFormatScore(FormatData format, long sizeBudget)
 	{
+		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
+		var leftover = sizeBudget - asize;
+		
 		if (leftover < 0 || format.VideoCodec == null)
 		{
-			return -long.MaxValue;
+			return long.MinValue;
 		}
 		
 		// higher res basically always beats codec choice
 		var resScore = (format.Width * format.Height / 1e6) ?? 1;
 		
-		var matchedScoreMult = FormatQualityRatio.FirstOrDefault(data => data.Item1.IsMatch(format.VideoCodec));
+		var matchedScoreMult = VideoFormatQualityRatio.FirstOrDefault(data => data.FormatPattern.IsMatch(format.VideoCodec));
 
 		var scoreMult = matchedScoreMult != default
-			? matchedScoreMult.Item2
+			? matchedScoreMult.ScoreMult
+			: 1.0d;
+		
+		// less leftover, higher score
+		var score = -leftover;
+		
+		// divide so the mult interacts with negative numbers correctly
+		score = (long)(score / scoreMult / resScore);
+		
+		return score;
+	}
+	
+	/// <summary>
+	/// Scores a selected audio format, so it can be prioritized against others
+	/// (i.e. better bitrates should trump worse ones, better codecs should beat worse ones,
+	/// audio closer to the upload limit is preferred)
+	/// </summary>
+	private long GetAudioFormatScore(FormatData format, long sizeBudget)
+	{
+		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
+		var leftover = sizeBudget - asize;
+		
+		if (leftover < 0 || format.AudioCodec == null)
+		{
+			return long.MinValue;
+		}
+		
+		var resScore = format.AudioBitrate ?? format.Bitrate ?? 1;
+		var matchedScoreMult = AudioFormatQualityRatio.FirstOrDefault(data => data.FormatPattern.IsMatch(format.AudioCodec));
+
+		var scoreMult = matchedScoreMult != default
+			? matchedScoreMult.ScoreMult
 			: 1.0d;
 		
 		// less leftover, higher score

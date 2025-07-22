@@ -9,7 +9,7 @@ public class TextCommand(DownloadCommand dl,
     RestClient client) : CommandModule<CommandContext>
 {
     [Command("dl")]
-    public async Task InvokeMessage(string uriString)
+    public async Task InvokeMessage(string uriString, bool audioOnly)
     {
         if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
         {
@@ -23,7 +23,7 @@ public class TextCommand(DownloadCommand dl,
         try
         {
             var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(Context.Guild);
-            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri, uploadLimit);
+            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri, audioOnly, uploadLimit);
             var replyTask = ReplyAsync(msg.Message);
             
             await Context.Message.SuppressEmbeds();
