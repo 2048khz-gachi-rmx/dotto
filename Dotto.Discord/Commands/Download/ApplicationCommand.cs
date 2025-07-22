@@ -20,7 +20,7 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
 
         // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
         // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
-        var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(Context.Guild, Context.User);
+        var uploadLimit = Context.Interaction.AttachmentSizeLimit;
         var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri, uploadLimit);
         if (hydrateTask.IsFaulted)
         {
