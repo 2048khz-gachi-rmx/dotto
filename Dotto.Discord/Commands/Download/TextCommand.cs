@@ -9,7 +9,7 @@ public class TextCommand(DownloadCommand dl,
     RestClient client) : CommandModule<CommandContext>
 {
     [Command("dl")]
-    public async Task InvokeMessage(string uriString, bool audioOnly)
+    public async Task InvokeMessage(string uriString, bool audioOnly = false)
     {
         if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
         {
