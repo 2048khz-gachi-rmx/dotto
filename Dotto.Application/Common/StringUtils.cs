@@ -17,6 +17,15 @@ public static partial class StringUtils
         double num = Math.Round(size / Math.Pow(1024, factorNum), decimals);
         return $"{num} {FilesizeSuffixes[factorNum]}";
     }
+
+    /// <summary>
+    /// .NET HTTP throws a
+    /// <a href="https://github.com/dotnet/runtime/blob/d53785bfd37b316f19f5d04f12522a27b966aac3/src/libraries/System.Net.Http/src/System/Net/Http/Headers/ContentDispositionHeaderValue.cs#L404-L408">
+    /// hissy fit
+    /// </a> when quotes are encountered in the header value.
+    /// </summary>
+    public static string SanitizeHttpHeaderValue(this string value)
+        => value.Replace("\"", "");
     
     public static string VideoCodecToFriendlyName(string vcodec)
     {

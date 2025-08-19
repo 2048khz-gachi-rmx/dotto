@@ -110,7 +110,7 @@ public class DownloadCommand(IDottoDbContext dbContext,
             }
             else
             {
-                var attachment = new AttachmentProperties(videoName, media.Video);
+                var attachment = new AttachmentProperties(videoName.SanitizeHttpHeaderValue(), media.Video);
                 response.AttachedVideos.Add(attachment);
             }
 
