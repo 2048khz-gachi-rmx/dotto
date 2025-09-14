@@ -26,6 +26,22 @@ public class DottoApplicationCommandServiceResultHandler<TContext> : IApplicatio
 
         var response = Common.GetErrorEmbed<InteractionMessageProperties>(resultMessage);
 
-        return new(interaction.SendResponseAsync(InteractionCallback.Message(response)));
+        var task = interaction.SendResponseAsync(InteractionCallback.Message(response))
+            .ContinueWith(t =>
+            {
+                if (t.Exception!.InnerException is RestException { Error.Code: 40060 }) // "Interaction has already been acknowledged."
+                {
+                    // Netcord doesn't play very well when an exception is thrown after the interaction is deferred.
+                    // I didn't find a way to check if the interaction was deferred, so instead of LBYL, lets blindly try responding,
+                    // and if it fails, try to modify the followup instead
+                    return interaction.ModifyResponseAsync(opt =>
+                        opt.WithContent(response.Content)
+                            .WithEmbeds(response.Embeds));
+                }
+
+                return Task.CompletedTask;
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        
+        return new(task);
     }
 }

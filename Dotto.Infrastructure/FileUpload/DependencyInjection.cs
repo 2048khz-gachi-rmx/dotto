@@ -25,7 +25,8 @@ public static class DependencyInjection
             services.AddMinio(cfg => cfg
                 .WithEndpoint(minioSettings.BaseUrl)
                 .WithRegion(minioSettings.Region)
-                .WithCredentials(minioSettings.AccessKey, minioSettings.SecretKey));
+                .WithCredentials(minioSettings.AccessKey, minioSettings.SecretKey)
+                .Build());
         
             services.AddTransient<IUploadService, MinioUploadService>();
             services.AddTransient<MinioUploadService>();
