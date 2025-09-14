@@ -1,4 +1,6 @@
-﻿namespace Dotto.Application.InternalServices.DownloaderService;
+﻿using Dotto.Infrastructure.Downloader.Contracts.Models;
+
+namespace Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 
 public interface IDownloaderService
 {

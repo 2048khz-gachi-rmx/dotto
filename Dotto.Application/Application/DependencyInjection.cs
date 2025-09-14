@@ -1,4 +1,6 @@
 ﻿using System.Reflection;
+using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Factories;
 using Dotto.Application.InternalServices.ChannelFlagsService;
 using Dotto.Application.Modules.Download;
 using Dotto.Application.Validation;
@@ -12,6 +14,19 @@ namespace Dotto.Application;
 public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        SetupMediatR(services);
+        
+        SetupFactories(services);
+        SetupCommands(services);
+        
+        services.AddHybridCache();
+        services.AddTransient<ChannelFlagsService>();
+        
+        return services;
+    }
+
+    private static void SetupMediatR(IServiceCollection services)
     {
         // Add FluentValidationPipelineBehavior so MediatR sends commands through it first
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
@@ -28,12 +43,15 @@ public static class DependencyInjection
                 typeof(InteractionMessageProperties).Assembly,
                 Assembly.GetExecutingAssembly());
         });
-        
-        services.AddHybridCache();
-        services.AddTransient<ChannelFlagsService>();
-        
+    }
+
+    private static void SetupCommands(IServiceCollection services)
+    {
         services.AddTransient<DownloadCommand>();
-        
-        return services;
+    }
+    
+    private static void SetupFactories(IServiceCollection services)
+    {
+        services.AddTransient<IDownloaderServiceFactory, DownloaderServiceFactory>();
     }
 }

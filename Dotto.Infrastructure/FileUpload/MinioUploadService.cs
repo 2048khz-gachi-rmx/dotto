@@ -7,7 +7,7 @@ namespace Dotto.Infrastructure.FileUpload;
 
 public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSettings) : IUploadService
 {
-    public async Task<Uri> UploadFile(Stream stream, string? filename, string? contentType, CancellationToken token)
+    public async Task<Uri> UploadFile(Stream stream, long fileSize, string? filename, string? contentType, CancellationToken token)
     {
         filename ??= Guid.NewGuid().ToString("N");
         
@@ -15,7 +15,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
             .WithBucket(minioSettings.BucketName)
             .WithObject(filename)
             .WithContentType(contentType)
-            .WithObjectSize(stream.Length) // are they stupid?
+            .WithObjectSize(fileSize)
             .WithStreamData(stream), token);
         
         var publicLink = new Uri(

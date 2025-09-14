@@ -1,5 +1,4 @@
-﻿using Dotto.Application.Entities;
-using Dotto.Application.Modules.ChannelFlags;
+﻿using Dotto.Application.Modules.ChannelFlags;
 using Dotto.Common.Constants;
 using MediatR;
 using NetCord;

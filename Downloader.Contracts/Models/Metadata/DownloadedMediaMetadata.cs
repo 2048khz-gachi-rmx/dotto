@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Dotto.Application.InternalServices.DownloaderService.Metadata;
+namespace Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
 // The metadata class provided by YoutubeDlSharp uses Newtonsoft's JSON attributes, but i want to use System.Text.Json
 public class DownloadedMediaMetadata

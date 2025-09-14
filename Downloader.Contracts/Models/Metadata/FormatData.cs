@@ -6,7 +6,7 @@
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable UnusedMember.Global
 
-namespace Dotto.Application.InternalServices.DownloaderService.Metadata;
+namespace Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
 public class FormatData
 {

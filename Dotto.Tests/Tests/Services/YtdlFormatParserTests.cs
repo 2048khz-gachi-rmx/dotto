@@ -1,6 +1,6 @@
-using Dotto.Application.InternalServices.DownloaderService;
-using Dotto.Application.InternalServices.DownloaderService.Metadata;
-using Dotto.Infrastructure.Downloader;
+using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
+using Dotto.Infrastructure.Downloader.YtdlDownloader;
 using Shouldly;
 
 namespace Tests.Tests.Services;

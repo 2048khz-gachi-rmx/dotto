@@ -1,9 +1,9 @@
 ﻿using System.Text.RegularExpressions;
-using Dotto.Application.InternalServices.DownloaderService;
-using Dotto.Application.InternalServices.DownloaderService.Metadata;
 using Dotto.Common;
+using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
-namespace Dotto.Infrastructure.Downloader;
+namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
 internal class YtdlFormatParser
 {

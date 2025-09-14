@@ -1,10 +1,15 @@
-﻿using Dotto.Application.InternalServices.DownloaderService.Metadata;
+﻿using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
-namespace Dotto.Application.InternalServices.DownloaderService;
+namespace Dotto.Infrastructure.Downloader.Contracts.Models;
 
 public record DownloadedMedia : IDisposable, IAsyncDisposable
 {
     public required Stream Video { get; init; }
+    public required long? FileSize { get; init; }
+
+    /// <summary>
+    /// Video index. Starts at 1
+    /// </summary>
     public required int Number { get; init; }
     public required DownloadedMediaMetadata Metadata { get; init; }
     public required FormatData? VideoFormat { get; init; }
@@ -24,13 +29,12 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
 
     public string GetExtension()
     {
-        var extension = (VideoFormat ?? AudioFormat)!.Extension ?? "mp4";
+        var extension = (VideoFormat ?? AudioFormat)?.Extension ?? "mp4";
         
-        if (VideoFormat == null)
+        if (VideoFormat == null && AudioFormat?.AudioCodec == "opus")
         {
             // HACK: discord doesn't embed webm's with audio-only
-            if (AudioFormat?.AudioCodec == "opus")
-                extension = "opus";
+            extension = "opus";
         }
 
         return extension;

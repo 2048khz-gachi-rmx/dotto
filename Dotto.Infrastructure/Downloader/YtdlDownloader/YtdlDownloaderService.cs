@@ -2,13 +2,14 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using Dotto.Application.InternalServices.DownloaderService;
-using Dotto.Application.InternalServices.DownloaderService.Metadata;
 using Dotto.Common;
+using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models;
+using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 using Dotto.Infrastructure.Downloader.Settings;
 using YoutubeDLSharp.Options;
 
-namespace Dotto.Infrastructure.Downloader;
+namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
 public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderService
 {
@@ -115,7 +116,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 		    var format = _ytdlFormatParser.PickFormat(metadata, options);
 		    
 		    if (format == null)
-			    throw new InvalidOperationException($"failed to pick format for video #{index}");
+			    throw new ApplicationException($"failed to pick format for video #{index}");
 
 		    var currentIndex = index;
 		    
@@ -125,11 +126,12 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 			    .ContinueWith(task => new DownloadedMedia
 				{
 					Video = task.Result,
+					FileSize = task.Result.Length,
 					Number = currentIndex,
 					Metadata = metadata,
 					AudioFormat = format.AudioFormat,
 					VideoFormat = format.VideoFormat
-				});
+				}, ct);
 		    
 		    downloadTasks.Add(task);
 		    

@@ -1,11 +1,12 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
+using Dotto.Application.Abstractions.Factories;
 using Dotto.Application.Entities;
 using Dotto.Application.InternalServices;
-using Dotto.Application.InternalServices.DownloaderService;
 using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
+using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Rest;
@@ -13,7 +14,7 @@ using NetCord.Rest;
 namespace Dotto.Application.Modules.Download;
 
 public class DownloadCommand(IDottoDbContext dbContext,
-    IDownloaderService dlService,
+    IDownloaderServiceFactory downloaderFactory,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
@@ -33,23 +34,12 @@ public class DownloadCommand(IDottoDbContext dbContext,
             SourceUrl = uri,
         };
 
+        var downloader = downloaderFactory.CreateDownloaderService(uri);
+
         IList<DownloadedMedia> videos;
         try
         {
-            if (Regex.IsMatch(uri.Host, "\\.?instagram\\.com$"))
-            {
-                // instagram is a bitchcunt, has draconian ratelimits and insta-bans if you try to pass your acc's cookies to yt-dlp
-                // but someone, bless their soul, runs a service which does all the hard work for us
-                var bld = new UriBuilder(uri) { Host = "ddinstagram.com", };
-                
-                var newLink = bld.Uri.ToString();
-
-                response.Message.WithContent("-# " + Format.Link("instagram temporarily disabled, have a re-link instead", newLink));
-                response.HasAnyMedia = true;
-                return response;
-            }
-            
-            videos = await dlService.Download(uri, new DownloadOptions
+            videos = await downloader.Download(uri, new DownloadOptions
             {
                 MaxFilesize = uploadLimit,
                 AudioOnly = audioOnly
@@ -59,12 +49,6 @@ public class DownloadCommand(IDottoDbContext dbContext,
         {
             response.Message.WithContent(
                 $"Upload file limit exceeded ({StringUtils.HumanReadableSize(uploadLimit)}), it's over");
-            return response;
-        }
-        catch (InvalidOperationException)
-        {
-            response.Message.WithContent(
-                $"Failed to pick format; perhaps there are no options under the upload limit? ({StringUtils.HumanReadableSize(uploadLimit)})");
             return response;
         }
         catch (ApplicationException ex)
@@ -100,10 +84,10 @@ public class DownloadCommand(IDottoDbContext dbContext,
             var extension = media.GetExtension();
             var videoName = media.GetFileName();
 
-            if (media.Video.Length > discordUploadLimit && uploadService != null)
+            if (media.FileSize > discordUploadLimit && uploadService != null)
             {
                 // we can't fit the video in the discord upload limits; upload externally, if possible
-                var uploadedUrl = await uploadService.UploadFile(media.Video, null, $"video/{extension}", ct);
+                var uploadedUrl = await uploadService.UploadFile(media.Video, media.FileSize ?? discordUploadLimit, null, $"video/{extension}", ct);
                 
                 response.ExternalVideos.Add(uploadedUrl);
                 videoName = Format.Link(videoName, uploadedUrl.ToString());
