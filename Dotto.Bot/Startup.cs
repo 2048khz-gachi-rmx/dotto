@@ -68,7 +68,6 @@ var host = builder.Build();
 await host.MigrateDatabase();
 
 host.AddModules(typeof(CommandAssemblyMarker).Assembly);
-host.UseGatewayHandlers();
 _ = host.InitializeMinioUploader(); // don't care about waiting for bucket creation lololo
 
 await host.RunAsync();

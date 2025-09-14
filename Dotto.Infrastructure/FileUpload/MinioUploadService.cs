@@ -28,11 +28,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
     public async Task InitializeBucket()
     {
         var mbArgs = new MakeBucketArgs()
-            .WithBucket(minioSettings.BucketName)
-            .WithHeaders(new Dictionary<string, string>
-            {
-                { "key", "value" }
-            });
+            .WithBucket(minioSettings.BucketName);
 
         try
         {

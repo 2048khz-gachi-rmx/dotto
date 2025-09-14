@@ -22,9 +22,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.9" />
-    <PackageReference Include="NetCord" Version="1.0.0-alpha.403" />
-    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.403" />
-    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.403" />
+    <PackageReference Include="NetCord" Version="1.0.0-alpha.423" />
+    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.423" />
+    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.423" />
   </ItemGroup>
 
   <ItemGroup>

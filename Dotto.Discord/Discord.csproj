@@ -12,9 +12,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.403" />
-      <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.403" />
-      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.403" />
+      <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.423" />
+      <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.423" />
+      <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.423" />
     </ItemGroup>
 
 </Project>

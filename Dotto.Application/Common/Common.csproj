@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NetCord" Version="1.0.0-alpha.403" />
+      <PackageReference Include="NetCord" Version="1.0.0-alpha.423" />
     </ItemGroup>
 
 </Project>

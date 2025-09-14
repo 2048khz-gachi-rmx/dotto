@@ -55,7 +55,7 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
     }
     
     [MessageCommand("Download",
-        DefaultGuildUserPermissions = Permissions.AttachFiles,
+        DefaultGuildPermissions = Permissions.AttachFiles,
         Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]
     public async Task InvokeMessage(RestMessage message)
         => await ParseAndDownload(message.Content, false);
