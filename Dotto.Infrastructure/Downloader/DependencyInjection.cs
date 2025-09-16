@@ -28,7 +28,7 @@ public static class DependencyInjection
 
     private static void SetupYtdlService(IServiceCollection services)
     {
-        services.AddKeyedSingleton<IDownloaderService, YtdlDownloaderService>(DownloaderType.Ytdl, (isp, _) => isp.GetRequiredService<YtdlDownloaderService>());
+        services.AddKeyedSingleton<IDownloaderService, YtdlDownloaderService>(DownloaderType.Ytdl);
     }
 
     private static void SetupCobaltService(IServiceCollection services)
