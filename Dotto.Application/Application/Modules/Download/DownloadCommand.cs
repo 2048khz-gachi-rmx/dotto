@@ -53,17 +53,21 @@ public class DownloadCommand(IDottoDbContext dbContext,
         }
         catch (ApplicationException ex)
         {
-            var innerMessage = ex.InnerException!.Message;
-            if (innerMessage.Length == 0)
+            var innerMessage = ex.InnerException?.Message;
+            if (innerMessage.IsNullOrWhitespace())
             {
-                innerMessage = "[none provided]\n" + ex.InnerException.StackTrace;
+                innerMessage = "[none provided]";
+
+                if (ex.InnerException?.StackTrace != null)
+                    innerMessage += "\n" + ex.InnerException?.StackTrace;
             }
             
-            response.Message.WithContent(Format.Escape(ex.Message))
+            response.Message
                 .WithEmbeds([
                     new()
                     {
-                        Color = new(230, 70, 70),
+                        Color = new(140, 55, 55),
+                        Title = Format.Escape(ex.Message),
                         Description = innerMessage
                     }
                 ]);

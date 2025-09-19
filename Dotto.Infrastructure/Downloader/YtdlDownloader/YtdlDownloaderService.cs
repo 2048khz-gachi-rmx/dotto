@@ -20,7 +20,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// </summary>
     /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken ct = default)
+    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
 	    var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
 		    ? Path.Combine(Path.GetTempPath(), "dotto_dl")
@@ -28,7 +28,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 	    
 	    var dir = Directory.CreateDirectory(tempPath);
 	    
-	    var videos = await DownloadAllVideos(uri, dir, options, ct);
+	    var videos = await DownloadAllVideos(uri, dir, options, cancellationToken);
 	    
         return videos;
     }

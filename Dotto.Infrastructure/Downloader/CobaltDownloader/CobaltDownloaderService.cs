@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dotto.Common;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Request;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
 using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
@@ -14,16 +15,48 @@ public class CobaltDownloaderService(
 {
     private readonly CobaltResponseDeserializer _responseDeserializer = new();
     
-    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken ct = default)
+    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
-        var requestObject = new CobaltDownloadRequest
+        var request = new CobaltDownloadRequest
         {
             Url = uri.ToString(),
             AllowH265 = true,
             DownloadMode = options.AudioOnly ? DownloadMode.Audio : DownloadMode.Auto
         };
 
-        var jsonString = JsonSerializer.Serialize(requestObject, new JsonSerializerOptions()
+        CobaltGenericResponse response;
+        
+        try
+        {
+            response = await RetryUtils.ExecuteWithRetryAsync(
+                async () =>
+                {
+                    var resp = await GetCobaltResponse(request, cancellationToken);
+
+                    if (resp is CobaltErrorResponse er)
+                        throw new CobaltApiException(er);
+
+                    return resp;
+                },
+                ex => ex is CobaltApiException { ErrorCode: "error.api.fetch.empty" },
+                cancellationToken: cancellationToken);
+        }
+        catch (CobaltApiException ex)
+        {
+            throw new ApplicationException("Cobalt API Error", ex);
+        }
+        
+        return response switch
+        {
+            CobaltTunnelResponse tr => [await HandleTunnelResponse(tr, cancellationToken)],
+            CobaltLocalProcessingResponse lpr => [await HandleLocalProcessing(lpr, cancellationToken)],
+            _ => []
+        };
+    }
+
+    private async Task<CobaltGenericResponse> GetCobaltResponse(CobaltDownloadRequest request, CancellationToken cancellationToken)
+    {
+        var jsonString = JsonSerializer.Serialize(request, new JsonSerializerOptions()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -31,9 +64,9 @@ public class CobaltDownloaderService(
 
         var stringContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
-        var resp = await httpClient.PostAsync("/", stringContent, cancellationToken: ct);
+        var resp = await httpClient.PostAsync("/", stringContent, cancellationToken: cancellationToken);
 
-        var jsonContent = await resp.Content.ReadAsStringAsync(ct);
+        var jsonContent = await resp.Content.ReadAsStringAsync(cancellationToken);
         CobaltGenericResponse response;
         
         try
@@ -45,14 +78,7 @@ public class CobaltDownloaderService(
             throw new ApplicationException("Cobalt replied with invalid data", ex);
         }
 
-        return response switch
-        {
-            CobaltTunnelResponse tr => [await HandleTunnelResponse(tr, ct)],
-            CobaltLocalProcessingResponse lpr => [await HandleLocalProcessing(lpr, ct)],
-            CobaltErrorResponse er => throw new ApplicationException($"Cobalt returned an error ({er.Error.Code})",
-                new Exception($"Service name: {er.Error.Context?.Service}, Error code: {er.Error.Code}")),
-            _ => []
-        };
+        return response;
     }
 
     private async Task<DownloadedMedia> HandleTunnelResponse(CobaltTunnelResponse response, CancellationToken ct = default)
