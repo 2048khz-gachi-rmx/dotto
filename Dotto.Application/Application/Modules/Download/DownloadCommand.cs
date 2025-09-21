@@ -54,13 +54,13 @@ public class DownloadCommand(IDottoDbContext dbContext,
             }
             catch (ServiceUnavailableException ex)
             {
-                var embeds = response.Message.Embeds ?? Array.Empty<EmbedProperties>();
-                
-                response.Message.WithEmbeds(embeds.Append(new EmbedProperties()
-                {
-                    Color = new Color(235, 175, 40),
-                    Description = $"Downloader service \"{ex.ServiceName}\" was unavailable..."
-                }));
+                response.Message.AddEmbeds([
+                    new EmbedProperties
+                    {
+                        Color = new Color(235, 175, 40),
+                        Description = $"Downloader service \"{ex.ServiceName}\" was unavailable..."
+                    }
+                ]);
             }
             catch (ApplicationException ex)
             {
@@ -73,14 +73,14 @@ public class DownloadCommand(IDottoDbContext dbContext,
                         innerMessage += "\n" + ex.InnerException?.StackTrace;
                 }
                 
-                var embeds = response.Message.Embeds ?? Array.Empty<EmbedProperties>();
-                
-                response.Message.WithEmbeds(embeds.Append(new()
-                {
-                    Color = new(140, 55, 55),
-                    Title = Format.Escape(ex.Message),
-                    Description = innerMessage
-                }));
+                response.Message.AddEmbeds([
+                    new()
+                    {
+                        Color = new(140, 55, 55),
+                        Title = Format.Escape(ex.Message),
+                        Description = innerMessage
+                    }
+                ]);
             }
         }
 
@@ -104,6 +104,25 @@ public class DownloadCommand(IDottoDbContext dbContext,
                 
                 response.ExternalVideos.Add(uploadedUrl);
                 videoName = Format.Link(videoName, uploadedUrl.ToString());
+
+                // hack: if the message already contains embeds, discord seems to not embed external links' media
+                // so if we have any embeds in the message, we turn them into regular message lines.
+                var embeds = response.Message.Embeds ?? Array.Empty<EmbedProperties>();
+                
+                foreach (var embedProperties in embeds)
+                {
+                    var title = embedProperties.Title;
+                    var content = embedProperties.Description;
+
+                    if (content.IsNullOrWhitespace())
+                        content = title;
+                    else if (!title.IsNullOrWhitespace())
+                        content = $"{title}: {content}";
+
+                    messageLines.AppendLine($"-# {content}");
+                }
+
+                response.Message.WithEmbeds(Array.Empty<EmbedProperties>());
             }
             else
             {
