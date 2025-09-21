@@ -4,7 +4,6 @@ namespace Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 
 public interface IDownloaderService
 {
-    /// <exception cref="IndexOutOfRangeException">Downloaded video was bigger than uploadLimit</exception>
     /// <exception cref="ApplicationException">yt-dlp exits with a failure code</exception>
     public Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default);
 }

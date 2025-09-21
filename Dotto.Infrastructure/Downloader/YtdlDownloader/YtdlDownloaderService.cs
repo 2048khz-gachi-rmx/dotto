@@ -18,7 +18,6 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 	/// <summary>
     /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
     /// </summary>
-    /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
@@ -61,7 +60,6 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <summary>
     /// Grabs video(s) information as a JSON, picks a format for each, then downloads them into MemoryStreams
     /// </summary>
-    /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir,
 	    DownloadOptions options, CancellationToken ct = default)
@@ -160,7 +158,6 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <param name="format">Format spec to download (see: --format)</param>
     /// <param name="ct"></param>
     /// <returns>MemoryStream of the downloaded video</returns>
-    /// <exception cref="IndexOutOfRangeException">Video filesize exceeded upload limit</exception>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     private async Task<Stream> DownloadVideo(Uri uri,
 	    string dirPath, string infoJson,
@@ -200,14 +197,10 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 	    
 	    // 101 means one or more downloads were aborted by --max-downloads, which is acceptable
 	    if (exitCode != 0 && exitCode != 101)
-	    {	
 		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
-	    }
 
 	    if (filepath.IsNullOrEmpty())
-	    {
 		    throw new ApplicationException("yt-dlp didn't return filepath to the downloaded video");
-	    }
 	    
 	    return new FileStream(filepath,
 		    FileMode.Open, FileAccess.Read, FileShare.Delete,

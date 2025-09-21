@@ -1,7 +1,9 @@
-﻿using System.Text;
+﻿using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dotto.Common;
+using Dotto.Common.Exceptions;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Request;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
 using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
@@ -54,6 +56,27 @@ public class CobaltDownloaderService(
         };
     }
 
+    /*
+    // might be unnecessary
+    private HttpStatusCode[] CobaltStatusCodes =
+    [
+        // https://github.com/imputnet/cobalt/blob/main/docs/api.md#possible-http-status-codes
+        (HttpStatusCode)200,
+        (HttpStatusCode)401,
+        (HttpStatusCode)403,
+        (HttpStatusCode)404,
+        (HttpStatusCode)429,
+        (HttpStatusCode)500
+    ];
+    */
+
+    private static readonly HttpStatusCode[] UnreachableStatusCodes =
+    [
+        HttpStatusCode.ServiceUnavailable,
+        HttpStatusCode.GatewayTimeout,
+        (HttpStatusCode)522, // cloudflare
+    ];
+    
     private async Task<CobaltGenericResponse> GetCobaltResponse(CobaltDownloadRequest request, CancellationToken cancellationToken)
     {
         var jsonString = JsonSerializer.Serialize(request, new JsonSerializerOptions()
@@ -66,6 +89,9 @@ public class CobaltDownloaderService(
 
         var resp = await httpClient.PostAsync("/", stringContent, cancellationToken: cancellationToken);
 
+        if (UnreachableStatusCodes.Contains(resp.StatusCode))
+            throw new ServiceUnavailableException("cobalt");
+                
         var jsonContent = await resp.Content.ReadAsStringAsync(cancellationToken);
         CobaltGenericResponse response;
         
