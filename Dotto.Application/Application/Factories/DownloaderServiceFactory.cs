@@ -9,24 +9,40 @@ namespace Dotto.Application.Factories;
 public class DownloaderServiceFactory(
     IServiceProvider serviceProvider,
     ILogger<DownloaderServiceFactory> logger
-    )
+)
     : IDownloaderServiceFactory
 {
-    public IDownloaderService CreateDownloaderService(Uri uri)
+    public IEnumerable<IDownloaderService> CreateDownloaderService(Uri uri)
     {
-        DownloaderType type = DownloaderType.Ytdl;
-
         if (uri.Host.Contains("instagram"))
-            type = DownloaderType.Cobalt;
-
-        var service = serviceProvider.GetKeyedService<IDownloaderService>(type);
-
-        if (service == default)
         {
-            logger.LogWarning($"Downloader type {type} failed to resolve; perhaps it's not set up?");
-            service = serviceProvider.GetRequiredKeyedService<IDownloaderService>(DownloaderType.Ytdl);
+            foreach (var downloader in GetInstagramDownloaders())
+                yield return downloader;
+            
+            yield break;
         }
         
-        return service;
+        foreach (var downloader in GetGenericDownloaders())
+            yield return downloader;
+    }
+
+    private IEnumerable<IDownloaderService> GetInstagramDownloaders()
+    {
+        var cobaltService = serviceProvider.GetKeyedService<IDownloaderService>(DownloaderType.Cobalt);
+        
+        if (cobaltService != default)
+            yield return cobaltService;
+        
+        yield return serviceProvider.GetRequiredKeyedService<IDownloaderService>(DownloaderType.Ytdl);
+    }
+    
+    private IEnumerable<IDownloaderService> GetGenericDownloaders()
+    {
+        yield return serviceProvider.GetRequiredKeyedService<IDownloaderService>(DownloaderType.Ytdl);
+        
+        var cobaltService = serviceProvider.GetKeyedService<IDownloaderService>(DownloaderType.Cobalt);
+        
+        if (cobaltService != default)
+            yield return cobaltService;
     }
 }

@@ -5,6 +5,7 @@ using Dotto.Application.InternalServices;
 using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
+using Dotto.Common.Exceptions;
 using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
@@ -34,50 +35,58 @@ public class DownloadCommand(IDottoDbContext dbContext,
             SourceUrl = uri,
         };
 
-        var downloader = downloaderFactory.CreateDownloaderService(uri);
+        var downloaders = downloaderFactory.CreateDownloaderService(uri);
 
-        IList<DownloadedMedia> videos;
-        try
-        {
-            videos = await downloader.Download(uri, new DownloadOptions
-            {
-                MaxFilesize = uploadLimit,
-                AudioOnly = audioOnly
-            }, ct);
-        }
-        catch (IndexOutOfRangeException)
-        {
-            response.Message.WithContent(
-                $"Upload file limit exceeded ({StringUtils.HumanReadableSize(uploadLimit)}), it's over");
-            return response;
-        }
-        catch (ApplicationException ex)
-        {
-            var innerMessage = ex.InnerException?.Message;
-            if (innerMessage.IsNullOrWhitespace())
-            {
-                innerMessage = "[none provided]";
+        IList<DownloadedMedia> videos = new List<DownloadedMedia>();
 
-                if (ex.InnerException?.StackTrace != null)
-                    innerMessage += "\n" + ex.InnerException?.StackTrace;
+        foreach (var downloader in downloaders)
+        {
+            try
+            {
+                videos = await downloader.Download(uri, new DownloadOptions
+                {
+                    MaxFilesize = uploadLimit,
+                    AudioOnly = audioOnly
+                }, ct);
+
+                if (videos.Count > 0)
+                    break;
             }
-            
-            response.Message
-                .WithEmbeds([
-                    new()
-                    {
-                        Color = new(140, 55, 55),
-                        Title = Format.Escape(ex.Message),
-                        Description = innerMessage
-                    }
-                ]);
-            
-            return response;
+            catch (ServiceUnavailableException ex)
+            {
+                var embeds = response.Message.Embeds ?? Array.Empty<EmbedProperties>();
+                
+                response.Message.WithEmbeds(embeds.Append(new EmbedProperties()
+                {
+                    Color = new Color(235, 175, 40),
+                    Description = $"Downloader service \"{ex.ServiceName}\" was unavailable..."
+                }));
+            }
+            catch (ApplicationException ex)
+            {
+                var innerMessage = ex.InnerException?.Message;
+                if (innerMessage.IsNullOrWhitespace())
+                {
+                    innerMessage = "[none provided]";
+
+                    if (ex.InnerException?.StackTrace != null)
+                        innerMessage += "\n" + ex.InnerException?.StackTrace;
+                }
+                
+                var embeds = response.Message.Embeds ?? Array.Empty<EmbedProperties>();
+                
+                response.Message.WithEmbeds(embeds.Append(new()
+                {
+                    Color = new(140, 55, 55),
+                    Title = Format.Escape(ex.Message),
+                    Description = innerMessage
+                }));
+            }
         }
 
-        if (videos.Count == 0)
+        if (videos.IsEmpty())
         {
-            response.Message.WithContent("no (eligible) videos found");
+            response.Message.WithContent("No (eligible) videos found or all downloaders failed");
             return response;
         }
         
