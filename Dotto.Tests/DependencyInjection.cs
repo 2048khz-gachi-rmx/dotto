@@ -1,6 +1,5 @@
 ﻿using Dotto.Application;
 using Dotto.Common.DateTimeProvider;
-using Dotto.Infrastructure.Database;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Builders;
 using Tests.Mocks;
@@ -16,17 +15,16 @@ public static class DependencyInjection
         
         services.AddTransient<ChannelFlagBuilder>();
 
-        services.AddDatabase(TestRun.GetConnectionString());
         services.AddApplication();
         
         return services;
     }
     
-    public static ServiceProvider BuildNewServiceProvider()
+    public static ServiceCollection BuildNewServiceCollection()
     {
-        var provider = new ServiceCollection();
-        provider.AddTestServices();
-        
-        return provider.BuildServiceProvider();
+        var collection = new ServiceCollection();
+        collection.AddTestServices();
+
+        return collection;
     }
 }

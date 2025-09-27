@@ -4,7 +4,7 @@ using Shouldly;
 
 namespace Tests.Tests.Services;
 
-public class ChannelFlagsTests : TestFixtureBase
+public class ChannelFlagsTests : TestDatabaseFixtureBase
 {
     [Test]
     public async Task ShouldCreateChannelFlag()

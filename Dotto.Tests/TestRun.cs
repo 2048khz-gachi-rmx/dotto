@@ -1,6 +1,4 @@
-﻿// New protected member declared in sealed type
-// disabled because private methods can't be used by nUnit
-#pragma warning disable CS0628
+﻿using DotNet.Testcontainers.Builders;
 
 namespace Tests;
 
@@ -9,20 +7,47 @@ namespace Tests;
 /// ie, starts before the first test and ends after the last test
 /// </summary>
 [SetUpFixture]
-public sealed class TestRun
+public class TestRun
 {
     private static TestContainers? _testContainers;
+    
+    private static readonly SemaphoreSlim InitializeLock = new(1);
 
-    [OneTimeSetUp]
-    protected async Task RunBeforeAnyTests()
+    /// <summary>
+    /// Ensures the test containers are spun up and available
+    /// </summary>
+    public static async Task EnsureInitialized()
     {
-        _testContainers = new TestContainers();
-        await _testContainers.InitializeAsync();
+        if (_testContainers != null)
+            return;
+
+        await InitializeLock.WaitAsync();
+        
+        if (_testContainers != null)
+            return;
+
+        try
+        {
+            var containers = new TestContainers();
+            await containers.InitializeAsync();
+            _testContainers = containers;
+        }
+        catch (DockerUnavailableException ex)
+        {
+            Assert.Ignore("TestContainers could not spin up due to Docker being unavailable.\n" + ex.Message);
+        }
+        finally
+        {
+            InitializeLock.Release();
+        }
     }
     
     [OneTimeTearDown]
     protected async Task RunAfterAllTests()
     {
+        if (_testContainers == null)
+            return;
+        
         await _testContainers!.DisposeAsync();
         _testContainers = null;
     }

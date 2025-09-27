@@ -15,11 +15,13 @@ public class TestContainers
     {
         await _postgreSqlContainer.StartAsync();
         
-        var serviceProvider = DependencyInjection.BuildNewServiceProvider();
-        using var scope = serviceProvider.CreateScope();
+        var collection = DependencyInjection.BuildNewServiceCollection();
+        var provider = collection.BuildServiceProvider();
+        
+        using var scope = provider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<DottoDbContext>();
         await dbContext.Database.MigrateAsync();
-        await serviceProvider.DisposeAsync();
+        await provider.DisposeAsync();
     }
 
     public Task DisposeAsync()
