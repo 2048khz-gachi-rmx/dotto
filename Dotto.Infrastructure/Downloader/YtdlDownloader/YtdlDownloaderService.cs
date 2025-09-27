@@ -13,7 +13,7 @@ namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
 public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderService
 {
-	private readonly YtdlFormatParser _ytdlFormatParser = new();
+	private readonly YtdlFormatPicker _ytdlFormatPicker = new();
 	
 	/// <summary>
     /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
@@ -111,7 +111,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 			}
 
 		    index++;
-		    var format = _ytdlFormatParser.PickFormat(metadata, options);
+		    var format = _ytdlFormatPicker.PickFormat(metadata, options);
 		    
 		    if (format == null)
 			    throw new ApplicationException($"failed to pick format for video #{index}");

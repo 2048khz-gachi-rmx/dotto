@@ -5,9 +5,9 @@ using Shouldly;
 
 namespace Tests.Tests.Services;
 
-public class YtdlFormatParserTests : TestFixtureBase
+public class YtdlFormatPickerTests : TestFixtureBase
 {
-    private readonly YtdlFormatParser _parser = new();
+    private readonly YtdlFormatPicker _picker = new();
 
     [Test]
     public void PickFormat_ShouldReturnFallbackWhenNoFormats()
@@ -23,7 +23,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -48,11 +48,38 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
         result.VideoFormat?.FormatId.ShouldBe("unknown_format");
+    }
+    
+    [Test]
+    public void PickFormat_ShouldHandleAllUnknown()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new()
+                {
+                    VideoCodec = null,
+                    AudioCodec = null,
+                    FormatId = "0",
+                    Extension = "mp4"
+                },
+            ]
+        };
+        var options = new DownloadOptions { MaxFilesize = 1000 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("0");
     }
 
     [Test]
@@ -68,7 +95,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -93,7 +120,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -113,7 +140,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldBeNull();
@@ -133,7 +160,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -157,7 +184,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -173,7 +200,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldBeNull();
@@ -203,7 +230,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -238,7 +265,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -261,7 +288,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000, AudioOnly = true };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -284,7 +311,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000, AudioOnly = true };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -307,7 +334,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -328,7 +355,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000, AudioOnly = true };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldNotBeNull();
@@ -351,7 +378,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
         // Act
-        var result = _parser.TryPickOptimalFormat(audioFormats, videoFormats, options);
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
 
         // Assert
         result.ShouldBeNull();
@@ -371,7 +398,7 @@ public class YtdlFormatParserTests : TestFixtureBase
         var options = new DownloadOptions { MaxFilesize = 1000, AudioOnly = true };
 
         // Act
-        var result = _parser.PickFormat(metadata, options);
+        var result = _picker.PickFormat(metadata, options);
 
         // Assert
         result.ShouldBeNull();

@@ -5,7 +5,7 @@ using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
 namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
-internal class YtdlFormatParser
+internal class YtdlFormatPicker
 {
 	/// <summary>
 	/// Given a list of formats, tries to pick one (merged) or multiple (audio+video) that would be the best,
@@ -115,7 +115,7 @@ internal class YtdlFormatParser
 	private (FormatData? videoFormat, FormatData? audioFormat)?
 		TryPickOptimalVideoAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
-		var bestScore = long.MinValue;
+		long? bestScore = null;
 		(FormatData? videoFormat, FormatData? audioFormat)? choice = null;
 
 		if (videoFormats.IsEmpty())
@@ -140,7 +140,7 @@ internal class YtdlFormatParser
 				// premerged format or no audio, don't need to pick audio separately
 				var score = GetVideoFormatScore(vformat, options.MaxFilesize);
 				
-				if (score <= bestScore) continue;
+				if (score == null || score <= bestScore) continue;
 				
 				// new optimal combination found
 				bestScore = score;
@@ -158,7 +158,7 @@ internal class YtdlFormatParser
 					var leftover = options.MaxFilesize - asize;
 					var score = GetVideoFormatScore(vformat, leftover);
 					
-					if (score <= bestScore) continue;
+					if (score == null || score <= bestScore) continue;
 					
 					// new optimal combination found
 					bestScore = score;
@@ -178,9 +178,9 @@ internal class YtdlFormatParser
 		foreach (var format in audioFormats)
 		{
 			var score = GetAudioFormatScore(format, options.MaxFilesize);
-			if (score <= bestScore) continue;
+			if (score == null || score <= bestScore) continue;
 
-			bestScore = score;
+			bestScore = score.Value;
 			pickedFormat = format;
 		}
 
@@ -192,10 +192,10 @@ internal class YtdlFormatParser
 		{
 			// if there's no (eligible) audio channels, that probably means this video is in a premerged format and we don't need to pick audio separately
 			var score = GetVideoFormatScore(vformat, options.MaxFilesize);
-			if (score <= bestScore) continue;
+			if (score == null || score <= bestScore) continue;
 			
 			// new optimal combination found
-			bestScore = score;
+			bestScore = score.Value;
 			pickedFormat = vformat;
 		}
 
@@ -214,15 +214,18 @@ internal class YtdlFormatParser
 	/// (i.e. better resolutions should trump worse ones, better codecs should beat worse ones,
 	/// videos closer to the upload limit are preferred)
 	/// </summary>
-	private long GetVideoFormatScore(FormatData format, long sizeBudget)
+	private long? GetVideoFormatScore(FormatData format, long sizeBudget)
 	{
 		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
 		var leftover = sizeBudget - asize;
+
+		// over budget; never pick
+		if (leftover < 0)
+			return null;
 		
-		if (leftover < 0 || format.VideoCodec == null)
-		{
+		// we don't really know the codec; it's the worst valid choice
+		if (format.VideoCodec == null)
 			return long.MinValue;
-		}
 		
 		// higher res basically always beats codec choice
 		var resScore = (format.Width * format.Height / 1e6) ?? 1;
@@ -247,15 +250,16 @@ internal class YtdlFormatParser
 	/// (i.e. better bitrates should trump worse ones, better codecs should beat worse ones,
 	/// audio closer to the upload limit is preferred)
 	/// </summary>
-	private long GetAudioFormatScore(FormatData format, long sizeBudget)
+	private long? GetAudioFormatScore(FormatData format, long sizeBudget)
 	{
 		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
 		var leftover = sizeBudget - asize;
 		
-		if (leftover < 0 || format.AudioCodec == null)
-		{
+		if (leftover < 0)
+			return null;
+
+		if (format.AudioCodec == null)
 			return long.MinValue;
-		}
 		
 		var resScore = format.AudioBitrate ?? format.Bitrate ?? 1;
 		var matchedScoreMult = AudioFormatQualityRatio.FirstOrDefault(data => data.FormatPattern.IsMatch(format.AudioCodec));
