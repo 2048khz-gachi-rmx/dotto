@@ -37,7 +37,9 @@ public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<A
         await dl.LogDownloadedMedia(newMessage, dlResponse, Context.User, uri);
     }
 
-    [SlashCommand("dl", "Download from URL via yt-dlp")]
+    [SlashCommand("dl", "Download from URL via yt-dlp",
+        Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel],
+        DefaultGuildPermissions = Permissions.AttachFiles | Permissions.SendMessages | Permissions.EmbedLinks)]
     public Task InvokeSlash(
         [SlashCommandParameter(Name = "url", Description = "Link to the media you want to download")]
         string uriString,
