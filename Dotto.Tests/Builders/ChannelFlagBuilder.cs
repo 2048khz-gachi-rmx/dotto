@@ -2,7 +2,7 @@
 using Dotto.Common.DateTimeProvider;
 using Dotto.Infrastructure.Database;
 
-namespace Tests.Builders;
+namespace Dotto.Tests.Builders;
 
 public class ChannelFlagBuilder(DottoDbContext dbContext, IDateTimeProvider dateTimeProvider)
 {

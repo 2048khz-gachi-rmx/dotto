@@ -3,7 +3,7 @@ using Dotto.Infrastructure.Downloader.CobaltDownloader;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
 using Shouldly;
 
-namespace Tests.Tests.Services;
+namespace Dotto.Tests.UnitTests.Services;
 
 public class CobaltResponseDeserializerTests
 {

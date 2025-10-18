@@ -1,7 +1,7 @@
 ﻿using Dotto.Common;
 using NetCord.Rest;
 
-namespace Dotto.Application.Modules.Download;
+namespace Dotto.Discord.Models.Download;
 
 public class DownloadedMediaMessage<T>
     where T : IMessageProperties
@@ -19,12 +19,22 @@ public class DownloadedMediaMessage<T>
     /// <summary>
     /// Videos uploaded to external storage
     /// </summary>
-    public List<Uri> ExternalVideos { get; init; } = new();
+    public List<Uri> ExternalVideos { get; init; } = [];
     
     /// <summary>
     /// Videos uploaded to Discord
     /// </summary>
-    public List<AttachmentProperties> AttachedVideos { get; init; } = new();
+    public List<AttachmentProperties> AttachedVideos { get; init; } = [];
+
+    /// <summary>
+    /// Warnings which should (probably) be forwarded to the end user.
+    /// </summary>
+    public List<string> Warnings { get; } = [];
+    
+    /// <summary>
+    /// Errors which should (probably) be forwarded to the end user.
+    /// </summary>
+    public List<string> Errors { get; } = [];
     
     /// <summary>
     /// Does this message contain any media?

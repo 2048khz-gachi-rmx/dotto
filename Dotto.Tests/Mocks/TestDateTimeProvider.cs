@@ -1,6 +1,6 @@
 ﻿using Dotto.Common.DateTimeProvider;
 
-namespace Tests.Mocks;
+namespace Dotto.Tests.Mocks;
 
 public class TestDateTimeProvider : IDateTimeProvider
 {

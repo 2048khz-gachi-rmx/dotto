@@ -3,7 +3,7 @@ using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 using Dotto.Infrastructure.Downloader.YtdlDownloader;
 using Shouldly;
 
-namespace Tests.Tests.Services;
+namespace Dotto.Tests.UnitTests.Services;
 
 public class YtdlFormatPickerTests : TestFixtureBase
 {

@@ -1,4 +1,5 @@
-﻿using Dotto.Discord.Commands.Download;
+﻿using Dotto.Discord.CommandHandlers.Download;
+using Dotto.Discord.Commands.Download;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,8 +18,19 @@ public static class DependencyInjection
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<AutoDownloadSettings>>().Value);
 
-        services.AddScoped<MessageUrlDownload>();
+        AddCommands(services, discordSection);
+        AddCommandHandlers(services, discordSection);
         
         return services;
+    }
+
+    public static void AddCommands(this IServiceCollection services, IConfigurationSection discordSection)
+    {
+        services.AddScoped<MessageUrlDownload>();
+    }
+    
+    public static void AddCommandHandlers(this IServiceCollection services, IConfigurationSection discordSection)
+    {
+        services.AddTransient<DownloadCommand>();
     }
 }

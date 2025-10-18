@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices.ChannelFlagsService;
-using Dotto.Application.Modules.Download;
 using Dotto.Common;
 using Dotto.Common.Constants;
+using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.EventHandlers;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.Logging;

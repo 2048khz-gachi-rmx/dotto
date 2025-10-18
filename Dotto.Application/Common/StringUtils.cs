@@ -1,10 +1,11 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 namespace Dotto.Common;
 
 public static partial class StringUtils
 {
-    public static bool IsNullOrWhitespace(this string? str)
+    public static bool IsNullOrWhitespace([NotNullWhen(false)] this string? str)
         => string.IsNullOrWhiteSpace(str);
     
     private static readonly string[] FilesizeSuffixes = [ "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" ];

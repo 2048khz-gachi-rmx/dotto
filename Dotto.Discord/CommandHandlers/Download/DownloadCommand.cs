@@ -6,13 +6,14 @@ using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Common.Exceptions;
+using Dotto.Discord.Models.Download;
 using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Rest;
 
-namespace Dotto.Application.Modules.Download;
+namespace Dotto.Discord.CommandHandlers.Download;
 
 public class DownloadCommand(IDottoDbContext dbContext,
     IDownloaderServiceFactory downloaderFactory,

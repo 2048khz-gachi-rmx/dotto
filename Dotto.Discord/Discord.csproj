@@ -17,4 +17,8 @@
       <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.423" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="CommandHandlers\" />
+    </ItemGroup>
+
 </Project>
