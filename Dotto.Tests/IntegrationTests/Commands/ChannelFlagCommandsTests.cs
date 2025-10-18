@@ -3,7 +3,7 @@ using Dotto.Common.Constants;
 using NetCord.Rest;
 using Shouldly;
 
-namespace Tests.Tests.Commands;
+namespace Dotto.Tests.IntegrationTests.Commands;
 
 public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
 {

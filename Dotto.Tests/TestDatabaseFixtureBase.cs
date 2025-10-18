@@ -1,12 +1,11 @@
 ﻿using System.Diagnostics;
-using Dotto.Application.InternalServices.ChannelFlagsService;
 using Dotto.Infrastructure.Database;
+using Dotto.Tests.Builders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Tests.Builders;
 
-namespace Tests;
+namespace Dotto.Tests;
 
 /// <summary>
 /// A fixture base, representing a block of tests, that provides a database
@@ -14,7 +13,6 @@ namespace Tests;
 public abstract class TestDatabaseFixtureBase : TestFixtureBase
 {
     protected DottoDbContext DbContext => ServiceProvider.GetRequiredService<DottoDbContext>();
-    protected ChannelFlagsService ChannelFlags => ServiceProvider.GetRequiredService<ChannelFlagsService>();
     protected ChannelFlagBuilder ChannelFlagBuilder => ServiceProvider.GetRequiredService<ChannelFlagBuilder>();
 
     private bool _initialized;

@@ -1,8 +1,8 @@
-﻿using MediatR;
+﻿using Dotto.Tests.Mocks;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Mocks;
 
-namespace Tests;
+namespace Dotto.Tests;
 
 /// <summary>
 /// A fixture base, representing a block of tests

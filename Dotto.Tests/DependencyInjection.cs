@@ -1,10 +1,10 @@
 ﻿using Dotto.Application;
 using Dotto.Common.DateTimeProvider;
+using Dotto.Tests.Builders;
+using Dotto.Tests.Mocks;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Builders;
-using Tests.Mocks;
 
-namespace Tests;
+namespace Dotto.Tests;
 
 public static class DependencyInjection
 {

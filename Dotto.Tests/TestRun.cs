@@ -1,6 +1,6 @@
 ﻿using DotNet.Testcontainers.Builders;
 
-namespace Tests;
+namespace Dotto.Tests;
 
 /// <summary>
 /// A test run representing the whole application's lifetime,

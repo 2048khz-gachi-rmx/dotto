@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace Tests;
+namespace Dotto.Tests;
 
 public class TestContainers
 {
@@ -15,8 +15,9 @@ public class TestContainers
     {
         await _postgreSqlContainer.StartAsync();
         
-        var collection = DependencyInjection.BuildNewServiceCollection();
-        var provider = collection.BuildServiceProvider();
+        var provider = DependencyInjection.BuildNewServiceCollection()
+            .AddDatabase(GetConnectionString())
+            .BuildServiceProvider();
         
         using var scope = provider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<DottoDbContext>();

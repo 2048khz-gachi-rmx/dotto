@@ -1,19 +1,26 @@
+using Dotto.Application.InternalServices;
+using Dotto.Application.InternalServices.ChannelFlagsService;
 using Dotto.Common.Constants;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
+using NSubstitute;
 using Shouldly;
 
-namespace Tests.Tests.Services;
+namespace Dotto.Tests.IntegrationTests.Services;
 
 public class ChannelFlagsTests : TestDatabaseFixtureBase
 {
+    private readonly HybridCache _mockCache = Substitute.For<HybridCache>();
+    
     [Test]
     public async Task ShouldCreateChannelFlag()
     {
         // Arrange
+        var sut = new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
         
         // Act
-        await ChannelFlags.AddChannelFlag(102030, "testflag");
+        await sut.AddChannelFlag(102030, "testflag");
         
         // Assert
         var flags = await DbContext.ChannelFlags.ToListAsync();
@@ -27,6 +34,7 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
     public async Task ShouldAppendChannelFlag()
     {
         // Arrange
+        var sut = new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
 
         var flag = await ChannelFlagBuilder
@@ -36,11 +44,9 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
             .GetAsync();
         
         // Act
-        NewScope();
-        await ChannelFlags.AddChannelFlag(flag.ChannelId, "booba");
+        await sut.AddChannelFlag(flag.ChannelId, "booba");
         
         // Assert
-        NewScope();
         var flags = await DbContext.ChannelFlags.ToListAsync();
         flags.Count.ShouldBe(1);
         flags.Single().Flags.ShouldBe(["pupa", "lupa", "booba"]);
@@ -51,6 +57,7 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
     public async Task ShouldNoopAddExistingChannelFlag()
     {
         // Arrange
+        var sut = new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
 
         var flag = await ChannelFlagBuilder
@@ -60,11 +67,9 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
             .GetAsync();
         
         // Act
-        NewScope();
-        await ChannelFlags.AddChannelFlag(flag.ChannelId, "lupa");
+        await sut.AddChannelFlag(flag.ChannelId, "lupa");
         
         // Assert
-        NewScope();
         var flags = await DbContext.ChannelFlags.ToListAsync();
         flags.Count.ShouldBe(1);
         flags.Single().Flags.ShouldBe(["pupa", "lupa"]);
@@ -75,6 +80,7 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
     public async Task ShouldThrowLimitReached()
     {
         // Arrange
+        var sut = new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
 
         var flag = await ChannelFlagBuilder
@@ -84,11 +90,9 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
             .GetAsync();
         
         // Act
-        NewScope();
-        var shouldThrow = async () => await ChannelFlags.AddChannelFlag(flag.ChannelId, "booba");
+        var shouldThrow = async () => await sut.AddChannelFlag(flag.ChannelId, "booba");
         
         // Assert
-        NewScope();
         shouldThrow.ShouldThrow<ArgumentOutOfRangeException>();
         
         var flags = await DbContext.ChannelFlags.ToListAsync();
@@ -100,6 +104,7 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
     public async Task ShouldRemoveChannelFlag()
     {
         // Arrange
+        var sut = new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
 
         var flag = await ChannelFlagBuilder
@@ -109,22 +114,21 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
             .GetAsync();
         
         // Act
-        NewScope();
-        await ChannelFlags.RemoveChannelFlag(flag.ChannelId, "lupa");
+        await sut.RemoveChannelFlag(flag.ChannelId, "lupa");
         
         // Assert
-        NewScope();
         var flags = await DbContext.ChannelFlags.ToListAsync();
         flags.Count.ShouldBe(1);
         flags.Single().Flags.ShouldBe(["pupa"]);
         flags.Single().UpdatedOn.ShouldBe(now, TimeSpan.FromMilliseconds(1));
     }
 
-    [Ignore("how the hell do i test this, i can't count sql queries")]
     [Test]
     public async Task ShouldCacheFlags()
     {
         // Arrange
+        var mockDbContext = Substitute.For<IDottoDbContext>();
+        var sut = new ChannelFlagsService(mockDbContext, TestDateTimeProvider, _mockCache);
         var now = TestDateTimeProvider.SetNow();
 
         var flag = await ChannelFlagBuilder
@@ -134,11 +138,10 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
             .GetAsync();
         
         // Act
-        NewScope();
-        await ChannelFlags.GetChannelFlags(flag.ChannelId);
-        await ChannelFlags.GetChannelFlags(flag.ChannelId);
+        for (var i = 0; i <= 5; i++)
+            await sut.GetChannelFlags(flag.ChannelId);
         
         // Assert
-        NewScope();
+        mockDbContext.ChannelFlags.Received(1);
     }
 }

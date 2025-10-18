@@ -1,5 +1,5 @@
-﻿using Dotto.Application.Modules.Download;
-using Dotto.Common;
+﻿using Dotto.Common;
+using Dotto.Discord.CommandHandlers.Download;
 using NetCord.Rest;
 using NetCord.Services.Commands;
 
