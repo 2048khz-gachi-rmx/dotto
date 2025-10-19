@@ -15,7 +15,7 @@ using NetCord.Rest;
 
 namespace Dotto.Discord.CommandHandlers.Download;
 
-public class DownloadCommand(IDottoDbContext dbContext,
+internal class DownloadCommandHandler(IDottoDbContext dbContext,
     IDownloaderServiceFactory downloaderFactory,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)

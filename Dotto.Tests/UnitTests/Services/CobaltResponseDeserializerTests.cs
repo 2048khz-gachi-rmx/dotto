@@ -23,7 +23,7 @@ public class CobaltResponseDeserializerTests
     }
 
     [Test]
-    public void Deserialize__WithTunnelStatus_ReturnsTunnelEnum()
+    public void Deserialize_WithTunnelStatus_ReturnsTunnelEnum()
     {
         // Arrange
         string json = @"{""status"": ""classic""}";

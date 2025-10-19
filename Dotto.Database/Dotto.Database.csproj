@@ -13,11 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Dotto.Application\Application\Application.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Migrations\" />
+      <ProjectReference Include="..\Dotto.Application\Dotto.Application.csproj" />
     </ItemGroup>
 
 </Project>

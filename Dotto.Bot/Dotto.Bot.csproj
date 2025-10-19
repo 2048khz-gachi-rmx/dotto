@@ -28,12 +28,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Dotto.Application\Application\Application.csproj" />
-    <ProjectReference Include="..\Dotto.Application\Common\Common.csproj" />
-    <ProjectReference Include="..\Dotto.Discord\Discord.csproj" />
-    <ProjectReference Include="..\Dotto.Infrastructure\Database\Database.csproj" />
-    <ProjectReference Include="..\Dotto.Infrastructure\Downloader\Downloader.csproj" />
-    <ProjectReference Include="..\Dotto.Infrastructure\FileUpload\FileUpload.csproj" />
+    <ProjectReference Include="..\Dotto.Application\Dotto.Application.csproj" />
+    <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
+    <ProjectReference Include="..\Dotto.Discord\Dotto.Discord.csproj" />
+    <ProjectReference Include="..\Dotto.Database\Dotto.Database.csproj" />
+    <ProjectReference Include="..\Dotto.Downloader\Dotto.Downloader.csproj" />
+    <ProjectReference Include="..\Dotto.FileUpload\Dotto.FileUpload.csproj" />
   </ItemGroup>
 
 </Project>

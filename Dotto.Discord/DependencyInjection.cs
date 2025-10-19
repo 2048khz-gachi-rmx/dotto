@@ -31,6 +31,6 @@ public static class DependencyInjection
     
     public static void AddCommandHandlers(this IServiceCollection services, IConfigurationSection discordSection)
     {
-        services.AddTransient<DownloadCommand>();
+        services.AddTransient<DownloadCommandHandler>();
     }
 }

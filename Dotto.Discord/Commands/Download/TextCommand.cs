@@ -5,8 +5,7 @@ using NetCord.Services.Commands;
 
 namespace Dotto.Discord.Commands.Download;
 
-public class TextCommand(DownloadCommand dl,
-    RestClient client) : CommandModule<CommandContext>
+internal class TextCommand(DownloadCommandHandler dl, RestClient client) : CommandModule<CommandContext>
 {
     [Command("dl")]
     public async Task InvokeMessage(string uriString, bool audioOnly = false)
@@ -22,7 +21,7 @@ public class TextCommand(DownloadCommand dl,
         
         try
         {
-            var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(Context.Guild);
+            var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(Context.Guild);
             var msg = await dl.CreateMessage<ReplyMessageProperties>(uri, audioOnly, uploadLimit);
             var replyTask = ReplyAsync(msg.Message);
             

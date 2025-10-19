@@ -6,7 +6,7 @@ using NetCord.Services.ApplicationCommands;
 
 namespace Dotto.Discord.Commands.Download;
 
-public class ApplicationCommand(DownloadCommand dl) : ApplicationCommandModule<ApplicationCommandContext>
+internal class ApplicationCommand(DownloadCommandHandler dl) : ApplicationCommandModule<ApplicationCommandContext>
 {
     private async Task Download(string uriString, bool isSilent, bool audioOnly)
     {

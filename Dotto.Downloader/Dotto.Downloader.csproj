@@ -15,12 +15,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Dotto.Application\Common\Common.csproj" />
-        <ProjectReference Include="..\..\Downloader.Contracts\Downloader.Contracts.csproj" />
+        <InternalsVisibleTo Include="Dotto.Tests" />
     </ItemGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="Tests" />
+      <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
+      <ProjectReference Include="..\Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

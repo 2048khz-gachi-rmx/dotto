@@ -21,7 +21,7 @@ internal class MessageUrlDownload(
     IOptionsMonitor<AutoDownloadSettings> settings,
     RestClient client,
     ChannelFlagsService channelFlagsService,
-    DownloadCommand downloadCommand,
+    DownloadCommandHandler downloadCommandHandler,
     ILogger<MessageUrlDownload> logger)
     : IGatewayEventProcessor<Message>, IDisposable
 {
@@ -77,8 +77,8 @@ internal class MessageUrlDownload(
 
         try
         {
-            var uploadLimit = DownloadCommand.GetMaxDiscordFileSize(message.Guild);
-            var msg = await downloadCommand.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
+            var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(message.Guild);
+            var msg = await downloadCommandHandler.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
 
             if (!msg.HasAnyMedia)
                 return;
@@ -87,7 +87,7 @@ internal class MessageUrlDownload(
 
             await message.SuppressEmbeds();
             var newMessage = await replyTask;
-            await downloadCommand.LogDownloadedMedia(newMessage, msg, message.Author, uri);
+            await downloadCommandHandler.LogDownloadedMedia(newMessage, msg, message.Author, uri);
         }
         finally
         {

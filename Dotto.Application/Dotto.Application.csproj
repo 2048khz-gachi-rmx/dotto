@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Dotto.Application</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FluentValidation" Version="12.0.0" />
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
+        <PackageReference Include="MediatR" Version="[12.5.0]" /> <!-- TODO: https://github.com/martinothamar/Mediator -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="9.9.0" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="9.0.9" />
+        <PackageReference Include="NetCord" Version="1.0.0-alpha.423" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
+      <ProjectReference Include="..\Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

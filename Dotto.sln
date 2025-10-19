@@ -1,14 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Application", "Dotto.Application\Application\Application.csproj", "{CA709F1D-997D-45C8-B4EE-85644359F922}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Application", "Dotto.Application\Dotto.Application.csproj", "{CA709F1D-997D-45C8-B4EE-85644359F922}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database", "Dotto.Infrastructure\Database\Database.csproj", "{7A8532D3-7299-4E8E-BE21-03ED32E13E76}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Database", "Dotto.Database\Dotto.Database.csproj", "{7A8532D3-7299-4E8E-BE21-03ED32E13E76}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "2_Infrastructure", "2_Infrastructure", "{B8C538E4-C0E5-4035-B9D8-4E9D9C2A4DD1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUpload", "Dotto.Infrastructure\FileUpload\FileUpload.csproj", "{AC757B00-18E2-4FB7-B790-E140ABBB869A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.FileUpload", "Dotto.FileUpload\Dotto.FileUpload.csproj", "{AC757B00-18E2-4FB7-B790-E140ABBB869A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Dotto.Application\Common\Common.csproj", "{3583AA4C-ACA5-4D18-8ABE-5951DDE82169}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Common", "Dotto.Common\Dotto.Common.csproj", "{3583AA4C-ACA5-4D18-8ABE-5951DDE82169}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "1_Application", "1_Application", "{B599B60B-AD25-4573-BBC6-CE75D4EEB309}"
 EndProject
@@ -16,17 +16,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3_Tests", "3_Tests", "{4B63
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "3_Bot", "3_Bot", "{6766546E-2D81-4622-8F61-1F2A548EB630}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Dotto.Tests\Tests.csproj", "{22327D8B-D314-449E-A401-CFAA8E5B10E6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Tests", "Dotto.Tests\Dotto.Tests.csproj", "{22327D8B-D314-449E-A401-CFAA8E5B10E6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader", "Dotto.Infrastructure\Downloader\Downloader.csproj", "{43A25595-FBA1-45B1-84A9-A9FEF478C9D5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Downloader", "Dotto.Downloader\Dotto.Downloader.csproj", "{43A25595-FBA1-45B1-84A9-A9FEF478C9D5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "2_Discord", "2_Discord", "{4D7AC2D8-717D-4052-A550-0828747D52C0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot", "Dotto.Bot\Bot.csproj", "{B7F6AE99-091F-4ED1-88BB-6501E4322EFD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Bot", "Dotto.Bot\Dotto.Bot.csproj", "{B7F6AE99-091F-4ED1-88BB-6501E4322EFD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Discord", "Dotto.Discord\Discord.csproj", "{C6EFC8CE-BB26-44FF-B56E-44B198F6B901}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Discord", "Dotto.Discord\Dotto.Discord.csproj", "{C6EFC8CE-BB26-44FF-B56E-44B198F6B901}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Downloader.Contracts", "Downloader.Contracts\Downloader.Contracts.csproj", "{2FD17633-DBE3-4BFD-96C8-2B955C74D292}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dotto.Downloader.Contracts", "Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj", "{2FD17633-DBE3-4BFD-96C8-2B955C74D292}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
