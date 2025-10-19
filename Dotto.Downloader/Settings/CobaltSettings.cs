@@ -2,7 +2,7 @@
 
 public class CobaltSettings
 {
-    public Uri BaseUrl { get; init; }
+    public required Uri BaseUrl { get; init; }
     
-    public string ApiKey { get; init; }
+    public required string ApiKey { get; init; }
 }

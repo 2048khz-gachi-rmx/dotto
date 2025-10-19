@@ -64,20 +64,20 @@ internal class YtdlFormatPicker
 	private static readonly List<(Regex FormatPattern, double ScoreMult)> VideoFormatQualityRatio =
 	[
 		// fuck h264
-		(new("^(avc.*|h264.*)"), 0.6d),
+		(new("^(avc.*|h264.*)", RegexOptions.Compiled), 0.6d),
 		
 		// h265 is baseline quality
-		(new("^(hevc.*|h265.*)"), 1d),
+		(new("^(hevc.*|h265.*)", RegexOptions.Compiled), 1d),
 		
 		// about the same for vp9, but vp9 gets a boost for being more supported :^)
-		(new("^(vp0?9.*)"), 1.1d),
+		(new("^(vp0?9.*)", RegexOptions.Compiled), 1.1d),
 	];
 	
 	private static readonly List<(Regex FormatPattern, double ScoreMult)> AudioFormatQualityRatio =
 	[
-		(new("^mp4a"), 1d),
+		(new("^mp4a", RegexOptions.Compiled), 1d),
 		
-		(new("^opus"), 1.1d),
+		(new("^opus", RegexOptions.Compiled), 1.1d),
 	];
 	
 	/// <summary>
@@ -104,7 +104,7 @@ internal class YtdlFormatPicker
 			? $"{fmt.videoFormat.FormatId}+{fmt.audioFormat.FormatId}"
 			: $"{(fmt.videoFormat ?? fmt.audioFormat)!.FormatId}";
 
-		return new PickedFormat()
+		return new PickedFormat
 		{
 			VideoFormat = fmt.videoFormat,
 			AudioFormat = fmt.audioFormat,
@@ -170,7 +170,7 @@ internal class YtdlFormatPicker
 		return choice;
 	}
 	
-	private FormatData? TryPickOptimalAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
+	private static FormatData? TryPickOptimalAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
 		var bestScore = long.MinValue;
 		FormatData? pickedFormat = null;
@@ -204,9 +204,9 @@ internal class YtdlFormatPicker
 
 	internal class PickedFormat
 	{
-	    public required FormatData? VideoFormat { get; set; }
-	    public required FormatData? AudioFormat { get; set; }
-	    public required string FormatString { get; set; }
+	    public required FormatData? VideoFormat { get; init; }
+	    public required FormatData? AudioFormat { get; init; }
+	    public required string FormatString { get; init; }
 	}
 
 	/// <summary>
@@ -214,7 +214,7 @@ internal class YtdlFormatPicker
 	/// (i.e. better resolutions should trump worse ones, better codecs should beat worse ones,
 	/// videos closer to the upload limit are preferred)
 	/// </summary>
-	private long? GetVideoFormatScore(FormatData format, long sizeBudget)
+	private static long? GetVideoFormatScore(FormatData format, long sizeBudget)
 	{
 		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
 		var leftover = sizeBudget - asize;
@@ -228,7 +228,8 @@ internal class YtdlFormatPicker
 			return long.MinValue;
 		
 		// higher res basically always beats codec choice
-		var resScore = (format.Width * format.Height / 1e6) ?? 1;
+		var resScore = format.Width * format.Height / 1e6
+		               ?? 1;
 		
 		var matchedScoreMult = VideoFormatQualityRatio.FirstOrDefault(data => data.FormatPattern.IsMatch(format.VideoCodec));
 
@@ -250,7 +251,7 @@ internal class YtdlFormatPicker
 	/// (i.e. better bitrates should trump worse ones, better codecs should beat worse ones,
 	/// audio closer to the upload limit is preferred)
 	/// </summary>
-	private long? GetAudioFormatScore(FormatData format, long sizeBudget)
+	private static long? GetAudioFormatScore(FormatData format, long sizeBudget)
 	{
 		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
 		var leftover = sizeBudget - asize;
@@ -280,7 +281,7 @@ internal class YtdlFormatPicker
 	/// <summary>
 	/// Some combinations can't be combined due to container restrictions (ie: webm video and m4a will result in an unembeddable MKV)
 	/// </summary>
-	private bool IsAllowedCombination(FormatData vformat, FormatData aformat)
+	private static bool IsAllowedCombination(FormatData vformat, FormatData aformat)
 	{
 		// m4a audio can't be embedded in webm containers
 		if (vformat.Extension != "mp4" && aformat.Extension == "m4a")
@@ -293,7 +294,7 @@ internal class YtdlFormatPicker
 	
 	private static readonly Regex FormatRegex = new("^(hevc.*|h265.*|vp0?9.*|avc.*|h264.*)");
 
-	private IList<FormatData> GetEligibleVideos(IList<FormatData> formats, bool allowUnknownVcodec)
+	private static IList<FormatData> GetEligibleVideos(IList<FormatData> formats, bool allowUnknownVcodec)
 	{
 		return formats
 			.Where(f => (allowUnknownVcodec && f.VideoCodec is "unknown" or null)

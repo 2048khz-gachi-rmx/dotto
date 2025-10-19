@@ -1,13 +1,18 @@
 ﻿using Dotto.Common;
 using Dotto.Discord.CommandHandlers.Download;
+using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
 namespace Dotto.Discord.Commands.Download;
 
-internal class ApplicationCommand(DownloadCommandHandler dl) : ApplicationCommandModule<ApplicationCommandContext>
+public class ApplicationCommand(IServiceProvider serviceProvider) : ApplicationCommandModule<ApplicationCommandContext>
 {
+    // the command itself has to be public for netcord to register it automatically, but it uses an internal handler
+    // pinky promise to not use serviceProvider anywhere else except the constructor
+    private readonly DownloadCommandHandler _downloadHandler = serviceProvider.GetRequiredService<DownloadCommandHandler>();
+
     private async Task Download(string uriString, bool isSilent, bool audioOnly)
     {
         var flags = isSilent ? MessageFlags.Ephemeral : default;
@@ -21,7 +26,7 @@ internal class ApplicationCommand(DownloadCommandHandler dl) : ApplicationComman
         // if an unhandled exception occurs, NetCord will acknowledge the command with an error instead of following up,
         // which will give us a 400 Bad Request by discord. so let's check for synchronous errors first
         var uploadLimit = Context.Interaction.AttachmentSizeLimit;
-        var hydrateTask = dl.CreateMessage<InteractionMessageProperties>(uri, audioOnly, uploadLimit);
+        var hydrateTask = _downloadHandler.CreateMessage<InteractionMessageProperties>(uri, audioOnly, uploadLimit);
         if (hydrateTask.IsFaulted)
         {
             throw hydrateTask.Exception;
@@ -34,7 +39,7 @@ internal class ApplicationCommand(DownloadCommandHandler dl) : ApplicationComman
         var dlResponse = await hydrateTask;
         var newMessage = await FollowupAsync(dlResponse.Message);
 
-        await dl.LogDownloadedMedia(newMessage, dlResponse, Context.User.Id, uri);
+        await _downloadHandler.LogDownloadedMedia(newMessage, dlResponse, Context.User.Id);
     }
 
     [SlashCommand("dl", "Download from URL via yt-dlp",

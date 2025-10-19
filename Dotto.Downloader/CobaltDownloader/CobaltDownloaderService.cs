@@ -76,14 +76,16 @@ public class CobaltDownloaderService(
         HttpStatusCode.GatewayTimeout,
         (HttpStatusCode)522, // cloudflare
     ];
+
+    private readonly JsonSerializerOptions _serializeOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
     
     private async Task<CobaltGenericResponse> GetCobaltResponse(CobaltDownloadRequest request, CancellationToken cancellationToken)
     {
-        var jsonString = JsonSerializer.Serialize(request, new JsonSerializerOptions()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        });
+        var jsonString = JsonSerializer.Serialize(request, _serializeOptions);
 
         var stringContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
@@ -97,7 +99,7 @@ public class CobaltDownloaderService(
         
         try
         {
-            response = _responseDeserializer.DeserializeToCobaltResponse(jsonContent);
+            response = CobaltResponseDeserializer.DeserializeToCobaltResponse(jsonContent);
         }
         catch (JsonException ex)
         {

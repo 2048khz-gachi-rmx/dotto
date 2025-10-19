@@ -176,7 +176,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         var restMessage = CreateMessage("aboba", [ new() { Url = "https://video.com" } ]);
 
         // Act
-        await _sut.LogDownloadedMedia(restMessage, result, TestInvokerId, testUri);
+        await _sut.LogDownloadedMedia(restMessage, result, TestInvokerId);
 
         // Assert - Database records are saved
         var mediaRecords = await DbContext.DownloadedMedia.ToListAsync();

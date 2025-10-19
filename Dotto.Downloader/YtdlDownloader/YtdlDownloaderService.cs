@@ -32,7 +32,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
         return videos;
     }
 
-    private Process StartYtdlp(string url, OptionSet options)
+    private static Process StartYtdlp(string url, OptionSet options)
     { 
 	    var process = new Process();
 	    var processStartInfo = new ProcessStartInfo
@@ -61,8 +61,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// Grabs video(s) information as a JSON, picks a format for each, then downloads them into MemoryStreams
     /// </summary>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir,
-	    DownloadOptions options, CancellationToken ct = default)
+    private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir, DownloadOptions options, CancellationToken ct = default)
     {
 	    // Grabs information about the video(s) as JSON
 	    var opts = new OptionSet
@@ -211,7 +210,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <summary>
     /// Hooks up the process' exit to a task so the exitcode can be obtained, and makes the cancellation token terminate the process
     /// </summary>
-    private Task<int> SetupExit(Process process, CancellationToken ct)
+    private static Task<int> SetupExit(Process process, CancellationToken ct)
     {
 	    // the process api is really unergonomic; trying to get process.ExitCode just fucking throws. thanks c#!!!
 	    var ecTcs = new TaskCompletionSource<int>();

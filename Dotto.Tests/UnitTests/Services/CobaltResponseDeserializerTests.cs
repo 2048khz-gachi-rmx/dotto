@@ -13,10 +13,10 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithErrorStatus_ReturnsErrorEnum()
     {
         // Arrange
-        string json = @"{""status"": ""error""}";
+        var json = @"{""status"": ""error""}";
 
         // Act
-        var result = _deserializer.DeserializeToCobaltResponse(json);
+        var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);
 
         // Assert
         result.ShouldBeOfType<CobaltErrorResponse>();
@@ -26,10 +26,10 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithTunnelStatus_ReturnsTunnelEnum()
     {
         // Arrange
-        string json = @"{""status"": ""classic""}";
+        var json = @"{""status"": ""classic""}";
 
         // Act
-        var result = _deserializer.DeserializeToCobaltResponse(json);
+        var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);
 
         // Assert
         result.ShouldBeOfType<CobaltTunnelResponse>();
@@ -39,10 +39,10 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithLocalProcessingStatus_ReturnsLocalProcessingEnum()
     {
         // Arrange
-        string json = @"{""status"": ""local-processing""}";
+        var json = @"{""status"": ""local-processing""}";
 
         // Act
-        var result = _deserializer.DeserializeToCobaltResponse(json);
+        var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);
 
         // Assert
         result.ShouldBeOfType<CobaltLocalProcessingResponse>();
@@ -52,10 +52,10 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithPickerStatus_ReturnsPickerEnum()
     {
         // Arrange
-        string json = @"{""status"": ""picker""}";
+        var json = @"{""status"": ""picker""}";
 
         // Act
-        var result = _deserializer.DeserializeToCobaltResponse(json);
+        var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);
 
         // Assert
         result.ShouldBeOfType<CobaltPickerResponse>();
@@ -65,10 +65,10 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithInvalidStatus_ThrowsException()
     {
         // Arrange
-        string json = @"{""status"": ""invalid-status""}";
+        var json = @"{""status"": ""invalid-status""}";
 
         // Act & Assert
-        var exception = Should.Throw<JsonException>(() => _deserializer.DeserializeToCobaltResponse(json));
+        var exception = Should.Throw<JsonException>(() => CobaltResponseDeserializer.DeserializeToCobaltResponse(json));
         exception.Message.ShouldContain("The JSON value could not be converted to"); // TODO: how do i make this a nicer message?
     }
 }

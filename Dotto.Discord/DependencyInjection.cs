@@ -24,12 +24,12 @@ public static class DependencyInjection
         return services;
     }
 
-    public static void AddCommands(this IServiceCollection services, IConfigurationSection discordSection)
+    private static void AddCommands(this IServiceCollection services, IConfigurationSection discordSection)
     {
         services.AddScoped<MessageUrlDownload>();
     }
-    
-    public static void AddCommandHandlers(this IServiceCollection services, IConfigurationSection discordSection)
+
+    private static void AddCommandHandlers(this IServiceCollection services, IConfigurationSection discordSection)
     {
         services.AddTransient<DownloadCommandHandler>();
     }

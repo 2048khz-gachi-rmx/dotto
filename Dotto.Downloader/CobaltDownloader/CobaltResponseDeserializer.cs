@@ -18,7 +18,7 @@ internal class CobaltResponseDeserializer
         }
     };
 
-    public CobaltGenericResponse DeserializeToCobaltResponse(string responseJsonBody)
+    public static CobaltGenericResponse DeserializeToCobaltResponse(string responseJsonBody)
     {
         if (responseJsonBody.IsNullOrWhitespace())
             throw new JsonException("Cobalt returned an empty response");
@@ -37,7 +37,7 @@ internal class CobaltResponseDeserializer
             CobaltResponseStatus.LocalProcessing => JsonSerializer.Deserialize<CobaltLocalProcessingResponse>(responseJsonBody, JsonOptions),
             CobaltResponseStatus.Picker => JsonSerializer.Deserialize<CobaltPickerResponse>(responseJsonBody, JsonOptions),
             CobaltResponseStatus.Error => JsonSerializer.Deserialize<CobaltErrorResponse>(responseJsonBody, JsonOptions),
-            _ => throw new ArgumentOutOfRangeException()
+            _ => throw new ArgumentOutOfRangeException(null, response.Status, "Unhandled Cobalt response type")
         };
         
         if (ret == null)

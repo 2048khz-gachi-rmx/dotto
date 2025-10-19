@@ -16,9 +16,9 @@ public static partial class StringUtils
             return "0" + FilesizeSuffixes[0];
 
         //  0 => 0  |  1 => 1024 (KiB)  |  2 => 1024*1024 (MiB)  |  ...
-        int factorNum = (int)Math.Floor(Math.Log(size, 1024));
+        var factorNum = (int)Math.Floor(Math.Log(size, 1024));
         
-        double num = Math.Round(size / Math.Pow(1024, factorNum), decimals);
+        var num = Math.Round(size / Math.Pow(1024, factorNum), decimals);
         return $"{num} {FilesizeSuffixes[factorNum]}";
     }
 

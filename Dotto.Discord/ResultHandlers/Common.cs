@@ -8,7 +8,7 @@ internal class Common
     public static T GetErrorEmbed<T>(string error)
         where T : IMessageProperties, new()
     {
-        return new T()
+        return new T
         {
             Embeds =
             [

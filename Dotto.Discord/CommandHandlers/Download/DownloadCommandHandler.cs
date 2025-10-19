@@ -30,7 +30,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
             ? UploadMinio
             : discordUploadLimit;
 
-        var response = new DownloadMediaResult<T>()
+        var response = new DownloadMediaResult<T>
         {
             Message = new T(),
             SourceUrl = uri,
@@ -169,30 +169,30 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
         return Math.Max(userLimit, guildLimit);
     }
 
-    public async Task LogDownloadedMedia<T>(RestMessage newMessage, DownloadMediaResult<T> downloadMedia, ulong invokerUserId, Uri downloadedFrom)
+    public async Task LogDownloadedMedia<T>(RestMessage newMessage, DownloadMediaResult<T> downloadMedia, ulong invokerUserId)
         where T : IMessageProperties
     {
         var attachmentMedia = newMessage.Attachments
-            .Select(e => new DownloadedMediaRecord()
+            .Select(e => new DownloadedMediaRecord
             {
                 Id = default,
                 
                 ChannelId = newMessage.ChannelId,
                 MessageId = newMessage.Id,
-                DownloadedFrom = downloadedFrom.ToString(),
+                DownloadedFrom = downloadMedia.SourceUrl.ToString(),
                 InvokerId = invokerUserId,
                 MediaUrl = e.Url,
                 CreatedOn = dateTimeProvider.UtcNow,
             });
 
         var externalMedia = downloadMedia.ExternalVideos
-            .Select(e => new DownloadedMediaRecord()
+            .Select(e => new DownloadedMediaRecord
             {
                 Id = default,
                 
                 ChannelId = newMessage.ChannelId,
                 MessageId = newMessage.Id,
-                DownloadedFrom = downloadedFrom.ToString(),
+                DownloadedFrom = downloadMedia.SourceUrl.ToString(),
                 InvokerId = invokerUserId,
                 MediaUrl = e.ToString(),
                 CreatedOn = dateTimeProvider.UtcNow,

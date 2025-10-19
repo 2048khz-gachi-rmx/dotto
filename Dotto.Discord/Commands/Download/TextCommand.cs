@@ -1,12 +1,15 @@
 ﻿using Dotto.Common;
 using Dotto.Discord.CommandHandlers.Download;
+using Microsoft.Extensions.DependencyInjection;
 using NetCord.Rest;
 using NetCord.Services.Commands;
 
 namespace Dotto.Discord.Commands.Download;
 
-internal class TextCommand(DownloadCommandHandler dl, RestClient client) : CommandModule<CommandContext>
+public class TextCommand(IServiceProvider serviceProvider, RestClient client) : CommandModule<CommandContext>
 {
+    private readonly DownloadCommandHandler _downloadHandler = serviceProvider.GetRequiredService<DownloadCommandHandler>();
+    
     [Command("dl")]
     public async Task InvokeMessage(string uriString, bool audioOnly = false)
     {
@@ -22,12 +25,12 @@ internal class TextCommand(DownloadCommandHandler dl, RestClient client) : Comma
         try
         {
             var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(Context.Guild);
-            var msg = await dl.CreateMessage<ReplyMessageProperties>(uri, audioOnly, uploadLimit);
+            var msg = await _downloadHandler.CreateMessage<ReplyMessageProperties>(uri, audioOnly, uploadLimit);
             var replyTask = ReplyAsync(msg.Message);
             
             await Context.Message.SuppressEmbeds();
             var newMessage = await replyTask;
-            await dl.LogDownloadedMedia(newMessage, msg, Context.User.Id, uri);
+            await _downloadHandler.LogDownloadedMedia(newMessage, msg, Context.User.Id);
         }
         finally
         {

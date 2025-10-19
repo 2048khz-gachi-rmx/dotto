@@ -1,10 +1,12 @@
 ﻿using Dotto.Common;
+using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 
 namespace Dotto.Discord.EventHandlers;
 
+[UsedImplicitly]
 internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) : IMessageCreateGatewayHandler
 {
     private readonly Dictionary<Type, Type[]> _handlerTypes = DiscoverHandlerTypes();
@@ -15,7 +17,7 @@ internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider)
             return;
 
         var tasks = new ValueTask[handlerTypes.Length];
-        int idx = 0;
+        var idx = 0;
 
         using var scope = serviceProvider.CreateScope();
         
@@ -23,7 +25,10 @@ internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider)
         foreach (var handlerType in handlerTypes)
         {
             var handler = (IGatewayEventProcessor<Message>)scope.ServiceProvider.GetRequiredService(handlerType);
+            // blah blah the result should be directly awaited. shush.
+#pragma warning disable CA2012
             tasks[idx++] = handler.HandleAsync(arg);
+#pragma warning restore CA2012
         }
             
         await ValueTaskUtils.WhenAll(tasks);

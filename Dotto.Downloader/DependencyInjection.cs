@@ -34,15 +34,16 @@ public static class DependencyInjection
     private static void SetupCobaltService(IServiceCollection services)
     {
         // hack... we need the options, but we also need to validate them
-        var serviceProvider = services.BuildServiceProvider();
-        var options = serviceProvider.GetRequiredService<IOptions<DownloaderSettings>>().Value;
-
-        if (options.Cobalt == null)
-            return;
-    
-        services.AddHttpClient<CobaltDownloaderService>((serviceProvider, client) =>
         {
+            var serviceProvider = services.BuildServiceProvider();
             var settings = serviceProvider.GetRequiredService<IOptions<DownloaderSettings>>().Value;
+            if (settings.Cobalt == null)
+                return;
+        }
+    
+        services.AddHttpClient<CobaltDownloaderService>((httpProvider, client) =>
+        {
+            var settings = httpProvider.GetRequiredService<IOptions<DownloaderSettings>>().Value;
             
             client.DefaultRequestHeaders.Add("Authorization", $"Api-Key {settings.Cobalt!.ApiKey}");
             client.BaseAddress = settings.Cobalt.BaseUrl;

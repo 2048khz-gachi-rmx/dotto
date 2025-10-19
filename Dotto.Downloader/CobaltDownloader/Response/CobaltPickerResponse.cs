@@ -2,14 +2,14 @@ namespace Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
 
 internal class CobaltPickerResponse : CobaltGenericResponse
 {
-    public string? Audio { get; set; }
-    public string? AudioFilename { get; set; }
-    public CobaltPickerItem[] Picker { get; set; } = Array.Empty<CobaltPickerItem>();
+    public string? Audio { get; init; }
+    public string? AudioFilename { get; init; }
+    public CobaltPickerItem[] Picker { get; init; } = [];
 }
 
 internal class CobaltPickerItem
 {
-    public string Type { get; set; } = string.Empty;
-    public string Url { get; set; } = string.Empty;
-    public string? Thumb { get; set; }
+    public string Type { get; init; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
+    public string? Thumb { get; init; }
 }

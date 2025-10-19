@@ -6,6 +6,7 @@ using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.EventHandlers;
 using Dotto.Discord.Settings;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetCord.Gateway;
@@ -17,14 +18,16 @@ namespace Dotto.Discord.Commands.Download;
 /// Downloads media from messages containing an eligible URL is posted in chat, assuming the appropriate flag is set in the channel.
 /// <seealso cref="Constants.ChannelFlags.FunctionalFlags.LinkAutodownload" />
 /// </summary>
-internal class MessageUrlDownload(
+public class MessageUrlDownload(
     IOptionsMonitor<AutoDownloadSettings> settings,
     RestClient client,
     ChannelFlagsService channelFlagsService,
-    DownloadCommandHandler downloadCommandHandler,
+    IServiceProvider serviceProvider,
     ILogger<MessageUrlDownload> logger)
     : IGatewayEventProcessor<Message>, IDisposable
 {
+    private readonly DownloadCommandHandler _downloadHandler = serviceProvider.GetRequiredService<DownloadCommandHandler>();
+    
     // precompile all regexes
     private static Regex[]? _patterns;
     private readonly IDisposable? _changeTracker = settings.OnChange(GenerateRegexes);
@@ -78,7 +81,7 @@ internal class MessageUrlDownload(
         try
         {
             var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(message.Guild);
-            var msg = await downloadCommandHandler.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
+            var msg = await _downloadHandler.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
 
             if (!msg.HasAnyMedia)
                 return;
@@ -87,7 +90,7 @@ internal class MessageUrlDownload(
 
             await message.SuppressEmbeds();
             var newMessage = await replyTask;
-            await downloadCommandHandler.LogDownloadedMedia(newMessage, msg, message.Author.Id, uri);
+            await _downloadHandler.LogDownloadedMedia(newMessage, msg, message.Author.Id);
         }
         finally
         {

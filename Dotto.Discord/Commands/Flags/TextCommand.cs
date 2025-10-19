@@ -1,4 +1,5 @@
 ﻿using Dotto.Application.Modules.ChannelFlags;
+using JetBrains.Annotations;
 using MediatR;
 using NetCord;
 using NetCord.Rest;
@@ -6,8 +7,10 @@ using NetCord.Services.Commands;
 
 namespace Dotto.Discord.Commands.Flags;
 
+[UsedImplicitly]
 public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
 {
+    [UsedImplicitly]
     [Command("addflag")]
     public async Task AddFlag(string flagName)
     {
@@ -23,6 +26,7 @@ public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
         await ReplyAsync(message);
     }
     
+    [UsedImplicitly]
     [Command("removeflag")]
     public async Task RemoveFlag(string flagName)
     {
@@ -38,6 +42,7 @@ public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
         await ReplyAsync(message);
     }
     
+    [UsedImplicitly]
     [Command("listflags")]
     public async Task ListFlags()
     {
