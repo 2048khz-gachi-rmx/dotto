@@ -30,4 +30,4 @@ RUN wget -q https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.
     && rm -rf ffmpeg-git-*
 
 COPY --from=build /Dotto.Bot/out .
-ENTRYPOINT ["dotnet", "Bot.dll"]
+ENTRYPOINT ["dotnet", "Dotto.Bot.dll"]

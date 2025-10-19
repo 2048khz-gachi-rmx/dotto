@@ -3,7 +3,7 @@ using NetCord.Rest;
 
 namespace Dotto.Discord.Models.Download;
 
-public class DownloadedMediaMessage<T>
+public class DownloadMediaResult<T>
     where T : IMessageProperties
 {
     /// <summary>
