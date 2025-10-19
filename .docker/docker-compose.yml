@@ -1,5 +1,3 @@
-# Docker-compose file for development only: sets up required services
-# currently only postgres; i'll need minio... eventually
 services:
   postgres:
     container_name: dotto_postgres
