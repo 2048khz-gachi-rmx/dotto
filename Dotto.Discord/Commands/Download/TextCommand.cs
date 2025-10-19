@@ -27,7 +27,7 @@ internal class TextCommand(DownloadCommandHandler dl, RestClient client) : Comma
             
             await Context.Message.SuppressEmbeds();
             var newMessage = await replyTask;
-            await dl.LogDownloadedMedia(newMessage, msg, Context.User, uri);
+            await dl.LogDownloadedMedia(newMessage, msg, Context.User.Id, uri);
         }
         finally
         {

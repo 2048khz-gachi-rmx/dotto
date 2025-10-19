@@ -25,8 +25,8 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
         
         // Assert
         msg.Content.ShouldStartWith("Flag added!");
-        msg.Content!.ShouldContain("preflag");
-        msg.Content!.ShouldContain("newflag");
+        msg.Content.ShouldNotBeNull().ShouldContain("preflag");
+        msg.Content.ShouldNotBeNull().ShouldContain("newflag");
     }
     
     [Test]
@@ -73,8 +73,8 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
         
         // Assert
         msg.Content.ShouldStartWith("Flag removed!");
-        msg.Content!.ShouldContain("keepFlag");
-        msg.Content!.ShouldNotContain("removeFlag");
+        msg.Content.ShouldNotBeNull().ShouldContain("keepFlag");
+        msg.Content.ShouldNotBeNull().ShouldNotContain("removeFlag");
     }
 
     [Test]
@@ -114,7 +114,7 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
 
         // Assert
         msg.Content.ShouldStartWith("Channel has the following flags:");
-        msg.Content!.ShouldContain("flag1");
-        msg.Content!.ShouldContain("flag2");
+        msg.Content.ShouldNotBeNull().ShouldContain("flag1");
+        msg.Content.ShouldNotBeNull().ShouldContain("flag2");
     }
 }

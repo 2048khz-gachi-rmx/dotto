@@ -23,7 +23,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
     private const long UploadMinio = 100 << 20;
     private const long UploadLimitNoNitro = 10 << 20;
 
-    public async Task<DownloadedMediaMessage<T>> CreateMessage<T>(Uri uri, bool audioOnly = false, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
+    public async Task<DownloadedMediaMessage<T>> CreateMessage<T>(Uri uri, bool audioOnly, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
         where T: IMessageProperties, new()
     {
         var uploadLimit = uploadService != null
@@ -145,7 +145,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
             });
         
         response.Message.AddAttachments(response.AttachedVideos);
-        response.Message.WithContent(messageLines.ToString());
+        response.Message.WithContent(messageLines.ToString().TrimEnd());
         
         return response;
     }
@@ -169,7 +169,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
         return Math.Max(userLimit, guildLimit);
     }
 
-    public async Task LogDownloadedMedia<T>(RestMessage newMessage, DownloadedMediaMessage<T> mediaMessage, User invoker, Uri downloadedFrom)
+    public async Task LogDownloadedMedia<T>(RestMessage newMessage, DownloadedMediaMessage<T> downloadedMedia, ulong invokerUserId, Uri downloadedFrom)
         where T : IMessageProperties
     {
         var attachmentMedia = newMessage.Attachments
@@ -180,12 +180,12 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
                 ChannelId = newMessage.ChannelId,
                 MessageId = newMessage.Id,
                 DownloadedFrom = downloadedFrom.ToString(),
-                InvokerId = invoker.Id,
+                InvokerId = invokerUserId,
                 MediaUrl = e.Url,
                 CreatedOn = dateTimeProvider.UtcNow,
             });
 
-        var externalMedia = mediaMessage.ExternalVideos
+        var externalMedia = downloadedMedia.ExternalVideos
             .Select(e => new DownloadedMediaRecord()
             {
                 Id = default,
@@ -193,7 +193,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
                 ChannelId = newMessage.ChannelId,
                 MessageId = newMessage.Id,
                 DownloadedFrom = downloadedFrom.ToString(),
-                InvokerId = invoker.Id,
+                InvokerId = invokerUserId,
                 MediaUrl = e.ToString(),
                 CreatedOn = dateTimeProvider.UtcNow,
             });

@@ -34,7 +34,7 @@ internal class ApplicationCommand(DownloadCommandHandler dl) : ApplicationComman
         var dlResponse = await hydrateTask;
         var newMessage = await FollowupAsync(dlResponse.Message);
 
-        await dl.LogDownloadedMedia(newMessage, dlResponse, Context.User, uri);
+        await dl.LogDownloadedMedia(newMessage, dlResponse, Context.User.Id, uri);
     }
 
     [SlashCommand("dl", "Download from URL via yt-dlp",

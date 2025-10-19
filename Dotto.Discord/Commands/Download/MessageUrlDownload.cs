@@ -87,7 +87,7 @@ internal class MessageUrlDownload(
 
             await message.SuppressEmbeds();
             var newMessage = await replyTask;
-            await downloadCommandHandler.LogDownloadedMedia(newMessage, msg, message.Author, uri);
+            await downloadCommandHandler.LogDownloadedMedia(newMessage, msg, message.Author.Id, uri);
         }
         finally
         {

@@ -1,6 +1,8 @@
 ﻿using Dotto.Tests.Mocks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using NetCord;
+using NetCord.Gateway;
 
 namespace Dotto.Tests;
 
@@ -16,6 +18,8 @@ public abstract class TestFixtureBase
     
     protected TestDateTimeProvider TestDateTimeProvider => ServiceProvider.GetRequiredService<TestDateTimeProvider>();
     protected IMediator Mediator => ServiceProvider.GetRequiredService<IMediator>();
+    
+    protected readonly GatewayClient NetCordClient = new(new BotToken("ODAzMzc3MjcwODc4MTA5NzI2.tHis.IS.not.A.ReAl.tOkeN"));
     
     [SetUp]
     public virtual Task Setup()
