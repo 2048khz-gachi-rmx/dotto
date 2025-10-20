@@ -403,4 +403,32 @@ public class YtdlFormatPickerTests : TestFixtureBase
         // Assert
         result.ShouldBeNull();
     }
+    
+    [Test] // https://www.youtube.com/watch?v=rurhk1hadp8
+           // You're a big format
+    public void PickFormat_ForYou()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new() { FormatId = "die", VideoCodec = "none", AudioCodec = "ec-3", FileSize = 1 },
+                new() { FormatId = "also die", VideoCodec = "none", AudioCodec = "ec-3", FileSize = 3 },
+                new() { FormatId = "die", VideoCodec = "none", AudioCodec = "ac-3", FileSize = 1 },
+                new() { FormatId = "also die", VideoCodec = "none", AudioCodec = "ac-3", FileSize = 3 },
+                new() { FormatId = "good :)))", VideoCodec = "none", AudioCodec = "not-ec-3", FileSize = 2 }
+            ]
+        };
+        
+        var options = new DownloadOptions { MaxFilesize = 5 };
+        
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat.ShouldBeNull();
+        result.AudioFormat?.FormatId.ShouldBe("good :)))");
+    }
 }

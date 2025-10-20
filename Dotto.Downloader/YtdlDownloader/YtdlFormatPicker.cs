@@ -25,8 +25,7 @@ internal class YtdlFormatPicker
 			};
 		}
 		
-		var audioFormats = metadata.Formats
-			.Where(f => f.VideoCodec == "none" && f.AudioCodec != "none")
+		var audioFormats = GetEligibleAudio(metadata.Formats)
 			.OrderBy(f => f.FileSize ?? f.ApproximateFileSize ?? options.MaxFilesize)
 			.ToList();
 		
@@ -285,9 +284,7 @@ internal class YtdlFormatPicker
 	{
 		// m4a audio can't be embedded in webm containers
 		if (vformat.Extension != "mp4" && aformat.Extension == "m4a")
-		{
 			return false;
-		}
 
 		return true;
 	}
@@ -299,6 +296,14 @@ internal class YtdlFormatPicker
 		return formats
 			.Where(f => (allowUnknownVcodec && f.VideoCodec is "unknown" or null)
 					    || (f.VideoCodec != null && FormatRegex.IsMatch(f.VideoCodec)))
+			.ToList();
+	}
+
+	private static IList<FormatData> GetEligibleAudio(IList<FormatData> formats)
+	{
+		return formats
+			.Where(f => f.VideoCodec == "none" && f.AudioCodec != "none")
+			.Where(f => f.AudioCodec != "ec-3" && f.AudioCodec != "ac-3") // what the FUCK is that ABSOLUTELY PROPRIETARY https://i.imgur.com/op8gqKO.jpeg
 			.ToList();
 	}
 }
