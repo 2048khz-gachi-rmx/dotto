@@ -63,13 +63,16 @@ internal class YtdlFormatPicker
 	private static readonly List<(Regex FormatPattern, double ScoreMult)> VideoFormatQualityRatio =
 	[
 		// fuck h264
-		(new("^(avc.*|h264.*)", RegexOptions.Compiled), 0.6d),
+		(new("^(avc.*|h264.*)", RegexOptions.Compiled), 0.4d),
 		
 		// h265 is baseline quality
 		(new("^(hevc.*|h265.*)", RegexOptions.Compiled), 1d),
 		
 		// about the same for vp9, but vp9 gets a boost for being more supported :^)
 		(new("^(vp0?9.*)", RegexOptions.Compiled), 1.1d),
+				
+		// av1 is now supported by discord so lets ball
+		(new("^(av0?1.*)", RegexOptions.Compiled), 1.35d),
 	];
 	
 	private static readonly List<(Regex FormatPattern, double ScoreMult)> AudioFormatQualityRatio =
