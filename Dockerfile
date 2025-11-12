@@ -12,13 +12,14 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
 RUN dotnet publish -c Release -o out
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/sdk:9.0
+FROM mcr.microsoft.com/dotnet/runtime:9.0
+COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
 WORKDIR /app
 
 # Get yt-dlp (and other packages while we're at it)
 # yt-dlp static build has a huge startup delay, so we're using the system python install
 RUN apt-get update \
-	&& apt-get install -y python3 xz-utils wget \
+	&& apt-get install -y python3 xz-utils wget curl \
 	&& curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
 
