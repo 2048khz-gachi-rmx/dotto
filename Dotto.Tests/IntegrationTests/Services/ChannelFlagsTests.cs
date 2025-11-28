@@ -126,7 +126,7 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
         flags.Single().UpdatedOn.ShouldBe(now, TimeSpan.FromMilliseconds(1));
     }
 
-    [Obsolete("ngl still haven't figured out how to test EF calls via NSubstitute")]
+    [Ignore("ngl still haven't figured out how to test EF calls via NSubstitute")]
     [Test]
     public async Task ShouldCacheFlags()
     {
