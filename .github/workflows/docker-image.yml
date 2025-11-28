@@ -33,7 +33,7 @@ jobs:
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
-    # needs: test
+    needs: test
 
     runs-on: ubuntu-latest
 
