@@ -1,8 +1,11 @@
+using System.Linq.Expressions;
+using Dotto.Application.Entities;
 using Dotto.Application.InternalServices;
 using Dotto.Application.InternalServices.ChannelFlagsService;
 using Dotto.Common.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
+using MockQueryable.NSubstitute;
 using NSubstitute;
 using Shouldly;
 
@@ -123,25 +126,25 @@ public class ChannelFlagsTests : TestDatabaseFixtureBase
         flags.Single().UpdatedOn.ShouldBe(now, TimeSpan.FromMilliseconds(1));
     }
 
+    [Obsolete("ngl still haven't figured out how to test EF calls via NSubstitute")]
     [Test]
     public async Task ShouldCacheFlags()
     {
         // Arrange
+        var flag = new ChannelFlags(123);
+        var mockDbSet = new[] { flag }.BuildMockDbSet();
         var mockDbContext = Substitute.For<IDottoDbContext>();
+        mockDbContext.ChannelFlags.Returns(mockDbSet);
+    
         var sut = new ChannelFlagsService(mockDbContext, TestDateTimeProvider, _mockCache);
-        var now = TestDateTimeProvider.SetNow();
-
-        var flag = await ChannelFlagBuilder
-            .WithChannelId(102030)
-            .WithFlags(["pupa", "lupa"])
-            .WithUpdatedOn(now.AddDays(-1))
-            .GetAsync();
         
         // Act
         for (var i = 0; i <= 5; i++)
-            await sut.GetChannelFlags(flag.ChannelId);
+            await sut.GetChannelFlags(123);
         
         // Assert
-        mockDbContext.ChannelFlags.Received(1);
+        mockDbSet.Received(1).FirstOrDefaultAsync(
+            Arg.Any<Expression<Func<ChannelFlags, bool>>>(),
+            Arg.Any<CancellationToken>());
     }
 }

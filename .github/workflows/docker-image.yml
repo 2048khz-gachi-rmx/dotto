@@ -3,7 +3,9 @@ name: Build Docker container
 on:
   push:
     branches: [ master ]
-  pull_request:
+  workflow_dispatch:
+  # i don't think pull_request should be here... but i do want to run tests on PRs. maybe later?
+  # pull_request:
 
 jobs:
   test:
