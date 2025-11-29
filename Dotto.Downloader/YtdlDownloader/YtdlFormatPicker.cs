@@ -117,7 +117,7 @@ internal class YtdlFormatPicker
 	private (FormatData? videoFormat, FormatData? audioFormat)?
 		TryPickOptimalVideoAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
-		long? bestScore = null;
+		double? bestScore = null;
 		(FormatData? videoFormat, FormatData? audioFormat)? choice = null;
 
 		if (videoFormats.IsEmpty())
@@ -174,7 +174,7 @@ internal class YtdlFormatPicker
 	
 	private static FormatData? TryPickOptimalAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)
 	{
-		var bestScore = long.MinValue;
+		double? bestScore = null;
 		FormatData? pickedFormat = null;
 
 		foreach (var format in audioFormats)
@@ -213,10 +213,10 @@ internal class YtdlFormatPicker
 
 	/// <summary>
 	/// Scores a selected video format, so it can be prioritized against others
-	/// (i.e. better resolutions should trump worse ones, better codecs should beat worse ones,
+	/// (better resolutions should beat worse ones, better codecs should beat worse ones,
 	/// videos closer to the upload limit are preferred)
 	/// </summary>
-	private static long? GetVideoFormatScore(FormatData format, long sizeBudget)
+	private static double? GetVideoFormatScore(FormatData format, long sizeBudget)
 	{
 		var asize = format.FileSize ?? format.ApproximateFileSize ?? 0;
 		var leftover = sizeBudget - asize;
@@ -229,21 +229,22 @@ internal class YtdlFormatPicker
 		if (format.VideoCodec == null)
 			return long.MinValue;
 		
-		// higher res basically always beats codec choice
-		var resScore = format.Width * format.Height / 1e6
-		               ?? 1;
-		
+		// the closer the size is to the limit, the better (bitrate)
+		double score = asize;
+
+		// rate by codec multiplier: prioritize modern cool stuff like AV1 or H265 over older codecs
 		var matchedScoreMult = VideoFormatQualityRatio.FirstOrDefault(data => data.FormatPattern.IsMatch(format.VideoCodec));
 
-		var scoreMult = matchedScoreMult != default
-			? matchedScoreMult.ScoreMult
-			: 1.0d;
+		if (matchedScoreMult != default)
+			score *= matchedScoreMult.ScoreMult;
+
+		// higher res beats lower res
+		if (format is { Width: not null, Height: not null })
+			score *= 1.0 + (format.Width.Value * format.Height.Value / 1e6);
 		
-		// less leftover, higher score
-		var score = -leftover;
-		
-		// divide so the mult interacts with negative numbers correctly
-		score = (long)(score / scoreMult / resScore);
+		// ew watermark
+		if (format.FormatNote?.Contains("watermark") == true)
+			score *= 1e-6;
 		
 		return score;
 	}

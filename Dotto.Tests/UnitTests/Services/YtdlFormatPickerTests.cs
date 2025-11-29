@@ -31,9 +31,75 @@ public class YtdlFormatPickerTests : TestFixtureBase
         result.AudioFormat.ShouldBeNull();
         result.FormatString.ShouldBe("test_id");
     }
-
+        
     [Test]
-    public void PickFormat_ShouldHandleInstagramReels()
+    public void PickFormat_ShouldDeprioritizeUnknown()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new() { VideoCodec = "unknown", FormatId = "unknown_format" },
+                new() { VideoCodec = "h264", FormatId = "h264_format" }
+            ]
+        };
+        var options = new DownloadOptions { MaxFilesize = 1000 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("h264_format");
+    }      
+    
+    [Test]
+    public void PickFormat_ShouldDeprioritizeWatermark()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new() { FileSize = 100, VideoCodec = "h264", FormatId = "watermarked_format", FormatNote = "watermarked" },
+                new() { FileSize = 80, VideoCodec = "h264", FormatId = "good_format" }
+            ]
+        };
+        var options = new DownloadOptions { MaxFilesize = 1000 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("good_format");
+    }
+    
+    [Test]
+    public void PickFormat_ShouldPickWatermarkIfNoOtherChoice()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new() { FileSize = 10, VideoCodec = "h264", FormatId = "watermarked_format", FormatNote = "watermarked" },
+                new() { FileSize = 9999, VideoCodec = "h264", FormatId = "unpickable_format" }
+            ]
+        };
+        var options = new DownloadOptions { MaxFilesize = 1000 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("watermarked_format");
+    }
+    
+    [Test] // in instagram, i think unknown is the video with better quality...? so we don't deprioritize it there
+    public void PickFormat_ShouldNotDeprioritizeUnknownForInstagram()
     {
         // Arrange
         var metadata = new DownloadedMediaMetadata
