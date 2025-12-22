@@ -112,6 +112,11 @@ public class CobaltDownloaderService(
     private async Task<DownloadedMedia> HandleTunnelResponse(CobaltTunnelResponse response, CancellationToken ct = default)
     {
         var tunnelResponse = await httpClient.GetAsync(response.Url, ct);
+        
+        if (!tunnelResponse.IsSuccessStatusCode)
+            throw new ApplicationException("Invalid media URL",
+                new Exception($"Cobalt replied with a media URL, but actually downloading from it fails ({tunnelResponse.StatusCode}"));
+        
         var length = tunnelResponse.Content.Headers.ContentLength;
 
         return new DownloadedMedia
