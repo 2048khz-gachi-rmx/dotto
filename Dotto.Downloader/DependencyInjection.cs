@@ -1,9 +1,8 @@
 ﻿using Dotto.Infrastructure.Downloader.CobaltDownloader;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Enum;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 using Dotto.Infrastructure.Downloader.Settings;
 using Dotto.Infrastructure.Downloader.YtdlDownloader;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -11,27 +10,27 @@ namespace Dotto.Infrastructure.Downloader;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddDownloader(this IServiceCollection services, IConfigurationSection downloaderSettings)
+    public static IServiceCollection AddDownloader(this IServiceCollection services)
     {
         services.AddOptions<DownloaderSettings>()
-            .Bind(downloaderSettings)
+            .BindConfiguration("Downloader")
             .ValidateDataAnnotations()
             .ValidateOnStart();
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<DownloaderSettings>>().Value);
         
-        SetupYtdlService(services);
-        SetupCobaltService(services);
+        ConfigureYtdlService(services);
+        ConfigureCobaltService(services);
         
         return services;
     }
 
-    private static void SetupYtdlService(IServiceCollection services)
+    private static void ConfigureYtdlService(IServiceCollection services)
     {
         services.AddKeyedSingleton<IDownloaderService, YtdlDownloaderService>(DownloaderType.Ytdl);
     }
 
-    private static void SetupCobaltService(IServiceCollection services)
+    private static void ConfigureCobaltService(IServiceCollection services)
     {
         // hack... we need the options, but we also need to validate them
         {

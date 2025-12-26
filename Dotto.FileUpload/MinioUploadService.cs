@@ -1,18 +1,21 @@
 ﻿using System.Net;
 using Dotto.Application.Abstractions.Upload;
+using Microsoft.Extensions.Options;
 using Minio;
 using Minio.DataModel.Args;
 
 namespace Dotto.Infrastructure.FileUpload;
 
-public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSettings) : IUploadService
+public class MinioUploadService(IMinioClient minioClient, IOptions<MinioSettings> minioSettings) : IUploadService
 {
+    private MinioSettings _minioSettings => minioSettings.Value;
+    
     public async Task<Uri> UploadFile(Stream stream, long fileSize, string? filename, string? contentType, CancellationToken token)
     {
         filename ??= Guid.NewGuid().ToString("N");
         
         var resp = await minioClient.PutObjectAsync(new PutObjectArgs()
-            .WithBucket(minioSettings.BucketName)
+            .WithBucket(minioSettings.Value.BucketName)
             .WithObject(filename)
             .WithContentType(contentType)
             .WithObjectSize(fileSize)
@@ -20,7 +23,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
         
         var publicLink = new Uri(
             new Uri(minioClient.Config.Endpoint, UriKind.Absolute),
-            $"{minioSettings.BucketName}/{WebUtility.UrlEncode(resp.ObjectName)}");
+            $"{_minioSettings.BucketName}/{WebUtility.UrlEncode(resp.ObjectName)}");
         
         return publicLink;
     }
@@ -28,7 +31,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
     public async Task InitializeBucket()
     {
         var mbArgs = new MakeBucketArgs()
-            .WithBucket(minioSettings.BucketName);
+            .WithBucket(_minioSettings.BucketName);
 
         try
         {
@@ -44,7 +47,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
         }
 
         var policy = new SetPolicyArgs()
-            .WithBucket(minioSettings.BucketName)
+            .WithBucket(_minioSettings.BucketName)
             .WithPolicy(
             $$"""
             {
@@ -61,7 +64,7 @@ public class MinioUploadService(IMinioClient minioClient, MinioSettings minioSet
                             "s3:GetObject"
                         ],
                         "Resource": [
-                            "arn:aws:s3:::{{minioSettings.BucketName}}/*"
+                            "arn:aws:s3:::{{_minioSettings.BucketName}}/*"
                         ]
                     }
                 ]

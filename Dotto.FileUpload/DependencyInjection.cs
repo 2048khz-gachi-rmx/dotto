@@ -1,5 +1,4 @@
 ﻿using Dotto.Application.Abstractions.Upload;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -9,35 +8,46 @@ namespace Dotto.Infrastructure.FileUpload;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddFileUploader(this IServiceCollection services, IConfigurationSection settings)
+    public static IServiceCollection AddFileUploader(this IServiceCollection services)
     {
         services.AddOptions<MinioSettings>()
-            .Bind(settings)
+            .BindConfiguration("Minio")
             .ValidateDataAnnotations()
             .ValidateOnStart();
         
-        var minioSettings = settings.Get<MinioSettings>()!;
+        // build a service provider just for resolving the minio settings. feels like a giant hack
+        // but the alternative is accepting the IConfiguration from the caller, which is even more meh
+        using var serviceProvider = services.BuildServiceProvider();
+        var minioSettings = serviceProvider.GetRequiredService<IOptions<MinioSettings>>().Value;
+
+        // if MinIO base URL isn't set, don't register anything
+        if (minioSettings.BaseUrl == default)
+            return services;
         
-        if (minioSettings.BaseUrl != default)
+        services.AddSingleton(provider =>
         {
-            services.AddSingleton(s => s.GetRequiredService<IOptions<MinioSettings>>().Value);
-            
-            services.AddMinio(cfg => cfg
-                .WithEndpoint(minioSettings.BaseUrl)
-                .WithRegion(minioSettings.Region)
-                .WithCredentials(minioSettings.AccessKey, minioSettings.SecretKey)
-                .Build());
+            var options = provider.GetRequiredService<IOptions<MinioSettings>>().Value;
+                
+            return new MinioClient()
+                .WithEndpoint(options.BaseUrl)
+                .WithRegion(options.Region)
+                .WithCredentials(options.AccessKey, options.SecretKey)
+                .Build();
+        });
         
-            services.AddTransient<IUploadService, MinioUploadService>();
-            services.AddTransient<MinioUploadService>();
-        }
-        
+        services.AddTransient<IUploadService, MinioUploadService>();
+        services.AddTransient<MinioUploadService>();
+
         return services;
     }
 
     public static async Task InitializeMinioUploader(this IHost host)
     {
-        await host.Services.GetRequiredService<MinioUploadService>()
-            .InitializeBucket();
+        var uploadService = host.Services.GetService<MinioUploadService>();
+        
+        if (uploadService == null)
+            return;
+        
+        await uploadService.InitializeBucket();
     }
 }

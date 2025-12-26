@@ -26,14 +26,14 @@ var builder = Host.CreateApplicationBuilder(args);
 // Infrastructure
 builder.Services
     .AddDatabase(builder.Configuration.GetRequiredSection("ConnectionString").Value)
-    .AddFileUploader(builder.Configuration.GetRequiredSection("Minio"))
-    .AddDownloader(builder.Configuration.GetRequiredSection("Downloader"));
+    .AddFileUploader()
+    .AddDownloader();
 
 // Application
 builder.Services
     .AddSingleton<IDateTimeProvider, DateTimeProvider>()
     .AddApplication()
-    .AddDiscordIntegration(builder.Configuration.GetRequiredSection("Discord"));
+    .AddDiscordIntegration(builder.Configuration.GetRequiredSection("Discord")); // TODO: get rid of configuration in params
 
 // Hosted services
 builder.Services

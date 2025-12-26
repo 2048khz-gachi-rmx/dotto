@@ -18,18 +18,18 @@ public static class DependencyInjection
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<AutoDownloadSettings>>().Value);
 
-        AddCommands(services, discordSection);
-        AddCommandHandlers(services, discordSection);
+        AddCommands(services);
+        AddCommandHandlers(services);
         
         return services;
     }
 
-    private static void AddCommands(this IServiceCollection services, IConfigurationSection discordSection)
+    private static void AddCommands(this IServiceCollection services)
     {
         services.AddScoped<MessageUrlDownload>();
     }
 
-    private static void AddCommandHandlers(this IServiceCollection services, IConfigurationSection discordSection)
+    private static void AddCommandHandlers(this IServiceCollection services)
     {
         services.AddTransient<DownloadCommandHandler>();
     }
