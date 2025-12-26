@@ -1,7 +1,10 @@
 ﻿using System.Reflection;
 using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Factories;
 using Dotto.Application.InternalServices;
+using Dotto.Application.InternalServices.MediaProcessing;
+using Dotto.Application.Settings;
 using Dotto.Application.Validation;
 using FluentValidation;
 using MediatR;
@@ -14,17 +17,26 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        SetupMediatR(services);
+        services.AddOptions<UrlCorrectionSettings>()
+            .BindConfiguration("UrlCorrection")
+            .ValidateOnStart();
         
-        SetupFactories(services);
-        
-        services.AddHybridCache();
-        services.AddTransient<ChannelFlagsService>();
-        
+        ConfigureMediatR(services);
+        ConfigureFactories(services);
+        ConfigureInternalServices(services);
+
         return services;
     }
 
-    private static void SetupMediatR(IServiceCollection services)
+    private static void ConfigureInternalServices(IServiceCollection services)
+    {
+        services.AddHybridCache();
+        services.AddTransient<ChannelFlagsService>();
+        services.AddSingleton<IUrlCorrector, UrlCorrector>();
+        services.AddSingleton<IMediaProcessingService, MediaProcessingService>();
+    }
+
+    private static void ConfigureMediatR(IServiceCollection services)
     {
         // Add FluentValidationPipelineBehavior so MediatR sends commands through it first
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
@@ -43,7 +55,7 @@ public static class DependencyInjection
         });
     }
     
-    private static void SetupFactories(IServiceCollection services)
+    private static void ConfigureFactories(IServiceCollection services)
     {
         services.AddTransient<IDownloaderServiceFactory, DownloaderServiceFactory>();
     }

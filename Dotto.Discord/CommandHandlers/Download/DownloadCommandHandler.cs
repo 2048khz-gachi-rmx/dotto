@@ -1,11 +1,11 @@
 ﻿using System.Text;
 using Dotto.Application.Abstractions;
-using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.Upload;
 using Dotto.Application.Entities;
 using Dotto.Common;
+using Dotto.Common.Constants;
 using Dotto.Common.DateTimeProvider;
-using Dotto.Common.Exceptions;
 using Dotto.Discord.Models.Download;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
@@ -15,7 +15,7 @@ using NetCord.Rest;
 namespace Dotto.Discord.CommandHandlers.Download;
 
 internal class DownloadCommandHandler(IDottoDbContext dbContext,
-    IDownloaderServiceFactory downloaderFactory,
+    IMediaProcessingService mediaProcessingService,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
@@ -35,64 +35,37 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
             SourceUrl = uri,
         };
 
-        var downloaders = downloaderFactory.CreateDownloaderService(uri);
-
-        IList<DownloadedMedia> videos = new List<DownloadedMedia>();
-
-        foreach (var downloader in downloaders)
+        var result = await mediaProcessingService.ProcessMediaFromUrlAsync(uri, new DownloadOptions
         {
-            try
-            {
-                videos = await downloader.Download(uri, new DownloadOptions
-                {
-                    MaxFilesize = uploadLimit,
-                    AudioOnly = audioOnly
-                }, ct);
+            MaxFilesize = uploadLimit,
+            AudioOnly = audioOnly
+        }, ct);
 
-                if (videos.Count > 0)
-                    break;
-            }
-            catch (ServiceUnavailableException ex)
-            {
-                response.Message.AddEmbeds([
-                    new EmbedProperties
-                    {
-                        Color = new Color(235, 175, 40),
-                        Description = $"Downloader service \"{ex.ServiceName}\" was unavailable..."
-                    }
-                ]);
-            }
-            catch (ApplicationException ex)
-            {
-                var innerMessage = ex.InnerException?.Message;
-                if (innerMessage.IsNullOrWhitespace())
+        var isNonFatal = result.IsSuccess;
+        
+        foreach (var downloadError in result.Errors)
+        {
+            response.Message.AddEmbeds([
+                new EmbedProperties
                 {
-                    innerMessage = "[none provided]";
-
-                    if (ex.InnerException?.StackTrace != null)
-                        innerMessage += "\n" + ex.InnerException?.StackTrace;
+                    Color = isNonFatal ? Constants.Colors.WarningColor : Constants.Colors.ErrorColor,
+                    Title = downloadError.Message,
+                    Description = downloadError.Details
                 }
-                
-                response.Message.AddEmbeds([
-                    new()
-                    {
-                        Color = new(140, 55, 55),
-                        Title = Format.Escape(ex.Message),
-                        Description = innerMessage
-                    }
-                ]);
-            }
+            ]);
         }
 
-        if (videos.IsEmpty())
+        if (!result.IsSuccess)
         {
-            response.Message.WithContent("No (eligible) videos found or all downloaders failed");
+            if (response.Message.Embeds.IsNullOrEmpty())
+                response.Message.WithContent("No (eligible) videos found or all downloaders failed");
+            
             return response;
         }
         
         var messageLines = new StringBuilder();
         
-        foreach (var media in videos.OrderBy(v => v.Number))
+        foreach (var media in result.Media.OrderBy(v => v.Number))
         {
             var extension = media.GetExtension();
             var videoName = media.GetFileName();

@@ -1,6 +1,8 @@
 ﻿using System.Text;
-using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Models;
+using Dotto.Common.Constants;
 using Dotto.Common.Exceptions;
 using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
@@ -18,7 +20,7 @@ namespace Dotto.Tests.IntegrationTests.CommandHandlers.Download;
 
 public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
 {
-    private readonly IDownloaderServiceFactory _mockDownloaderFactory = Substitute.For<IDownloaderServiceFactory>();
+    private readonly IMediaProcessingService _mockMediaProcessingService = Substitute.For<IMediaProcessingService>();
     private readonly IUploadService _mockUploadService = Substitute.For<IUploadService>();
     
     private DownloadCommandHandler _sut;
@@ -29,7 +31,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     [SetUp]
     public new void Setup()
     {
-        _sut = new DownloadCommandHandler(DbContext, _mockDownloaderFactory, TestDateTimeProvider, _mockUploadService);
+        _sut = new DownloadCommandHandler(DbContext, _mockMediaProcessingService, TestDateTimeProvider, _mockUploadService);
     }
 
     [Test]
@@ -37,12 +39,9 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     {
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
-        var mockDownloader = Substitute.For<IDownloaderService>();
-        
-        var mediaStream = new MemoryStream(Encoding.UTF8.GetBytes("test video content"));
         var downloadedMedia = new DownloadedMedia
         {
-            Video = mediaStream,
+            Video = new MemoryStream(Encoding.UTF8.GetBytes("test video content")),
             FileSize = 1024,
             Number = 1,
             Metadata = new DownloadedMediaMetadata { Title = "Test Video" },
@@ -51,24 +50,24 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         };
         
         var downloadedMediaList = new List<DownloadedMedia> { downloadedMedia };
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
-            .Returns(downloadedMediaList);
         
-        _mockDownloaderFactory.CreateDownloaderService(testUri).Returns(new[] { mockDownloader });
+        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+            .Returns(new MediaDownloadResult()
+            {
+                Media = downloadedMediaList
+            });
 
         // Act
         var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false);
 
-        // Assert - Message content and structure
+        // Assert
         result.Message.Content.ShouldNotBeNull();
         
-        // Check that attachments are added to the message
         result.AttachedVideos.Count.ShouldBe(1);
         
-        // Verify Discord message formatting is correct
         var expectedContent = $"-# Test Video.mp4" +
                              $" | 1920x1080" +
-                             $" | {mediaStream.Length} B" +
+                             $" | {downloadedMedia.Video.Length} B" +
                              $" | H264 (AVC)";
         
         result.Message.Content.ShouldBe(expectedContent);
@@ -79,12 +78,10 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     {
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
-        var mockDownloader = Substitute.For<IDownloaderService>();
-        
-        var mediaStream = new MemoryStream(Encoding.UTF8.GetBytes("test video content"));
+
         var downloadedMedia = new DownloadedMedia
         {
-            Video = mediaStream,
+            Video = new MemoryStream(Encoding.UTF8.GetBytes("test video content")),
             FileSize = 1024 * 1024 * 100, // Large enough to trigger external upload (over 10MB limit)
             Number = 1,
             Metadata = new DownloadedMediaMetadata { Title = "Large Test Video" },
@@ -93,10 +90,11 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         };
         
         var downloadedMediaList = new List<DownloadedMedia> { downloadedMedia };
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
-            .Returns(downloadedMediaList);
-        
-        _mockDownloaderFactory.CreateDownloaderService(testUri).Returns(new[] { mockDownloader });
+        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+            .Returns(new MediaDownloadResult()
+            {
+                Media = downloadedMediaList
+            });
         
         // Mock upload service to return a test URL
         var uploadedUrl = new Uri("https://example.com/uploaded/video.mp4");
@@ -121,7 +119,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         // Verify Discord message formatting is correct for external media
         var expectedContent = $"-# [Large Test Video.mp4](https://example.com/uploaded/video.mp4)" +
                              $" | 1920x1080" +
-                             $" | {mediaStream.Length} B" +
+                             $" | {downloadedMedia.Video.Length} B" +
                              $" | H264 (AVC)";
         
         result.Message.Content.ShouldContain(expectedContent);
@@ -132,13 +130,12 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     {
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
-        var mockDownloader = Substitute.For<IDownloaderService>();
-        
-        var downloadedMediaList = new List<DownloadedMedia>(); // Empty list
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
-            .Returns(downloadedMediaList);
-        
-        _mockDownloaderFactory.CreateDownloaderService(testUri).Returns(new[] { mockDownloader });
+
+        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+            .Returns(new MediaDownloadResult()
+            {
+                Media = []
+            });
 
         // Act
         var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false);
@@ -155,11 +152,10 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         var now = TestDateTimeProvider.SetNow();
         var testUri = new Uri("https://example.com/video.mp4");
         var mockDownloader = Substitute.For<IDownloaderService>();
-        
-        var mediaStream = new MemoryStream(Encoding.UTF8.GetBytes("test video content"));
+
         var downloadedMedia = new DownloadedMedia
         {
-            Video = mediaStream,
+            Video = new MemoryStream(Encoding.UTF8.GetBytes("test video content")),
             FileSize = 1024,
             Number = 1,
             Metadata = new DownloadedMediaMetadata { Title = "Test Video" },
@@ -192,7 +188,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     }
 
     [Test]
-    public async Task CreateMessage_ShouldCreateCorrectDiscordEmbeds_WhenDownloaderUnavailable()
+    public async Task CreateMessage_ShouldCreateCorrectDiscordEmbeds_WhenErrorsReturned()
     {
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
@@ -202,48 +198,90 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new ServiceUnavailableException("TestService"));
         
-        _mockDownloaderFactory.CreateDownloaderService(testUri).Returns(new[] { mockDownloader });
+        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+            .Returns(new MediaDownloadResult()
+            {
+                Media = [],
+                Errors = [
+                    new MediaDownloadError()
+                    {
+                        ErrorCode = MediaErrorCode.ServiceUnavailable,
+                        Message = "Downloader Unavailable"
+                    },
+                    new MediaDownloadError()
+                    {
+                        ErrorCode = MediaErrorCode.DownloaderError,
+                        Message = "Downloader Error"
+                    }
+                ]
+            });
 
         // Act
         var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false);
 
-        // Assert - Embeds should be created for service unavailability
+        result.Message.Content.ShouldBeNull();
         result.Message.Embeds.ShouldNotBeNull();
-        result.Message.Embeds.Count().ShouldBe(1);
+        result.Message.Embeds.Count().ShouldBe(2);
         
-        var embed = result.Message.Embeds.Single();
-        embed.Color.Red.ShouldBe((byte)235);
-        embed.Color.Green.ShouldBe((byte)175);
-        embed.Color.Blue.ShouldBe((byte)40);
-        embed.Description.ShouldNotBeNull().ShouldContain("TestService");
+        result.Message.Embeds.ElementAt(0).Color.ShouldBe(Constants.Colors.ErrorColor);
+        result.Message.Embeds.ElementAt(0).Title.ShouldBe("Downloader Unavailable");
+                
+        result.Message.Embeds.ElementAt(1).Color.ShouldBe(Constants.Colors.ErrorColor);
+        result.Message.Embeds.ElementAt(1).Title.ShouldBe("Downloader Error");
     }
 
     [Test]
-    public async Task CreateMessage_ShouldCreateCorrectDiscordEmbeds_WhenDownloadFails()
+    public async Task CreateMessage_ShouldCreateCorrectDiscordEmbeds_WhenErrorsReturnedWithMedia()
     {
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
-        var mockDownloader = Substitute.For<IDownloaderService>();
         
-        // Simulate download failure with exception
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new ApplicationException("Download failed", new Exception("Inner error details")));
+        var downloadedMedia = new DownloadedMedia
+        {
+            Video = new MemoryStream(Encoding.UTF8.GetBytes("test video content")),
+            FileSize = 1024,
+            Number = 1,
+            Metadata = new DownloadedMediaMetadata { Title = "Test Video" },
+            VideoFormat = new FormatData { Resolution = "1920x1080", VideoCodec = "h264" },
+            AudioFormat = null
+        };
         
-        _mockDownloaderFactory.CreateDownloaderService(testUri).Returns(new[] { mockDownloader });
+        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+            .Returns(new MediaDownloadResult()
+            {
+                Media = [ downloadedMedia ],
+                Errors = [
+                    new MediaDownloadError()
+                    {
+                        ErrorCode = MediaErrorCode.ServiceUnavailable,
+                        Message = "Downloader Unavailable"
+                    },
+                    new MediaDownloadError()
+                    {
+                        ErrorCode = MediaErrorCode.DownloaderError,
+                        Message = "Downloader Error"
+                    }
+                ]
+            });
 
         // Act
         var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false);
 
-        // Assert - Embeds should be created for download failure
-        result.Message.Embeds.ShouldNotBeNull();
-        result.Message.Embeds.Count().ShouldBe(1);
+        var expectedContent = $"-# Test Video.mp4" +
+                              $" | 1920x1080" +
+                              $" | {downloadedMedia.Video.Length} B" +
+                              $" | H264 (AVC)";
         
-        var embed = result.Message.Embeds.Single();
-        embed.Color.Red.ShouldBe((byte)140);
-        embed.Color.Green.ShouldBe((byte)55);
-        embed.Color.Blue.ShouldBe((byte)55);
-        embed.Title.ShouldNotBeNull().ShouldContain("Download failed");
-        embed.Description.ShouldNotBeNull().ShouldContain("Inner error details");
+        result.Message.Content.ShouldBe(expectedContent);
+        
+        result.Message.Embeds.ShouldNotBeNull();
+        result.Message.Embeds.Count().ShouldBe(2);
+        
+        result.Message.Embeds.ElementAt(0).Color.ShouldBe(Constants.Colors.WarningColor);
+        result.Message.Embeds.ElementAt(0).Title.ShouldBe("Downloader Unavailable");
+                
+        result.Message.Embeds.ElementAt(1).Color.ShouldBe(Constants.Colors.WarningColor);
+        result.Message.Embeds.ElementAt(1).Title.ShouldBe("Downloader Error");
     }
     
     // https://github.com/NetCordDev/NetCord/blob/alpha/Tests/ServicesTest/CommandServiceTester.cs#L7
