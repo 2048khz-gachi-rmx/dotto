@@ -1,16 +1,11 @@
 using Dotto.Application.Abstractions.Factories;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Enum;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Dotto.Application.Factories;
 
-public class DownloaderServiceFactory(
-    IServiceProvider serviceProvider,
-    ILogger<DownloaderServiceFactory> logger
-)
-    : IDownloaderServiceFactory
+public class DownloaderServiceFactory(IServiceProvider serviceProvider) : IDownloaderServiceFactory
 {
     public IEnumerable<IDownloaderService> CreateDownloaderService(Uri uri)
     {

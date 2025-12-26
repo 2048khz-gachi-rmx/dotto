@@ -1,4 +1,4 @@
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 using Dotto.Infrastructure.Downloader.YtdlDownloader;
 using Shouldly;

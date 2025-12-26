@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
+using Dotto.Application.Abstractions;
 using Dotto.Application.Entities;
 using Dotto.Application.InternalServices;
-using Dotto.Application.InternalServices.ChannelFlagsService;
 using Dotto.Common.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;

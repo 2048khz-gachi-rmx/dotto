@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using Dotto.Common;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 
 namespace Dotto.Infrastructure.Downloader.YtdlDownloader;

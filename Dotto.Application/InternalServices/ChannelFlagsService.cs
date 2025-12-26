@@ -1,10 +1,11 @@
 ﻿using System.Collections.Immutable;
+using Dotto.Application.Abstractions;
 using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
 
-namespace Dotto.Application.InternalServices.ChannelFlagsService;
+namespace Dotto.Application.InternalServices;
 
 // I see no good reason to mock this, so no interfaces
 public class ChannelFlagsService(

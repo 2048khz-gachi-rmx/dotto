@@ -6,17 +6,13 @@ using Dotto.Common;
 using Dotto.Common.Exceptions;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Request;
 using Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 
 namespace Dotto.Infrastructure.Downloader.CobaltDownloader;
 
-public class CobaltDownloaderService(
-    HttpClient httpClient
-    ) : IDownloaderService
+public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
 {
-    private readonly CobaltResponseDeserializer _responseDeserializer = new();
-    
     public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         var request = new CobaltDownloadRequest

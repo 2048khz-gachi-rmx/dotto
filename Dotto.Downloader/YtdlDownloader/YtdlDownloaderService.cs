@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Dotto.Common;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 using Dotto.Infrastructure.Downloader.Settings;

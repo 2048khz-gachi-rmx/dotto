@@ -1,13 +1,12 @@
 ﻿using System.Text;
+using Dotto.Application.Abstractions;
 using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Abstractions.Upload;
 using Dotto.Application.Entities;
-using Dotto.Application.InternalServices;
-using Dotto.Application.InternalServices.UploadService;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Common.Exceptions;
 using Dotto.Discord.Models.Download;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
 using NetCord.Gateway;

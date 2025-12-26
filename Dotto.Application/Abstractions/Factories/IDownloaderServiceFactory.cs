@@ -1,4 +1,4 @@
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 
 namespace Dotto.Application.Abstractions.Factories;
 

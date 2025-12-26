@@ -1,7 +1,7 @@
 ﻿using Dotto.Application.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Dotto.Application.InternalServices;
+namespace Dotto.Application.Abstractions;
 
 public interface IDottoDbContext
 {

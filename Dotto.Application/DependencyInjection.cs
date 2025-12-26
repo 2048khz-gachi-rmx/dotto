@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using Dotto.Application.Abstractions.Factories;
 using Dotto.Application.Factories;
-using Dotto.Application.InternalServices.ChannelFlagsService;
+using Dotto.Application.InternalServices;
 using Dotto.Application.Validation;
 using FluentValidation;
 using MediatR;

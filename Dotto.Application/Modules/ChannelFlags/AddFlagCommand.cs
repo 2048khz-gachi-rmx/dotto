@@ -1,5 +1,5 @@
 ﻿using System.Text.RegularExpressions;
-using Dotto.Application.InternalServices.ChannelFlagsService;
+using Dotto.Application.InternalServices;
 using Dotto.Common.Constants;
 using FluentValidation;
 using MediatR;

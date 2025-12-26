@@ -1,4 +1,4 @@
-﻿using Dotto.Application.InternalServices.UploadService;
+﻿using Dotto.Application.Abstractions.Upload;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

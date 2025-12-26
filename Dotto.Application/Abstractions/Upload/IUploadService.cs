@@ -1,4 +1,4 @@
-﻿namespace Dotto.Application.InternalServices.UploadService;
+﻿namespace Dotto.Application.Abstractions.Upload;
 
 // TODO: this should be moved out into FileUpload.Contracts
 public interface IUploadService

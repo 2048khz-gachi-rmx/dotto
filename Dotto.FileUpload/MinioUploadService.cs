@@ -1,5 +1,5 @@
 ﻿using System.Net;
-using Dotto.Application.InternalServices.UploadService;
+using Dotto.Application.Abstractions.Upload;
 using Minio;
 using Minio.DataModel.Args;
 

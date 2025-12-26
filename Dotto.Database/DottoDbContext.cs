@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
+using Dotto.Application.Abstractions;
 using Dotto.Application.Entities;
-using Dotto.Application.InternalServices;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dotto.Infrastructure.Database;

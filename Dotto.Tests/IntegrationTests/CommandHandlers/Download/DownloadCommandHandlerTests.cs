@@ -1,9 +1,9 @@
 ﻿using System.Text;
 using Dotto.Application.Abstractions.Factories;
-using Dotto.Application.InternalServices.UploadService;
+using Dotto.Application.Abstractions.Upload;
 using Dotto.Common.Exceptions;
 using Dotto.Discord.CommandHandlers.Download;
-using Dotto.Infrastructure.Downloader.Contracts.Interfaces;
+using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;
 using Microsoft.EntityFrameworkCore;
