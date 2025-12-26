@@ -68,6 +68,6 @@ var host = builder.Build();
 await host.MigrateDatabase();
 
 host.AddModules(typeof(CommandAssemblyMarker).Assembly);
-_ = host.InitializeMinioUploader(); // don't care about waiting for bucket creation lololo
+_ = host.InitializeS3Uploader(); // don't care about waiting for bucket creation lololo
 
 await host.RunAsync();

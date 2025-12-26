@@ -2,15 +2,15 @@
 
 namespace Dotto.Infrastructure.FileUpload;
 
-public record MinioSettings
+public record S3Settings
 {
-    [Required(ErrorMessage = "MinIO Access key is missing")]
+    [Required(ErrorMessage = "S3 Access key is missing")]
     public string AccessKey { get; init; } = null!;
     
-    [Required(ErrorMessage = "MinIO Secret key is missing")]
+    [Required(ErrorMessage = "S3 Secret key is missing")]
     public string SecretKey { get; init; } = null!;
     
-    [Required(ErrorMessage = "MinIO Bucket name is missing")]
+    [Required(ErrorMessage = "S3 Bucket name is missing")]
     public string BucketName { get; init; } = null!;
     
     public string Region { get; init; } = null!;

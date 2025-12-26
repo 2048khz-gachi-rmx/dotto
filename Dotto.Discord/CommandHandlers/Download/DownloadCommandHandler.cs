@@ -19,14 +19,14 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
-    private const long UploadMinio = 100 << 20;
+    private const long UploadS3 = 100 << 20;
     private const long UploadLimitNoNitro = 10 << 20;
 
     public async Task<DownloadMediaResult<T>> CreateMessage<T>(Uri uri, bool audioOnly, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
         where T: IMessageProperties, new()
     {
         var uploadLimit = uploadService != null
-            ? UploadMinio
+            ? UploadS3
             : discordUploadLimit;
 
         var response = new DownloadMediaResult<T>

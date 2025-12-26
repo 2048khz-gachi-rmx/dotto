@@ -1,8 +1,9 @@
-﻿using Dotto.Application.Abstractions.Upload;
+﻿using Amazon.Runtime;
+using Amazon.S3;
+using Dotto.Application.Abstractions.Upload;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Minio;
 
 namespace Dotto.Infrastructure.FileUpload;
 
@@ -10,40 +11,44 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddFileUploader(this IServiceCollection services)
     {
-        services.AddOptions<MinioSettings>()
-            .BindConfiguration("Minio")
+        services.AddOptions<S3Settings>()
+            .BindConfiguration("Minio") // womp
             .ValidateDataAnnotations()
             .ValidateOnStart();
         
-        // build a service provider just for resolving the minio settings. feels like a giant hack
+        // build a service provider just for resolving the s3 settings. feels like a giant hack
         // but the alternative is accepting the IConfiguration from the caller, which is even more meh
         using var serviceProvider = services.BuildServiceProvider();
-        var minioSettings = serviceProvider.GetRequiredService<IOptions<MinioSettings>>().Value;
+        var s3Settings = serviceProvider.GetRequiredService<IOptions<S3Settings>>().Value;
 
-        // if MinIO base URL isn't set, don't register anything
-        if (minioSettings.BaseUrl == default)
+        // if S3 base URL isn't set, don't register anything
+        if (s3Settings.BaseUrl == null)
             return services;
-        
-        services.AddSingleton(provider =>
+
+        services.AddSingleton<IAmazonS3>(provider =>
         {
-            var options = provider.GetRequiredService<IOptions<MinioSettings>>().Value;
-                
-            return new MinioClient()
-                .WithEndpoint(options.BaseUrl)
-                .WithRegion(options.Region)
-                .WithCredentials(options.AccessKey, options.SecretKey)
-                .Build();
+            var options = provider.GetRequiredService<IOptions<S3Settings>>().Value;
+
+            return new AmazonS3Client(
+                new BasicAWSCredentials(s3Settings.AccessKey, s3Settings.SecretKey),
+                new AmazonS3Config
+                {
+                    ServiceURL = "https://s3.badcoder.dev",
+                    ForcePathStyle = true,
+                    LogMetrics = false,
+                    AuthenticationRegion = options.Region
+                });
         });
         
-        services.AddTransient<IUploadService, MinioUploadService>();
-        services.AddTransient<MinioUploadService>();
+        services.AddTransient<IUploadService, S3UploadService>();
+        services.AddTransient<S3UploadService>();
 
         return services;
     }
 
-    public static async Task InitializeMinioUploader(this IHost host)
+    public static async Task InitializeS3Uploader(this IHost host)
     {
-        var uploadService = host.Services.GetService<MinioUploadService>();
+        var uploadService = host.Services.GetService<S3UploadService>();
         
         if (uploadService == null)
             return;
