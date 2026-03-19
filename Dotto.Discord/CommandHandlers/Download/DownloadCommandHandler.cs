@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using Dotto.Application.Abstractions;
 using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.Upload;
@@ -76,7 +77,8 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
                 var uploadedUrl = await uploadService.UploadFile(media.Video, media.FileSize ?? discordUploadLimit, null, $"video/{extension}", ct);
                 
                 response.ExternalVideos.Add(uploadedUrl);
-                videoName = Format.Link(videoName, uploadedUrl.ToString());
+                videoName = Format.Link(Regex.Replace(videoName, @"https?://", ""), // if the hyperlink text contains http:// or https://, discord refuses to process it
+                    uploadedUrl.ToString());
 
                 // hack: if the message already contains embeds, discord seems to not embed external links' media
                 // so if we have any embeds in the message, we turn them into regular message lines.
