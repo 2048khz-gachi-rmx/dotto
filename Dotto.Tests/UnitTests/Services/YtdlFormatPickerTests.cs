@@ -307,26 +307,27 @@ public class YtdlFormatPickerTests : TestFixtureBase
     }
 
     [Test]
-    public void TryPickOptimalFormat_ShouldPrioritizeCloserToTargetFileSize()
+    public void TryPickOptimalFormat_ShouldPrioritizeCloserToPerfectRatio()
     {
         // Arrange
+        /* The allowed (sub-limit) candidates are:
+         * 900 + 30 => 930
+         * 900 + 70 => 970
+         * 950 + 30 => 980
+         *
+         * The reason we actually want 970 is that the distribution is closer to our perfect ratio defined in the picker.
+         * 980 may sound better because it gets closer to the cap, but in reality it means picking dogshit audio, which is suboptimal
+         */
         var videoFormats = new List<FormatData>
         {
-            new()
-            {
-                FormatId = "theres_a_better_one", VideoCodec = "h264",
-                FileSize = 900 /* 900 + 70 = 970, when 980 is possible */
-            },
-            new()
-            {
-                FormatId = "PICKME", VideoCodec = "h264", FileSize = 950 /* 950 + 30 = 980, closest to 1000 */
-            },
-            new() { FormatId = "too_large", VideoCodec = "h264", FileSize = 990 /* 990 + 30 audio = overshoot */ },
+            new() { FormatId = "PICKME", VideoCodec = "h264", FileSize = 900 },
+            new() { FormatId = "theres_a_better_one", VideoCodec = "h264", FileSize = 950 },
+            new() { FormatId = "too_large", VideoCodec = "h264", FileSize = 990 },
         };
         var audioFormats = new List<FormatData>
         {
-            new() { FormatId = "audio1", AudioCodec = "aac", FileSize = 30 },
-            new() { FormatId = "audio2", AudioCodec = "mp3", FileSize = 70 }
+            new() { FormatId = "bad_audio", AudioCodec = "aac", FileSize = 30 },
+            new() { FormatId = "good_audio", AudioCodec = "mp3", FileSize = 70 }
         };
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
@@ -336,7 +337,7 @@ public class YtdlFormatPickerTests : TestFixtureBase
         // Assert
         result.ShouldNotBeNull();
         result.VideoFormat?.FormatId.ShouldBe("PICKME");
-        result.AudioFormat?.FormatId.ShouldBe("audio1");
+        result.AudioFormat?.FormatId.ShouldBe("good_audio");
     }
 
     [Test]
@@ -471,7 +472,7 @@ public class YtdlFormatPickerTests : TestFixtureBase
     }
     
     [Test] // https://www.youtube.com/watch?v=rurhk1hadp8
-           // You're a big format
+    // You're a big format
     public void PickFormat_ForYou()
     {
         // Arrange
@@ -495,6 +496,39 @@ public class YtdlFormatPickerTests : TestFixtureBase
         // Assert
         result.ShouldNotBeNull();
         result.VideoFormat.ShouldBeNull();
-        result.AudioFormat?.FormatId.ShouldBe("good :)))");
+        result.AudioFormat.ShouldNotBeNull().FormatId.ShouldBe("good :)))");
+    }
+
+    [Test]
+    public void PickFormat_XIsAnnoying()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new() { FormatId = "hls-audio-32000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", FileSize = null },
+                new() { FormatId = "hls-audio-64000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", FileSize = null },
+                new() { FormatId = "hls-audio-128000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", FileSize = null },
+                new() { FormatId = "http-256", Width = 480, Height = 270, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", FileSize = 4277312 },
+                new() { FormatId = "hls-150", Width = 480, Height = 270, VideoCodec = "avc1.4D4015", AudioCodec = "none", Extension = "mp4", FileSize = null },
+                new() { FormatId = "http-832", Width = 640, Height = 480, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", FileSize = 13901264 },
+                new() { FormatId = "hls-417", Width = 640, Height = 480, VideoCodec = "avc1.4D401E", AudioCodec = "none", Extension = "mp4", FileSize = null },
+                new() { FormatId = "http-2176", Width = 1280, Height = 720, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", FileSize = 36357152 },
+                new() { FormatId = "hls-1164", Width = 1280, Height = 720, VideoCodec = "avc1.64001F", AudioCodec = "none", Extension = "mp4", FileSize = null },
+                new() { FormatId = "http-10368", Width = 1920, Height = 1080, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", FileSize = 173231136 },
+                new() { FormatId = "hls-2314", Width = 1920, Height = 1080, VideoCodec = "avc1.640032", AudioCodec = "none", Extension = "mp4", FileSize = null }
+            ]
+        };
+        
+        var options = new DownloadOptions { MaxFilesize = 104857600 };
+        
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat.ShouldNotBeNull().FormatId.ShouldBe("http-2176"); // biggest filesize below limit
+        result.AudioFormat.ShouldNotBeNull().FormatId.ShouldBe("hls-audio-128000-Audio"); // best available audio, still below limit
     }
 }

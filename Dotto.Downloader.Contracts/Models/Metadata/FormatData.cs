@@ -18,6 +18,12 @@ public class FormatData
 
     [JsonPropertyName("ext")]
     public string? Extension { get; init; }
+    
+    [JsonPropertyName("video_ext")]
+    public string? VideoExtension { get; init; }
+    
+    [JsonPropertyName("audio_ext")]
+    public string? AudioExtension { get; init; }
 
     [JsonPropertyName("format")]
     public string Format { get; init; }
