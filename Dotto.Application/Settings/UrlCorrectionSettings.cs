@@ -2,5 +2,5 @@
 
 public class UrlCorrectionSettings
 {
-    public List<UrlCorrectionRule> Rules { get; set; }
+    public required List<UrlCorrectionRule> Rules { get; set; }
 }

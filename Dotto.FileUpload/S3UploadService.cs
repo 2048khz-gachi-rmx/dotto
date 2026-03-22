@@ -43,7 +43,7 @@ public class S3UploadService(IAmazonS3 s3Client, IOptions<S3Settings> s3Settings
         {
             await s3Client.PutBucketAsync(mbArgs);
         }
-        catch (BucketAlreadyOwnedByYouException ex) { /* weep about it */ }
+        catch (BucketAlreadyOwnedByYouException) { /* weep about it */ }
 
         var policy = new PutBucketPolicyRequest()
         {
