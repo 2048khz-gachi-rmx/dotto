@@ -16,15 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.9">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.14">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.9" />
-    <PackageReference Include="NetCord" Version="1.0.0-alpha.423" />
-    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.423" />
-    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.423" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.14" />
+    <PackageReference Include="NetCord" Version="1.0.0-alpha.453" />
+    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.453" />
+    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.453" />
   </ItemGroup>
 
   <ItemGroup>
