@@ -7,7 +7,8 @@ using NetCord.Hosting.Gateway;
 namespace Dotto.Discord.EventHandlers;
 
 [UsedImplicitly]
-internal class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) : IMessageCreateGatewayHandler
+// has to be public to be exported by the assembly and found by netcord. makes sense
+public class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) : IMessageCreateGatewayHandler
 {
     private readonly Dictionary<Type, Type[]> _handlerTypes = DiscoverHandlerTypes();
 
