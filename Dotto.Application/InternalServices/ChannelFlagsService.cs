@@ -23,9 +23,6 @@ public class ChannelFlagsService(
 {
     public async Task<bool> AddChannelFlag(ulong channelId, string flagName, CancellationToken ct = default)
     {
-        // While i _could_ do fancy stuff like not selecting the entity to avoid an extra roundtrip,
-        // flag updates are going to be so rare that it just won't be worth it.
-        // Plus it's logic moved to the DB, which sucks (checking if a channel reached max flags?)
         var flags = await dbContext.ChannelFlags.FirstOrDefaultAsync(f => f.ChannelId == channelId, ct);
 
         if (flags == null)
@@ -33,66 +30,75 @@ public class ChannelFlagsService(
             flags = new ChannelFlags(channelId);
             dbContext.ChannelFlags.Add(flags);
         }
-        
+
         var now = dateTimeProvider.UtcNow;
-        
+
         if (!flags.AddFlag(flagName, now))
             return false;
 
         await dbContext.SaveChangesAsync(ct);
-        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags, cancellationToken: CancellationToken.None);
         
+        // don't try to get chummy by keeping cache more-or-less-updated, otherwise we introduce various data races and stale data...
+        await hybridCache.RemoveAsync(GetCacheKey(channelId), cancellationToken: CancellationToken.None);
+
         return true;
     }
-    
+
     public async Task<bool> RemoveChannelFlag(ulong channelId, string flagName, CancellationToken ct = default)
     {
         var flags = await dbContext.ChannelFlags.FirstOrDefaultAsync(f => f.ChannelId == channelId, ct);
         var now = dateTimeProvider.UtcNow;
-        
+
         if (flags == null || !flags.RemoveFlag(flagName, now))
             return false;
 
         await dbContext.SaveChangesAsync(ct);
-        await hybridCache.SetAsync($"channelflags-{channelId}", flags.Flags, cancellationToken: CancellationToken.None);
-        
+        await hybridCache.RemoveAsync(GetCacheKey(channelId), cancellationToken: CancellationToken.None);
+
         return true;
     }
 
-    private string GetCacheKey(ulong channelId) => $"channelflags-{channelId}";
-    
-    public ValueTask<IImmutableList<string>> GetChannelFlags(ulong channelId, CancellationToken ct = default)
-    {
-        return hybridCache.GetOrCreateAsync<IImmutableList<string>>(GetCacheKey(channelId),
-            async token =>
-            { 
-                return (await dbContext.ChannelFlags
-                    .FirstOrDefaultAsync(f => f.ChannelId == channelId, token))
-                    ?.Flags.ToImmutableList() ?? ImmutableList<string>.Empty;
-            },
-            cancellationToken: ct);
-    }
-    
+    public ValueTask<ImmutableList<string>> GetChannelFlags(ulong channelId, CancellationToken ct = default)
+        => GetCachedFlagsAsync(channelId, ct);
+
     public async Task<DateTime> UpdateCachedFlags(DateTime lastUpdate)
     {
-        var newFlags = await dbContext.ChannelFlags
+        var changed = await dbContext.ChannelFlags.AsNoTracking()
             .Where(f => f.UpdatedOn > lastUpdate)
+            .Select(f => new { f.ChannelId, f.UpdatedOn })
             .ToListAsync();
 
         var maxUpdate = lastUpdate;
         var tasks = new List<Task>();
-        
-        newFlags.ForEach(f =>
+
+        foreach (var f in changed)
         {
             maxUpdate = f.UpdatedOn > maxUpdate ? f.UpdatedOn : maxUpdate;
-            var task = hybridCache.SetAsync(GetCacheKey(f.ChannelId), f.Flags);
-            
-            if (!task.IsCompleted)
-                tasks.Add(task.AsTask()); // ValueTask instances must be awaited blah blah oh shut up
-        });
+
+            // Potentially outdated flags in cache; invalidate it, so the next time the flags are needed,
+            // we do a DB roundtrip and get truth data
+            tasks.Add(hybridCache.RemoveAsync(GetCacheKey(f.ChannelId)).AsTask());
+        }
 
         await Task.WhenAll(tasks);
 
         return maxUpdate;
+    }
+    
+    private static string GetCacheKey(ulong channelId)
+        => $"channelflags-{channelId}";
+
+    private ValueTask<ImmutableList<string>> GetCachedFlagsAsync(ulong channelId, CancellationToken ct)
+    {
+        return hybridCache.GetOrCreateAsync<ImmutableList<string>>(GetCacheKey(channelId),
+            async token =>
+            {
+                var entity = await dbContext.ChannelFlags.AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.ChannelId == channelId, token);
+
+                return entity?.Flags.ToImmutableList() ?? ImmutableList<string>.Empty;
+            },
+            new HybridCacheEntryOptions() { LocalCacheExpiration = TimeSpan.FromMinutes(5) },
+            cancellationToken: ct);
     }
 }

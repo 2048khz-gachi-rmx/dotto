@@ -6,7 +6,6 @@ namespace Dotto.Bot.HostedServices;
 
 public class ChannelFlagPoller(IServiceProvider serviceProvider) : BackgroundService
 {
-    
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await DoPoll();
@@ -23,7 +22,7 @@ public class ChannelFlagPoller(IServiceProvider serviceProvider) : BackgroundSer
     private async Task DoPoll()
     {
         using var scope = serviceProvider.CreateScope();
-        var flagsService = scope.ServiceProvider.GetRequiredService<ChannelFlagsService>();
+        var flagsService = scope.ServiceProvider.GetRequiredService<IChannelFlagsService>();
             
         var newTime = await flagsService.UpdateCachedFlags(_lastUpdatedTime);
         _lastUpdatedTime = newTime;
