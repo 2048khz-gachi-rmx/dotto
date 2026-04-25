@@ -1,6 +1,5 @@
-﻿using Dotto.Application.Modules.ChannelFlags;
+﻿using Dotto.Discord.CommandHandlers.Flags;
 using JetBrains.Annotations;
-using MediatR;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.Commands;
@@ -8,7 +7,7 @@ using NetCord.Services.Commands;
 namespace Dotto.Discord.Commands.Flags;
 
 [UsedImplicitly]
-public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
+public class TextCommand(IFlagCommandHandler flagHandler) : CommandModule<CommandContext>
 {
     [UsedImplicitly]
     [Command("addflag")]
@@ -16,14 +15,10 @@ public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new AddFlagRequest<ReplyMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-            FlagName = flagName
-        });
-        
-        await ReplyAsync(message);
+
+        var result = await flagHandler.AddFlag<ReplyMessageProperties>(textGuildChannel.Id, flagName);
+
+        await ReplyAsync(result);
     }
     
     [UsedImplicitly]
@@ -32,29 +27,22 @@ public class TextCommand(IMediator mediator) : CommandModule<CommandContext>
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new RemoveFlagRequest<ReplyMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-            FlagName = flagName
-        });
-        
-        await ReplyAsync(message);
+
+        var result = await flagHandler.RemoveFlag<ReplyMessageProperties>(textGuildChannel.Id, flagName);
+
+        await ReplyAsync(result);
     }
-    
+
     [UsedImplicitly]
     [Command("listflags")]
     public async Task ListFlags()
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new ListFlagsRequest<ReplyMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-        });
-        
-        await ReplyAsync(message);
+
+        var result = await flagHandler.ListFlags<ReplyMessageProperties>(textGuildChannel.Id);
+
+        await ReplyAsync(result);
     }
     
     private async Task<TextGuildChannel?> CheckChannelIsGuild()

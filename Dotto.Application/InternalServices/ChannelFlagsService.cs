@@ -7,12 +7,19 @@ using Microsoft.Extensions.Caching.Hybrid;
 
 namespace Dotto.Application.InternalServices;
 
-// I see no good reason to mock this, so no interfaces
+public interface IChannelFlagsService
+{
+    Task<bool> AddChannelFlag(ulong channelId, string flagName, CancellationToken ct = default);
+    Task<bool> RemoveChannelFlag(ulong channelId, string flagName, CancellationToken ct = default);
+    ValueTask<ImmutableList<string>> GetChannelFlags(ulong channelId, CancellationToken ct = default);
+    Task<DateTime> UpdateCachedFlags(DateTime lastUpdate);
+}
+
 public class ChannelFlagsService(
     IDottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     HybridCache hybridCache
-    )
+    ) : IChannelFlagsService
 {
     public async Task<bool> AddChannelFlag(ulong channelId, string flagName, CancellationToken ct = default)
     {

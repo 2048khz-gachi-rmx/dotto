@@ -48,7 +48,7 @@ public class TestRun
         if (_testContainers == null)
             return;
         
-        await _testContainers!.DisposeAsync();
+        await _testContainers.DisposeAsync();
         _testContainers = null;
     }
 

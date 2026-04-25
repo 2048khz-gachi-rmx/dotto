@@ -1,4 +1,5 @@
 ﻿using Dotto.Discord.CommandHandlers.Download;
+using Dotto.Discord.CommandHandlers.Flags;
 using Dotto.Discord.Commands.Download;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.Configuration;
@@ -32,5 +33,6 @@ public static class DependencyInjection
     private static void AddCommandHandlers(this IServiceCollection services)
     {
         services.AddTransient<DownloadCommandHandler>();
+        services.AddTransient<IFlagCommandHandler, FlagCommandHandler>();
     }
 }

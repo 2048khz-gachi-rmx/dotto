@@ -1,13 +1,12 @@
-﻿using Dotto.Application.Modules.ChannelFlags;
-using Dotto.Common.Constants;
-using MediatR;
+﻿using Dotto.Common.Constants;
+using Dotto.Discord.CommandHandlers.Flags;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
 namespace Dotto.Discord.Commands.Flags;
 
-public class SlashCommand(IMediator mediator) : ApplicationCommandModule<ApplicationCommandContext>
+public class SlashCommand(IFlagCommandHandler flagHandler) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SlashCommand("addflag", "Adds a flag to this channel")]
     public async Task AddFlag(
@@ -18,14 +17,10 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new AddFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-            FlagName = flagName
-        });
-        
-        await RespondAsync(InteractionCallback.Message(message));
+
+        var result = await flagHandler.AddFlag<InteractionMessageProperties>(textGuildChannel.Id, flagName);
+
+        await RespondAsync(InteractionCallback.Message(result));
     }
     
     [SlashCommand("removeflag", "Removes a flag to this channel")]
@@ -36,28 +31,21 @@ public class SlashCommand(IMediator mediator) : ApplicationCommandModule<Applica
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-            FlagName = flagName
-        });
-        
-        await RespondAsync(InteractionCallback.Message(message));
+
+        var result = await flagHandler.RemoveFlag<InteractionMessageProperties>(textGuildChannel.Id, flagName);
+
+        await RespondAsync(InteractionCallback.Message(result));
     }
-    
+
     [SlashCommand("listflags", "Lists this channel's flags")]
     public async Task ListFlags()
     {
         var textGuildChannel = await CheckChannelIsGuild();
         if (textGuildChannel == null) return;
-        
-        var message = await mediator.Send(new ListFlagsRequest<InteractionMessageProperties>
-        {
-            ChannelId = textGuildChannel.Id,
-        });
-        
-        await RespondAsync(InteractionCallback.Message(message));
+
+        var result = await flagHandler.ListFlags<InteractionMessageProperties>(textGuildChannel.Id);
+
+        await RespondAsync(InteractionCallback.Message(result));
     }
 
     private async Task<TextGuildChannel?> CheckChannelIsGuild()

@@ -1,5 +1,7 @@
-﻿using Dotto.Application.Modules.ChannelFlags;
+﻿using Dotto.Application.InternalServices;
 using Dotto.Common.Constants;
+using Dotto.Discord.CommandHandlers.Flags;
+using Microsoft.Extensions.Caching.Hybrid;
 using NetCord.Rest;
 using Shouldly;
 
@@ -7,6 +9,25 @@ namespace Dotto.Tests.IntegrationTests.Commands;
 
 public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
 {
+    // https://github.com/dotnet/extensions/issues/5763#issuecomment-2688667419
+    // we're not testing the cache here; this is a shim so we can actually get the factory's outputs
+    private sealed class FakeHybridCache : HybridCache
+    {
+        public override ValueTask<T> GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory,
+            HybridCacheEntryOptions? options = null, IEnumerable<string>? tags = null, CancellationToken cancellationToken = default)
+            => factory(state, cancellationToken);
+
+        public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default) => default;
+        public override ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken = default) => default;
+        public override ValueTask SetAsync<T>(string key, T value, HybridCacheEntryOptions? options = null, IEnumerable<string>? tags = null,
+            CancellationToken cancellationToken = default) => default;
+    }
+    
+    private readonly HybridCache _mockCache = new FakeHybridCache();
+
+    private FlagCommandHandler Sut => new(
+        new ChannelFlagsService(DbContext, TestDateTimeProvider, _mockCache));
+
     [Test]
     public async Task ShouldAddFlag()
     {
@@ -15,20 +36,16 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
             .WithChannelId(123)
             .WithFlags(["preflag"])
             .GetAsync();
-        
+
         // Send
-        var msg = await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = 123,
-            FlagName = "newflag"
-        });
-        
+        var msg = await Sut.AddFlag<InteractionMessageProperties>(123, "newflag");
+
         // Assert
         msg.Content.ShouldStartWith("Flag added!");
         msg.Content.ShouldNotBeNull().ShouldContain("preflag");
         msg.Content.ShouldNotBeNull().ShouldContain("newflag");
     }
-    
+
     [Test]
     public async Task ShouldReplyAddLimitReached()
     {
@@ -40,21 +57,18 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
             .WithFlags(Enumerable.Repeat("flag", Constants.ChannelFlags.MaxFlagsInChannel).ToList())
             .WithUpdatedOn(now.AddDays(-1))
             .GetAsync();
-        
-        // Send
+
         NewScope();
-        var shouldThrow = async () => await Mediator.Send(new AddFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = 123,
-            FlagName = "newflag"
-        });
-        
+
+        // Send
+        var shouldThrow = async () => await Sut.AddFlag<InteractionMessageProperties>(123, "newflag");
+
         // Assert
         NewScope();
         (await shouldThrow.ShouldThrowAsync<ArgumentOutOfRangeException>())
             .Message.ShouldStartWith("Channel reached the flag limit");
     }
-    
+
     [Test]
     public async Task ShouldRemoveFlag()
     {
@@ -63,14 +77,10 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
             .WithChannelId(123)
             .WithFlags(["keepFlag", "removeFlag"])
             .GetAsync();
-        
+
         // Send
-        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = 123,
-            FlagName = "removeFlag"
-        });
-        
+        var msg = await Sut.RemoveFlag<InteractionMessageProperties>(123, "removeFlag");
+
         // Assert
         msg.Content.ShouldStartWith("Flag removed!");
         msg.Content.ShouldNotBeNull().ShouldContain("keepFlag");
@@ -85,18 +95,14 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
             .WithChannelId(123)
             .WithFlags(["keepFlag"])
             .GetAsync();
-        
+
         // Send
-        var msg = await Mediator.Send(new RemoveFlagRequest<InteractionMessageProperties>
-        {
-            ChannelId = 123,
-            FlagName = "nonExistentFlag"
-        });
-        
+        var msg = await Sut.RemoveFlag<InteractionMessageProperties>(123, "nonExistentFlag");
+
         // Assert
         msg.Content.ShouldStartWith("Channel didn't have flag \"nonExistentFlag\".");
     }
-    
+
     [Test]
     public async Task ShouldListFlags()
     {
@@ -107,10 +113,7 @@ public class ChannelFlagCommandsTests : TestDatabaseFixtureBase
             .GetAsync();
 
         // Send
-        var msg = await Mediator.Send(new ListFlagsRequest<InteractionMessageProperties>
-        {
-            ChannelId = 123
-        });
+        var msg = await Sut.ListFlags<InteractionMessageProperties>(123);
 
         // Assert
         msg.Content.ShouldStartWith("Channel has the following flags:");

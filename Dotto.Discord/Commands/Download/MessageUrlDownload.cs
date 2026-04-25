@@ -21,7 +21,7 @@ namespace Dotto.Discord.Commands.Download;
 public class MessageUrlDownload(
     IOptionsMonitor<AutoDownloadSettings> settings,
     RestClient client,
-    ChannelFlagsService channelFlagsService,
+    IChannelFlagsService channelFlagsService,
     IServiceProvider serviceProvider,
     ILogger<MessageUrlDownload> logger)
     : IGatewayEventProcessor<Message>, IDisposable
