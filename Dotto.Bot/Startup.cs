@@ -58,8 +58,7 @@ builder.Services
     {
         cfg.ResultHandler = new DottoApplicationCommandServiceResultHandler<ApplicationCommandContext>();
     })
-    .AddGatewayHandlers(typeof(EventHandlerAssemblyMarker).Assembly)
-    .AddGatewayHandlers(typeof(Program).Assembly);
+    .AddGatewayHandlers(typeof(EventHandlerAssemblyMarker).Assembly);
 
 #endregion
 
