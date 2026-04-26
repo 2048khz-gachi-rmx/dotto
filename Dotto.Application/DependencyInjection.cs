@@ -1,9 +1,10 @@
-﻿using System.Reflection;
-using Dotto.Application.Abstractions.Factories;
+﻿using Dotto.Application.Abstractions.Factories;
 using Dotto.Application.Abstractions.MediaProcessing;
+using Dotto.Application.Abstractions.VideoProcessing;
 using Dotto.Application.Factories;
 using Dotto.Application.InternalServices;
 using Dotto.Application.InternalServices.MediaProcessing;
+using Dotto.Application.InternalServices.VideoProcessing;
 using Dotto.Application.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IChannelFlagsService, ChannelFlagsService>();
         services.AddSingleton<IUrlCorrector, UrlCorrector>();
         services.AddSingleton<IMediaProcessingService, MediaProcessingService>();
+        services.AddSingleton<IVideoCompressionService, VideoCompressionService>();
     }
     
     private static void ConfigureFactories(IServiceCollection services)

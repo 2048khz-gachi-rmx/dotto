@@ -23,6 +23,11 @@ public static class Constants
         ];
     }
 
+    public static class FfmpegTemp
+    {
+        public const string DirName = "dotto_ffmpeg";
+    }
+
     public static class Colors
     {
         public static Color WarningColor = new(235, 175, 40);

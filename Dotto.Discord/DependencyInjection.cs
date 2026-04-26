@@ -1,5 +1,7 @@
-﻿using Dotto.Discord.CommandHandlers.Download;
+﻿using Dotto.Discord.CommandHandlers.Compress;
+using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.CommandHandlers.Flags;
+using Dotto.Discord.Commands.Compress;
 using Dotto.Discord.Commands.Download;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.Configuration;
@@ -19,20 +21,22 @@ public static class DependencyInjection
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<AutoDownloadSettings>>().Value);
 
-        AddCommands(services);
+        AddMessageListeners(services);
         AddCommandHandlers(services);
         
         return services;
     }
 
-    private static void AddCommands(this IServiceCollection services)
+    private static void AddMessageListeners(this IServiceCollection services)
     {
         services.AddScoped<MessageUrlDownload>();
+        services.AddScoped<AutoVideoCompressor>();
     }
 
     private static void AddCommandHandlers(this IServiceCollection services)
     {
         services.AddTransient<DownloadCommandHandler>();
         services.AddTransient<IFlagCommandHandler, FlagCommandHandler>();
+        services.AddTransient<CompressCommandHandler>();
     }
 }
