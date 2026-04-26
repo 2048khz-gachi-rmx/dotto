@@ -1,32 +1,42 @@
 # Dotto - Discord Bot
 
-A .NET 9 Discord bot that downloads media from URLs and posts it to Discord. Uses NetCord, PostgreSQL, optional S3 overflow storage, and yt-dlp/Cobalt download backends.
+A .NET 9 Discord bot that downloads media from URLs and posts it to Discord. Uses NetCord, PostgreSQL, optional S3 overflow storage, yt-dlp/Cobalt download backends, and ffmpeg video compression.
+
+## Instructions
+
+Some folders or projects may contain FEATURE.md that describes a feature with additional detail - explanations, implementation quirks, requirements, etc.
+You should generally only read them if you're planning to actively work on that feature.
+Conversely, if you work on the feature and edit its' mechanics, you should prompt the user to write down the changes in those files when done.
 
 ## Architecture
 
-Layered architecture with 9 projects in `Dotto.sln`:
+Layered architecture with projects in `Dotto.sln`:
 
 ```
 Dotto.Bot (entry point)
   └── Dotto.Discord (Discord integration)
         └── Dotto.Application (business logic)
               ├── Dotto.Common (shared utilities)
-              └── Dotto.Downloader.Contracts (downloader interfaces)
+              ├── Dotto.Downloader.Contracts (downloader interfaces)
+              └── Dotto.Ffmpeg.Contracts (compression interfaces)
   └── Dotto.Database (PostgreSQL data access)
   └── Dotto.Downloader (media download implementations)
   └── Dotto.FileUpload (S3 storage)
+  └── Dotto.Ffmpeg (ffmpeg compression)
 ```
 
 | Project | Purpose |
 |---------|---------|
 | **Dotto.Bot** | Entry point. `Startup.cs` bootstraps DI, NetCord, and hosted services. |
 | **Dotto.Discord** | NetCord commands, event handlers, result handlers. |
-| **Dotto.Application** | Business logic: `MediaProcessingService`, `ChannelFlagsService` (HybridCache), factories. |
+| **Dotto.Application** | Business logic. |
 | **Dotto.Common** | Shared utilities. No project dependencies. |
 | **Dotto.Downloader.Contracts** | Pure interfaces: `IDownloaderService`, `DownloadedMedia`, `DownloaderType`. |
 | **Dotto.Downloader** | `YtdlDownloaderService` (yt-dlp process) and `CobaltDownloaderService` (HTTP API). |
 | **Dotto.Database** | EF Core + Npgsql. `DottoDbContext` with `ChannelFlags` and `DownloadedMedia` tables. |
 | **Dotto.FileUpload** | S3 upload via `S3UploadService`. Optional — skipped if `Minio.BaseUrl` is null. |
+| **Dotto.Ffmpeg.Contracts** | Pure interfaces: `IVideoCompressorStrategy`, `CompressionResult`, `CompressionMethod`, `CompressionOptions`. |
+| **Dotto.Ffmpeg** | `FfmpegService` (ffmpeg process), `Vp9CompressionStrategy`, `Av1CompressionStrategy` (stub), `FfmpegTempCleanupService`. |
 | **Dotto.Tests** | NUnit + NSubstitute + Shouldly + Testcontainers (PostgreSQL). |
 
 ### Bootstrap Sequence (`Startup.cs`)
@@ -41,10 +51,10 @@ Dotto.Bot (entry point)
 
 ### DI Patterns
 
-- **Keyed services**: Downloaders registered by `DownloaderType` enum via `AddKeyedSingleton`
+- **Keyed services**: Downloaders by `DownloaderType` via `AddKeyedSingleton`; compression strategies by `CompressionMethod` via `AddKeyedScoped`
 - **Options**: `AddOptions<T>().BindConfiguration().ValidateDataAnnotations().ValidateOnStart()`
-- **Scoped**: command handlers (transient), event processors, `ChannelFlagsService`
-- **Singleton**: `DateTimeProvider`, `UrlCorrector`, `MediaProcessingService`, downloader settings, resolved options values
+- **Scoped**: command handlers (transient), event processors, `ChannelFlagsService`, compression strategies
+- **Singleton**: `DateTimeProvider`, `UrlCorrector`, `MediaProcessingService`, `FfmpegService`, downloader settings, resolved options values
 
 ## Commands
 
