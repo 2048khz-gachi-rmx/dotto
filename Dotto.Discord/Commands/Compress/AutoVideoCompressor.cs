@@ -5,8 +5,11 @@ using Dotto.Common;
 using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Compress;
 using Dotto.Discord.EventHandlers;
+using Dotto.Discord.Services;
 using Dotto.Ffmpeg.Contracts;
+using Dotto.Ffmpeg.Settings;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using NetCord.Gateway;
 using NetCord.Rest;
 
@@ -15,29 +18,20 @@ namespace Dotto.Discord.Commands.Compress;
 public class AutoVideoCompressor(
     RestClient client,
     IChannelFlagsService channelFlagsService,
+    ReactionManager reactionManager,
+    IOptions<CompressionSettings> compressionSettings,
     IServiceProvider serviceProvider)
     : IGatewayEventProcessor<Message>, IDisposable
 {
     private readonly CompressCommandHandler _compressHandler = serviceProvider.GetRequiredService<CompressCommandHandler>();
-    
-    private static Regex? _discordCdnRegex;
-    private static Regex? _videoExtsRegex;
+    private readonly CompressionMethod _defaultMethod = compressionSettings.Value.DefaultStrategy;
 
-    [MemberNotNull(nameof(_discordCdnRegex), nameof(_videoExtsRegex))]
-    private void InitializeRegexes()
-    {
-        _discordCdnRegex = new Regex(
-            @"https?:\/\/(?:media|cdn)\.discord(?:app)?\.(?:net|com)\/attachments\/(\d{18,}\/\d{18,})\/(.*\.\w{3,}).*$",
-            RegexOptions.Compiled);
-        
-        _videoExtsRegex = new Regex(@"\.(mov|mp4|webm)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    }
+    private static readonly ReactionEmojiProperties _thumbsUp = new("👍");
+    private static readonly ReactionEmojiProperties _middleFinger = new("🖕");
+    private static readonly ReactionEmojiProperties _ouse = new("ouse", 1164630871589003326);
 
     public async ValueTask HandleAsync(Message message)
     {
-        if (_discordCdnRegex == null || _videoExtsRegex == null)
-            InitializeRegexes();
-
         if (message.Author.IsBot)
             return;
         
@@ -46,6 +40,7 @@ public class AutoVideoCompressor(
             return;
         
         var videosToProcess = new List<(Uri Url, string Name)>();
+        var contentToUse = message.Content;
 
         foreach (var attachment in message.Attachments)
         {
@@ -58,37 +53,53 @@ public class AutoVideoCompressor(
 
         if (!string.IsNullOrEmpty(message.Content))
         {
-            foreach (Match match in _discordCdnRegex.Matches(message.Content))
+            foreach (Match match in Constants.Compression.Regexes.DiscordCdn.Matches(message.Content))
             {
                 var url = match.Value;
                 var fn = match.Groups[2].Value.ToLower();
                 
-                if (!_videoExtsRegex.IsMatch(fn))
+                if (!Constants.Compression.Regexes.VideoExts.IsMatch(fn))
                     continue;
 
                 videosToProcess.Add((new Uri(url), fn));
             }
+
+            contentToUse = Constants.Compression.Regexes.DiscordCdn.Replace(message.Content, "");
         }
 
         if (videosToProcess.IsEmpty())
             return;
 
-        await CompressFromMessage(message, videosToProcess);
-    }
-
-    private async ValueTask CompressFromMessage(RestMessage message, List<(Uri Url, string Name)> videos)
-    {
         var typingTask = client.EnterTypingStateAsync(message.ChannelId);
 
         try
         {
-            var result = await _compressHandler.CreateMessage<ReplyMessageProperties>(videos, CompressionMethod.Vp9, true);
+            var result = await _compressHandler.CreateMessage<ReplyMessageProperties>(videosToProcess, _defaultMethod, true);
 
-            if (!result.HasAnyMedia)
-                return;
-            
-            var replyTask = message.ReplyAsync(result.Message);
-            await replyTask;
+            if (result.HasAnyMedia)
+            {   
+                var byAuthorString = $"-# by <@{message.Author.Id}>";
+
+                // yes this is kinda ugly
+                var newContent = byAuthorString + " " + result.Message.Content!.ReplacePrefix("-# ")
+                                 + "\n" + contentToUse;
+
+                var newMessage = result.Message.WithContent(newContent)
+                    .WithAllowedMentions(AllowedMentionsProperties.None);
+
+                var replyTask = message.ReplyAsync(newMessage);
+                var reply = await replyTask;
+
+                var removeEmoji = Random.Shared.NextDouble() < 0.01 ? _ouse : _middleFinger;
+                await reply.AddReactionAsync(_thumbsUp);
+                await reply.AddReactionAsync(removeEmoji);
+
+                reactionManager.TrackMessage(message.Id, reply.Id, message.Author.Id, message.ChannelId);
+            }
+        }
+        catch
+        {
+            // Reaction tracking is best-effort
         }
         finally
         {

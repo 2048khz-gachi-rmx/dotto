@@ -14,7 +14,7 @@ public static class FfmpegDependencyInjection
             .BindConfiguration("Compress")
             .ValidateOnStart();
 
-        services.AddSingleton<FfmpegService>();
+        services.AddSingleton<FfmpegRunner>();
         services.AddHostedService<FfmpegTempCleanupService>();
 
         services.AddKeyedScoped<IVideoCompressorStrategy, Vp9CompressionStrategy>(CompressionMethod.Vp9);

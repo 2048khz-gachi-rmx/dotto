@@ -30,7 +30,7 @@ internal class CompressCommandHandler(
             using var response = await httpClient.GetAsync(url, ct);
             response.EnsureSuccessStatusCode();
 
-            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
             var result = await compressionService.CompressVideoAsync(
                 stream,
                 new CompressionOptions(method),
@@ -62,15 +62,20 @@ internal class CompressCommandHandler(
         {
             // oops! all useless
             results.ForEach(r => r.Result.OutputStream.Dispose());
-            message.WithContent($"Compression skipped: {(ratio > _settings.Thresholds.NeverCompressRatio ? "insufficient savings" : "below minimum threshold")}");
-            
             return new CompressMediaResult<T>
             {
                 Message = message
             };
         }
 
-        var compText = $@"({StringUtils.HumanReadableSize(oldTotal)} -> {StringUtils.HumanReadableSize(newTotal)} ({Math.Ceiling(ratio * 100)}%))";
+        var compText = "-# ("
+                       + string.Join("; ", results
+                           .Select(r => r.Result)
+                           .Where(r => r.Success)
+                           .Select(r => $"{StringUtils.HumanReadableSize(r.OriginalSize)} -> {StringUtils.HumanReadableSize(r.CompressedSize)} " +
+                                        $"({Math.Ceiling((r.OriginalSize > 0 ? (double)r.CompressedSize / r.OriginalSize : 1.0) * 100)}%)"))
+                       + ")";
+            
         message.WithContent(compText);
         message.AddAttachments(attachments);
 

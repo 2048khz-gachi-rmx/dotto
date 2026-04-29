@@ -5,7 +5,7 @@ namespace Dotto.Ffmpeg.Services;
 
 internal class FfmpegTempCleanupService : IHostedService
 {
-    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), Constants.FfmpegTemp.DirName);
+    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), Constants.Compression.TempDirName);
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
