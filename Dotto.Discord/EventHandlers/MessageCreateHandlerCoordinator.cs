@@ -1,5 +1,4 @@
-﻿using Dotto.Common;
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
@@ -17,7 +16,7 @@ public class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) :
         if (!_handlerTypes.TryGetValue(typeof(Message), out var handlerTypes))
             return;
 
-        var tasks = new ValueTask[handlerTypes.Length];
+        var tasks = new Task[handlerTypes.Length];
         var idx = 0;
 
         using var scope = serviceProvider.CreateScope();
@@ -26,13 +25,10 @@ public class MessageCreateHandlerCoordinator(IServiceProvider serviceProvider) :
         foreach (var handlerType in handlerTypes)
         {
             var handler = (IGatewayEventProcessor<Message>)scope.ServiceProvider.GetRequiredService(handlerType);
-            // blah blah the result should be directly awaited. shush.
-#pragma warning disable CA2012
-            tasks[idx++] = handler.HandleAsync(arg);
-#pragma warning restore CA2012
+            tasks[idx++] = handler.HandleAsync(arg).AsTask();
         }
             
-        await ValueTaskUtils.WhenAll(tasks);
+        await Task.WhenAll(tasks);
     }
     
     private static Dictionary<Type, Type[]> DiscoverHandlerTypes()
