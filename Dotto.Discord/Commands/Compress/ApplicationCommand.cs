@@ -2,16 +2,21 @@ using System.Text.RegularExpressions;
 using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Compress;
 using Dotto.Ffmpeg.Contracts;
+using Dotto.Ffmpeg.Settings;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 
 namespace Dotto.Discord.Commands.Compress;
 
-public class ApplicationCommand(IServiceProvider serviceProvider) : ApplicationCommandModule<ApplicationCommandContext>
+public class ApplicationCommand(IServiceProvider serviceProvider,
+    IOptions<CompressionSettings> compressionSettings)
+    : ApplicationCommandModule<ApplicationCommandContext>
 {
     private readonly CompressCommandHandler _compressHandler = serviceProvider.GetRequiredService<CompressCommandHandler>();
+    private readonly CompressionMethod _defaultMethod = compressionSettings.Value.DefaultStrategy;
     
     private async Task Compress(Attachment attachment, CompressionMethod format)
     {
@@ -51,7 +56,7 @@ public class ApplicationCommand(IServiceProvider serviceProvider) : ApplicationC
             }
         }
 
-        var hydrateTask = _compressHandler.CreateMessage<InteractionMessageProperties>(videosToProcess, CompressionMethod.Vp9, false);
+        var hydrateTask = _compressHandler.CreateMessage<InteractionMessageProperties>(videosToProcess, _defaultMethod, false);
         if (hydrateTask.IsFaulted)
         {
             throw hydrateTask.Exception;
@@ -75,7 +80,7 @@ public class ApplicationCommand(IServiceProvider serviceProvider) : ApplicationC
         [SlashCommandParameter(Name = "attachment", Description = "Video file to compress")]
         Attachment attachment,
         [SlashCommandParameter(Name = "format", Description = "Compression format")]
-        CompressionMethod format = CompressionMethod.Vp9)
+        CompressionMethod format = CompressionMethod.Av1)
         => Compress(attachment, format);
 
     [MessageCommand("Compress",
