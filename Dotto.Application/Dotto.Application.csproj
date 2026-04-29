@@ -18,6 +18,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
       <ProjectReference Include="..\Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj" />
+      <ProjectReference Include="..\Dotto.Ffmpeg.Contracts\Dotto.Ffmpeg.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using Dotto.Discord;
 using Dotto.Discord.Commands;
 using Dotto.Discord.EventHandlers;
 using Dotto.Discord.ResultHandlers;
+using Dotto.Ffmpeg;
 using Dotto.Infrastructure.Database;
 using Dotto.Infrastructure.Downloader;
 using Dotto.Infrastructure.FileUpload;
@@ -27,7 +28,8 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddDatabase(builder.Configuration.GetRequiredSection("ConnectionString").Value)
     .AddFileUploader()
-    .AddDownloader();
+    .AddDownloader()
+    .AddFfmpeg();
 
 // Application
 builder.Services
@@ -45,10 +47,12 @@ builder.Services
 builder.Services
     .AddDiscordGateway((opt) =>
     {
-        opt.Intents = GatewayIntents.GuildMessages
-                      | GatewayIntents.DirectMessages
-                      | GatewayIntents.MessageContent
-                      | GatewayIntents.GuildMessageTyping;
+     opt.Intents = GatewayIntents.GuildMessages
+                       | GatewayIntents.DirectMessages
+                       | GatewayIntents.MessageContent
+                       | GatewayIntents.GuildMessageTyping
+                       | GatewayIntents.GuildMessageReactions
+                       | GatewayIntents.DirectMessageReactions;
     })
     .AddCommands(cfg =>
     {

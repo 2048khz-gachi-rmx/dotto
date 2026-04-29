@@ -7,6 +7,16 @@ public static partial class StringUtils
 {
     public static bool IsNullOrWhitespace([NotNullWhen(false)] this string? str)
         => string.IsNullOrWhiteSpace(str);
+
+    public static string ReplacePrefix(this string input, string prefixToReplace, string newValue = "")
+    {
+        if (input.IsNullOrEmpty() || prefixToReplace.IsNullOrEmpty())
+            return input;
+
+        return input.StartsWith(prefixToReplace)
+            ? string.Concat(newValue, input.AsSpan(prefixToReplace.Length))
+            : input;
+    }
     
     private static readonly string[] FilesizeSuffixes = [ "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" ];
     

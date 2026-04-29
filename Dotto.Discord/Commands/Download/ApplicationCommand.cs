@@ -31,10 +31,8 @@ public class ApplicationCommand(IServiceProvider serviceProvider) : ApplicationC
         {
             throw hydrateTask.Exception;
         }
-        
-        var respTask = RespondAsync(InteractionCallback.DeferredMessage(flags));
 
-        await respTask;
+        await RespondAsync(InteractionCallback.DeferredMessage(flags));
 
         var dlResponse = await hydrateTask;
         var newMessage = await FollowupAsync(dlResponse.Message);
