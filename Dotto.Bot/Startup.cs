@@ -47,12 +47,12 @@ builder.Services
 builder.Services
     .AddDiscordGateway((opt) =>
     {
-     opt.Intents = GatewayIntents.GuildMessages
-                       | GatewayIntents.DirectMessages
-                       | GatewayIntents.MessageContent
-                       | GatewayIntents.GuildMessageTyping
-                       | GatewayIntents.GuildMessageReactions
-                       | GatewayIntents.DirectMessageReactions;
+        opt.Intents = GatewayIntents.GuildMessages
+                           | GatewayIntents.DirectMessages
+                           | GatewayIntents.MessageContent
+                           | GatewayIntents.GuildMessageTyping
+                           | GatewayIntents.GuildMessageReactions
+                           | GatewayIntents.DirectMessageReactions;
     })
     .AddCommands(cfg =>
     {

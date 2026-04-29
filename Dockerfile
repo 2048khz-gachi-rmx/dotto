@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /Dotto.Bot
 
 # Copy everything
@@ -12,7 +12,7 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
 RUN dotnet publish -c Release -o out
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/runtime:9.0
+FROM mcr.microsoft.com/dotnet/runtime:10.0
 COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
 WORKDIR /app
 
