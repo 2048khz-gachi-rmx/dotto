@@ -7,9 +7,10 @@ what, you don't know what botto is?
   - Prioritizes embeddable formats (H265 -> VP9 -> ...)
   - Prioritizes filesizes within the upload limits
   - If S3 details are provided, reuploads videos there to bypass the filesize limit
+- Recompress video attachments via ffmpeg to AV1/VP9 + opus, then reupload them
 - Set custom flags per-channel
   - **Reupload**: should the bot scan messages for certain URLs, download videos from them and re-upload them in chat?
-  - more soon...
+  - **Recompression**: should the bot scan messages for attachments, then recompress and repost them via ffmpeg?
 
 ## Getting started
 1. Create a `docker-compose.yml` file with the following contents:
