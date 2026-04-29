@@ -11,9 +11,14 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
 # Build and publish a release
 RUN dotnet publish -c Release -o out
 
+FROM mwader/static-ffmpeg AS ffmpeg
+
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
+COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
+COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg /ffprobe /usr/local/bin/ffprobe
 WORKDIR /app
 
 # Get yt-dlp (and other packages while we're at it)
@@ -21,14 +26,7 @@ WORKDIR /app
 RUN apt-get update \
 	&& apt-get install -y python3 xz-utils wget curl \
 	&& curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
-
-# Download a prebuilt, stripped-down ffmpeg, cause the one shipped by durrbian is too fucking big
-RUN wget -q https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz \
-    && tar -xf ffmpeg-git-amd64-static.tar.xz \
-    && mv ffmpeg-git-*-static/ffmpeg /usr/local/bin/ \
-    && mv ffmpeg-git-*-static/ffprobe /usr/local/bin/ \
-    && rm -rf ffmpeg-git-*
+    && chmod a+rx /usr/local/bin/yt-dlp 
 
 COPY --from=build /Dotto.Bot/out .
 ENTRYPOINT ["dotnet", "Dotto.Bot.dll"]
