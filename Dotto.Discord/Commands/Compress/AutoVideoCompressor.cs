@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices;
 using Dotto.Common;
@@ -94,7 +93,7 @@ public class AutoVideoCompressor(
                 await reply.AddReactionAsync(_thumbsUp);
                 await reply.AddReactionAsync(removeEmoji);
 
-                reactionManager.TrackMessage(message.Id, reply.Id, message.Author.Id, message.ChannelId);
+                reactionManager.TrackMessage(reply, message);
             }
         }
         catch

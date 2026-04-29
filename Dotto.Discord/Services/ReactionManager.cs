@@ -1,13 +1,13 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Dotto.Common.DateTimeProvider;
+using NetCord.Rest;
 
 namespace Dotto.Discord.Services;
 
 public record ReactionSession(
-    ulong OriginalMessageId,
+    object Payload,
     ulong BotReplyMessageId,
-    ulong OriginalAuthorId,
     ulong ChannelId,
     DateTime ExpiresAt);
 
@@ -17,16 +17,15 @@ public class ReactionManager(IDateTimeProvider dateTimeProvider)
 
     private readonly ConcurrentDictionary<ulong, ReactionSession> _sessions = new();
 
-    public void TrackMessage(ulong originalMessageId, ulong botReplyMessageId, ulong originalAuthorId, ulong channelId)
+    public void TrackMessage(RestMessage botMessage, object payload)
     {
         var session = new ReactionSession(
-            originalMessageId,
-            botReplyMessageId,
-            originalAuthorId,
-            channelId,
+            payload,
+            botMessage.Id,
+            botMessage.ChannelId,
             dateTimeProvider.UtcNow.Add(SessionTtl));
 
-        _sessions.TryAdd(botReplyMessageId, session);
+        _sessions.TryAdd(botMessage.Id, session);
     }
 
     public bool TryGetSession(ulong botReplyMessageId, [NotNullWhen(true)] out ReactionSession? session)

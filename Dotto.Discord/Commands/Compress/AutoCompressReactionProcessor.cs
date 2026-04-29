@@ -8,7 +8,7 @@ namespace Dotto.Discord.Commands.Compress;
 
 internal class AutoCompressReactionProcessor(
     ReactionManager reactionManager,
-    RestClient client)
+    GatewayClient gatewayClient)
     : IGatewayEventProcessor<MessageReactionAddEventArgs>
 {
     // emojis that we interpret as "delete original message"
@@ -32,7 +32,7 @@ internal class AutoCompressReactionProcessor(
         if (!reactionManager.TryGetSession(args.MessageId, out var session))
             return;
 
-        if (!IsAuthorized(user, session))
+        if (await IsAuthorized(user, session) == false)
             return;
 
         reactionManager.RemoveSession(args.MessageId);
@@ -40,35 +40,52 @@ internal class AutoCompressReactionProcessor(
         await ExecuteAction(args, session);
     }
 
-    private bool IsAuthorized(User user, ReactionSession session)
+    private async Task<bool> IsAuthorized(User user, ReactionSession session)
     {
-        if (user.Id == session.OriginalAuthorId)
+        var sourceMessage = session.Payload as Message;
+        if (sourceMessage?.GuildId == null)
+            return false;
+        
+        if (user.Id == sourceMessage.Author.Id)
             return true;
 
-        // Admin check would require guild member lookup;
-        // for now only the original author can trigger actions
-        return false;
+        // two roundtrips eeewwwwwwww
+        var restGuild = await gatewayClient.Rest.GetGuildAsync(sourceMessage.GuildId.Value);
+        var guildUser = await gatewayClient.Rest.GetGuildUserAsync(sourceMessage.GuildId.Value, sourceMessage.Author.Id);
+        
+        var perms = guildUser.GetPermissions(restGuild);
+        
+        return (perms & Permissions.Administrator) != 0;
     }
 
     private async Task ExecuteAction(MessageReactionAddEventArgs args, ReactionSession session)
     {
+        var sourceMessage = session.Payload as Message;
+        if (sourceMessage == null)
+            return;
+        
         try
         {
+            if (IsRemove(args.Emoji))
+            {
+                await gatewayClient.Rest.DeleteMessageAsync(session.ChannelId, session.BotReplyMessageId);
+                return;
+            }
+            
             if (IsThumbsUp(args.Emoji))
             {
-                await client.DeleteMessageAsync(session.ChannelId, session.OriginalMessageId);
+                try
+                {
+                    await gatewayClient.Rest.DeleteMessageAsync(sourceMessage.ChannelId, sourceMessage.Id);
+                } catch { /* source message deleted, whatever. remove the emojis */ }
 
                 foreach (var reactionToRemove in AcceptEmojis.Concat(RejectEmojis))
                 {
                     try
                     {
-                        await client.DeleteAllMessageReactionsForEmojiAsync(session.ChannelId, session.BotReplyMessageId, reactionToRemove);
+                        await gatewayClient.Rest.DeleteAllMessageReactionsForEmojiAsync(session.ChannelId, session.BotReplyMessageId, reactionToRemove);
                     } catch { /* don't care didn't ask */ }
                 }
-            }
-            else if (IsRemove(args.Emoji))
-            {
-                await client.DeleteMessageAsync(session.ChannelId, session.BotReplyMessageId);
             }
         }
         catch { /* message may already be deleted */ }
