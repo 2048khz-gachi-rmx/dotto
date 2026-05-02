@@ -66,11 +66,11 @@ public class ApplicationCommand(IServiceProvider serviceProvider,
         
         var result = await hydrateTask;
 
-        if (result.HasAnyMedia)
-        {   
-            var newMessage = result.Message.WithAllowedMentions(AllowedMentionsProperties.None);
-            await FollowupAsync(newMessage);
-        }
+        var newMessage = result.HasAnyMedia
+            ? result.Message.WithAllowedMentions(AllowedMentionsProperties.None)
+            : new InteractionMessageProperties().WithContent("-# no media found...");
+        
+        await FollowupAsync(newMessage);
     }
 
     [SlashCommand("compress", "Compress a video attachment using FFmpeg",

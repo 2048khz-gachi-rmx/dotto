@@ -41,8 +41,8 @@ internal class Vp9CompressionStrategy : IVideoCompressorStrategy
                 ? settings
                 : new StrategySettings();
 
-            int crf = strategySettings.Crf;
-            int audioBitrateKbps = strategySettings.AudioBitrateKbps;
+            var crf = strategySettings.Crf;
+            var audioBitrateKbps = strategySettings.AudioBitrateKbps;
 
             Directory.CreateDirectory(_tempDir);
             logFileBase = Path.Combine(_tempDir, $"ffmpeg_{Guid.NewGuid():N}");
@@ -120,12 +120,11 @@ internal class Vp9CompressionStrategy : IVideoCompressorStrategy
         }
     }
 
-    static void DeleteFile(string path)
+    private static void DeleteFile(string path)
     {
         try
         {
-            if (File.Exists(path))
-                File.Delete(path);
+            File.Delete(path);
         }
         catch
         {

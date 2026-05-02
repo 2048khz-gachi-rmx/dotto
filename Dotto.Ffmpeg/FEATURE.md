@@ -38,7 +38,7 @@ An `IHostedService` registered via `AddHostedService` in `AddFfmpeg()`:
 
 - On `StartAsync`: wipes all stale files from the `dotto_ffmpeg` temp dir, then ensures the directory exists
 - On `StopAsync`: also cleans up stale files for graceful shutdown
-- Only deletes files matching known patterns (`ffmpeg_{guid}`, `out_{guid}.webm`) to avoid removing unrelated temp files
+- Only deletes files matching known patterns (`ffmpeg_{guid}`, `out_{guid}.webm`, `out_{guid}.mp4`) to avoid removing unrelated temp files
 
 ### Compression Strategies
 
@@ -74,7 +74,7 @@ Thresholds are applied by `CompressCommandHandler.CreateMessage` when `applyThre
 
 1. Strategy writes input to `input_{guid}{extension}` in system temp dir
 2. Strategy writes output to `dotto_ffmpeg` temp dir (VP9 also writes 2-pass log files there)
-3. Strategy reads output into a `MemoryStream`, then deletes all temp files in `finally`
+3. Strategy reads output into a `MemoryStream`, then deletes its' temp files in `finally`
 4. On startup/shutdown, `FfmpegTempCleanupService` wipes any leftover files from `dotto_ffmpeg`
 
 ### Reaction-Based Message Control

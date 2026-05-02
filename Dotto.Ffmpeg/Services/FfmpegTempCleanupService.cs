@@ -42,14 +42,18 @@ internal class FfmpegTempCleanupService : IHostedService
         }
     }
 
-    // Valid patterns: ffmpeg_{guid}[-0.log], out_{guid}.webm
+    // Valid patterns: ffmpeg_{guid}[-0.log], out_{guid}.webm, out_{guid}.mp4
     static bool IsDottoFile(string name)
     {
         if (name.StartsWith("ffmpeg_") && Guid.TryParse(name[7..], out _))
             return true;
 
-        if (name.StartsWith("out_") && name.EndsWith(".webm") && Guid.TryParse(name[4..^5], out _))
-            return true;
+        if (name.StartsWith("out_") && (name.EndsWith(".webm") || name.EndsWith(".mp4")))
+        {
+            var fileNameOnly = Path.GetFileNameWithoutExtension(name);
+            var isGuid = Guid.TryParse(fileNameOnly[4..], out _);
+            return isGuid;
+        }
 
         return false;
     }

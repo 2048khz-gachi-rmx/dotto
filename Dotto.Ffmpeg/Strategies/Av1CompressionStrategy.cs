@@ -8,7 +8,7 @@ namespace Dotto.Ffmpeg.Strategies;
 
 internal class Av1CompressionStrategy : IVideoCompressorStrategy
 {
-    private const string Extension = ".webm";
+    private const string Extension = ".mp4";
 
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), Constants.Compression.TempDirName);
     private readonly FfmpegRunner _ffmpegRunner;
@@ -40,11 +40,11 @@ internal class Av1CompressionStrategy : IVideoCompressorStrategy
                 ? settings
                 : new StrategySettings();
 
-            int crf = strategySettings.Crf;
-            int audioBitrateKbps = strategySettings.AudioBitrateKbps;
+            var crf = strategySettings.Crf;
+            var audioBitrateKbps = strategySettings.AudioBitrateKbps;
 
             Directory.CreateDirectory(_tempDir);
-            outputPath = Path.Combine(_tempDir, $"out_{Guid.NewGuid():N}.webm");
+            outputPath = Path.Combine(_tempDir, $"out_{Guid.NewGuid():N}{Extension}");
 
             var args = new[]
             {
@@ -56,6 +56,7 @@ internal class Av1CompressionStrategy : IVideoCompressorStrategy
                 "-svtav1-params", "fast-decode=2:tune=0:film-grain=0:lookahead=120:scd=1",
                 "-preset", "4",
                 "-vf", "mpdecimate",
+                "-movflags", "+faststart",
                 "-pix_fmt", "yuv420p10le",
                 outputPath
             };
@@ -96,12 +97,11 @@ internal class Av1CompressionStrategy : IVideoCompressorStrategy
         }
     }
 
-    static void DeleteFile(string path)
+    private static void DeleteFile(string path)
     {
         try
         {
-            if (File.Exists(path))
-                File.Delete(path);
+            File.Delete(path);
         }
         catch
         {
