@@ -46,6 +46,7 @@ internal class Av1CompressionStrategy : IVideoCompressorStrategy
             Directory.CreateDirectory(_tempDir);
             outputPath = Path.Combine(_tempDir, $"out_{Guid.NewGuid():N}{Extension}");
 
+            // https://gist.github.com/BlueSwordM/86dfcb6ab38a93a524472a0cbe4c4100
             var args = new[]
             {
                 "-i", tempInputPath,
@@ -53,7 +54,8 @@ internal class Av1CompressionStrategy : IVideoCompressorStrategy
                 "-c:a", "libopus",
                 "-b:a", $"{audioBitrateKbps}k",
                 "-crf", crf.ToString(),
-                "-svtav1-params", "fast-decode=2:tune=0:film-grain=0:lookahead=120:scd=1",
+                "-g", "180",
+                "-svtav1-params", "fast-decode=2:tune=0:enable-overlays=1:film-grain=0:lookahead=120:scd=1",
                 "-preset", "4",
                 "-vf", "mpdecimate",
                 "-movflags", "+faststart",
