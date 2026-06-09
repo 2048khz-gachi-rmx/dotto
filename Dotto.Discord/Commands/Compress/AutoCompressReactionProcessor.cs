@@ -26,13 +26,13 @@ internal class AutoCompressReactionProcessor(
     
     public async ValueTask HandleAsync(MessageReactionAddEventArgs args)
     {
-        if (args.User is not User user || user.IsBot)
+        if (args.User == null || args.User.IsBot)
             return;
 
         if (!reactionManager.TryGetSession(args.MessageId, out var session))
             return;
 
-        if (await IsAuthorized(user, session) == false)
+        if (await IsAuthorized(args.User, session) == false)
             return;
 
         reactionManager.RemoveSession(args.MessageId);
@@ -40,7 +40,7 @@ internal class AutoCompressReactionProcessor(
         await ExecuteAction(args, session);
     }
 
-    private async Task<bool> IsAuthorized(User user, ReactionSession session)
+    private async Task<bool> IsAuthorized(GuildUser user, ReactionSession session)
     {
         var sourceMessage = session.Payload as Message;
         if (sourceMessage?.GuildId == null)
@@ -48,14 +48,13 @@ internal class AutoCompressReactionProcessor(
         
         if (user.Id == sourceMessage.Author.Id)
             return true;
-
-        // two roundtrips eeewwwwwwww
+        
         var restGuild = await gatewayClient.Rest.GetGuildAsync(sourceMessage.GuildId.Value);
-        var guildUser = await gatewayClient.Rest.GetGuildUserAsync(sourceMessage.GuildId.Value, sourceMessage.Author.Id);
         
-        var perms = guildUser.GetPermissions(restGuild);
+        var perms = user.GetPermissions(restGuild);
         
-        return (perms & Permissions.Administrator) != 0;
+        return perms.HasFlag(Permissions.ManageMessages)
+               || perms.HasFlag(Permissions.Administrator);
     }
 
     private async Task ExecuteAction(MessageReactionAddEventArgs args, ReactionSession session)

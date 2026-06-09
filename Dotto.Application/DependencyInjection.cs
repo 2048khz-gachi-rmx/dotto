@@ -17,9 +17,10 @@ public static class DependencyInjection
         services.AddOptions<UrlCorrectionSettings>()
             .BindConfiguration("UrlCorrection")
             .ValidateOnStart();
-        
+
         ConfigureFactories(services);
         ConfigureInternalServices(services);
+
 
         return services;
     }
@@ -32,7 +33,7 @@ public static class DependencyInjection
         services.AddSingleton<IMediaProcessingService, MediaProcessingService>();
         services.AddSingleton<IVideoCompressionService, VideoCompressionService>();
     }
-    
+
     private static void ConfigureFactories(IServiceCollection services)
     {
         services.AddTransient<IDownloaderServiceFactory, DownloaderServiceFactory>();
