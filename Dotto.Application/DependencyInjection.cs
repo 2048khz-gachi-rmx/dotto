@@ -30,7 +30,7 @@ public static class DependencyInjection
         services.AddHybridCache();
         services.AddScoped<IChannelFlagsService, ChannelFlagsService>();
         services.AddSingleton<IUrlCorrector, UrlCorrector>();
-        services.AddSingleton<IMediaProcessingService, MediaProcessingService>();
+        services.AddSingleton<IMediaDownloader, MediaDownloader>();
         services.AddSingleton<IVideoCompressionService, VideoCompressionService>();
     }
 

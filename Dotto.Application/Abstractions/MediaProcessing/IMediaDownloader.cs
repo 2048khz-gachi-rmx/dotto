@@ -1,0 +1,9 @@
+﻿using Dotto.Application.Models;
+using Dotto.Infrastructure.Downloader.Contracts.Models;
+
+namespace Dotto.Application.Abstractions.MediaProcessing;
+
+public interface IMediaDownloader
+{
+    Task<MediaDownloadResult> DownloadMediaFromUrl(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default);
+}

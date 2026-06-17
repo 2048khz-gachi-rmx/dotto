@@ -20,7 +20,7 @@ namespace Dotto.Tests.IntegrationTests.CommandHandlers.Download;
 
 public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
 {
-    private readonly IMediaProcessingService _mockMediaProcessingService = Substitute.For<IMediaProcessingService>();
+    private readonly IMediaDownloader _mockMediaDownloader = Substitute.For<IMediaDownloader>();
     private readonly IUploadService _mockUploadService = Substitute.For<IUploadService>();
     
     private DownloadCommandHandler _sut;
@@ -31,7 +31,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     [SetUp]
     public new void Setup()
     {
-        _sut = new DownloadCommandHandler(DbContext, _mockMediaProcessingService, TestDateTimeProvider, _mockUploadService);
+        _sut = new DownloadCommandHandler(DbContext, _mockMediaDownloader, TestDateTimeProvider, _mockUploadService);
     }
 
     [Test]
@@ -51,7 +51,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         
         var downloadedMediaList = new List<DownloadedMedia> { downloadedMedia };
         
-        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+        _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())
             .Returns(new MediaDownloadResult()
             {
                 Media = downloadedMediaList
@@ -90,7 +90,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         };
         
         var downloadedMediaList = new List<DownloadedMedia> { downloadedMedia };
-        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+        _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())
             .Returns(new MediaDownloadResult()
             {
                 Media = downloadedMediaList
@@ -131,7 +131,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         // Arrange
         var testUri = new Uri("https://example.com/video.mp4");
 
-        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+        _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())
             .Returns(new MediaDownloadResult()
             {
                 Media = []
@@ -198,7 +198,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new ServiceUnavailableException("TestService"));
         
-        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+        _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())
             .Returns(new MediaDownloadResult()
             {
                 Media = [],
@@ -246,7 +246,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
             AudioFormat = null
         };
         
-        _mockMediaProcessingService.ProcessMediaFromUrlAsync(testUri, Arg.Any<DownloadOptions>())
+        _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())
             .Returns(new MediaDownloadResult()
             {
                 Media = [ downloadedMedia ],

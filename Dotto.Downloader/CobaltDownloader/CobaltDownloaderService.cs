@@ -23,7 +23,7 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
         };
 
         CobaltGenericResponse response;
-        
+
         try
         {
             response = await RetryUtils.ExecuteWithRetryAsync(
@@ -38,6 +38,10 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
                 },
                 ex => ex is CobaltApiException { ErrorCode: "error.api.fetch.empty" },
                 cancellationToken: cancellationToken);
+        }
+        catch (TimeoutException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ApplicationException("Cobalt request timed out", ex);
         }
         catch (CobaltApiException ex)
         {

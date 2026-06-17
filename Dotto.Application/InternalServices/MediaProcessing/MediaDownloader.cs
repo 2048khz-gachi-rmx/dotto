@@ -7,11 +7,11 @@ using Dotto.Infrastructure.Downloader.Contracts.Models;
 
 namespace Dotto.Application.InternalServices.MediaProcessing;
 
-public class MediaProcessingService(IUrlCorrector urlCorrector,
+public class MediaDownloader(IUrlCorrector urlCorrector,
     IDownloaderServiceFactory downloaderFactory)
-    : IMediaProcessingService
+    : IMediaDownloader
 {
-    public async Task<MediaDownloadResult> ProcessMediaFromUrlAsync(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
+    public async Task<MediaDownloadResult> DownloadMediaFromUrl(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         // if there are any replacements to be done on the URL, do them
         var fixedUrl = urlCorrector.CorrectUrl(uri);
@@ -32,7 +32,7 @@ public class MediaProcessingService(IUrlCorrector urlCorrector,
             }
             catch (ServiceUnavailableException ex)
             {
-                response.Errors.Add(new MediaDownloadError()
+                response.Errors.Add(new MediaDownloadError
                 {
                     ErrorCode = MediaErrorCode.ServiceUnavailable,
                     Message = $"Downloader service \"{ex.ServiceName}\" was unavailable..."
@@ -49,7 +49,7 @@ public class MediaProcessingService(IUrlCorrector urlCorrector,
                         innerMessage += "\n" + ex.InnerException?.StackTrace;
                 }
                 
-                response.Errors.Add(new MediaDownloadError()
+                response.Errors.Add(new MediaDownloadError
                 {
                     ErrorCode = MediaErrorCode.DownloaderError,
                     Message = ex.Message,

@@ -16,7 +16,7 @@ using NetCord.Rest;
 namespace Dotto.Discord.CommandHandlers.Download;
 
 internal class DownloadCommandHandler(IDottoDbContext dbContext,
-    IMediaProcessingService mediaProcessingService,
+    IMediaDownloader mediaDownloader,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
@@ -36,7 +36,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
             SourceUrl = uri,
         };
 
-        var result = await mediaProcessingService.ProcessMediaFromUrlAsync(uri, new DownloadOptions
+        var result = await mediaDownloader.DownloadMediaFromUrl(uri, new DownloadOptions
         {
             MaxFilesize = uploadLimit,
             AudioOnly = audioOnly
