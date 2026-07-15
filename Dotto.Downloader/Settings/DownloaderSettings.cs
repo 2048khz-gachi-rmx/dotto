@@ -1,4 +1,4 @@
-﻿namespace Dotto.Infrastructure.Downloader.Settings;
+namespace Dotto.Infrastructure.Downloader.Settings;
 
 public class DownloaderSettings
 {
@@ -6,4 +6,7 @@ public class DownloaderSettings
     public string? TempPath { get; init; }
     
     public CobaltSettings? Cobalt { get; init; }
+
+    /// <remarks>Optional path to a Netscape-format cookies file passed to yt-dlp via --cookies. Null = no cookies.</remarks>
+    public string? CookieFile { get; init; }
 }

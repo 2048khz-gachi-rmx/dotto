@@ -12,6 +12,7 @@ using Dotto.Infrastructure.FileUpload;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 using NetCord.Hosting.Services;
@@ -67,6 +68,14 @@ builder.Services
 #endregion
 
 var host = builder.Build();
+
+// Warn loudly if a cookies file is configured but missing, so a mis-mounted volume fails visibly
+{
+    var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Dotto.Startup");
+    var downloaderSettings = host.Services.GetRequiredService<Dotto.Infrastructure.Downloader.Settings.DownloaderSettings>();
+    if (!string.IsNullOrWhiteSpace(downloaderSettings.CookieFile) && !File.Exists(downloaderSettings.CookieFile))
+        logger.LogWarning("Downloader.CookieFile is set to '{CookieFile}' but the file does not exist; yt-dlp will run without cookies.", downloaderSettings.CookieFile);
+}
 
 await host.MigrateDatabase();
 

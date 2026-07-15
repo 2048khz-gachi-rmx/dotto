@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.IO;
+
 using Dotto.Common;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
@@ -13,48 +15,48 @@ namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
 public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderService
 {
-	private readonly YtdlFormatPicker _ytdlFormatPicker = new();
-	
-	/// <summary>
+    private readonly YtdlFormatPicker _ytdlFormatPicker = new();
+
+    /// <summary>
     /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
     /// </summary>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
-	    var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
-		    ? Path.Combine(Path.GetTempPath(), "dotto_dl")
-		    : settings.TempPath;
-	    
-	    var dir = Directory.CreateDirectory(tempPath);
-	    
-	    var videos = await DownloadAllVideos(uri, dir, options, cancellationToken);
-	    
+        var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
+            ? Path.Combine(Path.GetTempPath(), "dotto_dl")
+            : settings.TempPath;
+
+        var dir = Directory.CreateDirectory(tempPath);
+
+        var videos = await DownloadAllVideos(uri, dir, options, cancellationToken);
+
         return videos;
     }
 
     private static Process StartYtdlp(string url, OptionSet options)
-    { 
-	    var process = new Process();
-	    var processStartInfo = new ProcessStartInfo
-	    {
-		    FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-				? "yt-dlp.exe" // TODO: This kinda sucks. Configurable path?
-				: "yt-dlp",
-		    Arguments = OptionsToArgString(url, options),
-		    CreateNoWindow = true,
-		    UseShellExecute = false,
-		    RedirectStandardOutput = true,
-		    RedirectStandardError = true,
-		    RedirectStandardInput = true,
-		    StandardOutputEncoding = Encoding.UTF8,
-		    StandardErrorEncoding = Encoding.UTF8,
-		    StandardInputEncoding = Encoding.ASCII,
-	    };
-	    
-		process.EnableRaisingEvents = true;
-		process.StartInfo = processStartInfo;
+    {
+        var process = new Process();
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? "yt-dlp.exe" // TODO: This kinda sucks. Configurable path?
+                : "yt-dlp",
+            Arguments = OptionsToArgString(url, options),
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            StandardInputEncoding = Encoding.ASCII,
+        };
 
-		return process;
+        process.EnableRaisingEvents = true;
+        process.StartInfo = processStartInfo;
+
+        return process;
     }
 
     /// <summary>
@@ -63,88 +65,84 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir, DownloadOptions options, CancellationToken ct = default)
     {
-	    // Grabs information about the video(s) as JSON
-	    var opts = new OptionSet
-	    {
-		    Quiet = true,
-		    NoWarnings = true,
-		    Output = "-",
-		    RestrictFilenames = true,
-		    DumpJson = true,
-		    CompatOptions = "manifest-filesize-approx",
-		    Simulate = true,
-		    MaxDownloads = (int?)options.MaxDownloads
-	    };
-	    
-	    if (uri.Host.Contains("tiktok"))
-	    {
-		    // workaround for tiktok not extracting: https://github.com/yt-dlp/yt-dlp/issues/9506#issuecomment-2053987537
-		    opts.ExtractorArgs = "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com;app_info=7355728856979392262";
-	    }
-		        
-	    var process = StartYtdlp(uri.AbsoluteUri, opts);
-		process.Start();
-		
-		var exitTask = SetupExit(process, ct);
-		
-		var videos = new List<DownloadedMedia>();
-		var index = 0;
+        // Grabs information about the video(s) as JSON
+        var opts = new OptionSet
+        {
+            Quiet = true,
+            NoWarnings = true,
+            Output = "-",
+            RestrictFilenames = true,
+            DumpJson = true,
+            CompatOptions = "manifest-filesize-approx",
+            Simulate = true,
+            MaxDownloads = (int?)options.MaxDownloads
+        };
 
-		var downloadTasks = new List<Task<DownloadedMedia>>();
-		string? error = null;
-		
-		while (await process.StandardError.ReadLineAsync(ct) is { } line)
-		{
-			DownloadedMediaMetadata metadata;
-			try
-			{
-				metadata = JsonSerializer.Deserialize<DownloadedMediaMetadata>(line)
-					?? throw new InvalidOperationException("yt-dlp outputted JSON that couldn't be serialized to metadata!?");
-			}
-			catch (JsonException)
-			{
-				// if we received a non-json in stderr, it's likely an error message,
-				// which we should store once yt-dlp exits with a non-zero code
-				error = line + await process.StandardError.ReadToEndAsync(ct);
-				break;
-			}
+        ApplyCommonOptions(opts, uri, settings.CookieFile);
 
-		    index++;
-		    var format = _ytdlFormatPicker.PickFormat(metadata, options);
-		    
-		    if (format == null)
-			    throw new ApplicationException($"failed to pick format for video #{index}");
+        var process = StartYtdlp(uri.AbsoluteUri, opts);
+        process.Start();
 
-		    var currentIndex = index;
-		    
-		    // i'm worried launching multiple concurrent yt-dlp's may hit ratelimits,
-		    // but fuck it we ball
-		    var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.FormatString, ct)
-			    .ContinueWith(task => new DownloadedMedia
-				{
-					Video = task.Result,
-					FileSize = task.Result.Length,
-					Number = currentIndex,
-					Metadata = metadata,
-					AudioFormat = format.AudioFormat,
-					VideoFormat = format.VideoFormat
-				}, ct);
-		    
-		    downloadTasks.Add(task);
-		    
-		    // otherwise it may throw an ObjectDisposedException lol i hate the process api
-		    if (exitTask.IsCompleted) break;
-	    }
+        var exitTask = SetupExit(process, ct);
 
-	    var downloadedMedia = await Task.WhenAll(downloadTasks);
-	    videos.AddRange(downloadedMedia);
-	    
-		var exitCode = await exitTask;
-		
-	    if (exitCode != 0 && exitCode != 101)
-		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
+        var videos = new List<DownloadedMedia>();
+        var index = 0;
 
-	    return videos;
+        var downloadTasks = new List<Task<DownloadedMedia>>();
+        string? error = null;
+
+        while (await process.StandardError.ReadLineAsync(ct) is { } line)
+        {
+            DownloadedMediaMetadata metadata;
+            try
+            {
+                metadata = JsonSerializer.Deserialize<DownloadedMediaMetadata>(line)
+                    ?? throw new InvalidOperationException("yt-dlp outputted JSON that couldn't be serialized to metadata!?");
+            }
+            catch (JsonException)
+            {
+                // if we received a non-json in stderr, it's likely an error message,
+                // which we should store once yt-dlp exits with a non-zero code
+                error = line + await process.StandardError.ReadToEndAsync(ct);
+                break;
+            }
+
+            index++;
+            var format = _ytdlFormatPicker.PickFormat(metadata, options);
+
+            if (format == null)
+                throw new ApplicationException($"failed to pick format for video #{index}");
+
+            var currentIndex = index;
+
+            // i'm worried launching multiple concurrent yt-dlp's may hit ratelimits,
+            // but fuck it we ball
+            var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.FormatString, ct)
+                .ContinueWith(task => new DownloadedMedia
+                {
+                    Video = task.Result,
+                    FileSize = task.Result.Length,
+                    Number = currentIndex,
+                    Metadata = metadata,
+                    AudioFormat = format.AudioFormat,
+                    VideoFormat = format.VideoFormat
+                }, ct);
+
+            downloadTasks.Add(task);
+
+            // otherwise it may throw an ObjectDisposedException lol i hate the process api
+            if (exitTask.IsCompleted) break;
+        }
+
+        var downloadedMedia = await Task.WhenAll(downloadTasks);
+        videos.AddRange(downloadedMedia);
+
+        var exitCode = await exitTask;
+
+        if (exitCode != 0 && exitCode != 101)
+            throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
+
+        return videos;
     }
 
     /// <summary>
@@ -159,80 +157,95 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <returns>MemoryStream of the downloaded video</returns>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     private async Task<Stream> DownloadVideo(Uri uri,
-	    string dirPath, string infoJson,
-	    string index, string format, CancellationToken ct)
+        string dirPath, string infoJson,
+        string index, string format, CancellationToken ct)
     {
-	    var opts = new OptionSet
-	    {
-		    Quiet = true,
-		    NoWarnings = true,
-		    Output = Path.Combine(dirPath, Guid.NewGuid().ToString("N") + "%(id)s.%(ext)s"),
-		    LoadInfoJson = "-", // load infojson from stdin
-		    Print = "after_move:filepath", // emit the full downloaded path to stdout
-		    
-		    Format = format,
-		    PlaylistItems = index,
-		    MaxDownloads = 1 // format selection only applies to 1 file 
-	    };
-	    
-	    if (uri.Host.Contains("tiktok"))
-	    {
-		    // workaround for tiktok not extracting: https://github.com/yt-dlp/yt-dlp/issues/9506#issuecomment-2053987537
-		    opts.ExtractorArgs = "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com;app_info=7355728856979392262";
-	    }
-	    
-	    var process = StartYtdlp(uri.AbsoluteUri, opts);
-	    var exitTask = SetupExit(process, ct);
+        var opts = new OptionSet
+        {
+            Quiet = true,
+            NoWarnings = true,
+            Output = Path.Combine(dirPath, Guid.NewGuid().ToString("N") + "%(id)s.%(ext)s"),
+            LoadInfoJson = "-", // load infojson from stdin
+            Print = "after_move:filepath", // emit the full downloaded path to stdout
+
+            Format = format,
+            PlaylistItems = index,
+            MaxDownloads = 1 // format selection only applies to 1 file 
+        };
+
+        ApplyCommonOptions(opts, uri, settings.CookieFile);
+
+        var process = StartYtdlp(uri.AbsoluteUri, opts);
+        var exitTask = SetupExit(process, ct);
 
         process.Start();
         await process.StandardInput.WriteAsync(infoJson);
         process.StandardInput.Close();
-        
 
-	    var filepath = await process.StandardOutput.ReadLineAsync(ct);
-	    var error = await process.StandardError.ReadToEndAsync(ct);
-	    
-	    var exitCode = await exitTask;
-	    
-	    // 101 means one or more downloads were aborted by --max-downloads, which is acceptable
-	    if (exitCode != 0 && exitCode != 101)
-		    throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
 
-	    if (filepath.IsNullOrEmpty())
-		    throw new ApplicationException("yt-dlp didn't return filepath to the downloaded video");
-	    
-	    return new FileStream(filepath,
-		    FileMode.Open, FileAccess.Read, FileShare.Delete,
-		    16384,
-		    FileOptions.DeleteOnClose);
+        var filepath = await process.StandardOutput.ReadLineAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
+
+        var exitCode = await exitTask;
+
+        // 101 means one or more downloads were aborted by --max-downloads, which is acceptable
+        if (exitCode != 0 && exitCode != 101)
+            throw new ApplicationException($"yt-dlp exited with non-zero code ({exitCode})", new Exception(error));
+
+        if (filepath.IsNullOrEmpty())
+            throw new ApplicationException("yt-dlp didn't return filepath to the downloaded video");
+
+        return new FileStream(filepath,
+            FileMode.Open, FileAccess.Read, FileShare.Delete,
+            16384,
+            FileOptions.DeleteOnClose);
     }
-    
+
     /// <summary>
     /// Hooks up the process' exit to a task so the exitcode can be obtained, and makes the cancellation token terminate the process
     /// </summary>
     private static Task<int> SetupExit(Process process, CancellationToken ct)
     {
-	    // the process api is really unergonomic; trying to get process.ExitCode just fucking throws. thanks c#!!!
-	    var ecTcs = new TaskCompletionSource<int>();
-	    
-	    // on exit, set ecTcs' result to the exitcode value, since that looks like the only way to get it
-	    process.Exited += (_, _) =>
-	    {
-		    ecTcs.SetResult(process.ExitCode);
-		    process.Dispose();
-	    };
-	    
-	    ct.Register(() =>
-	    {
-		    if (!process.HasExited)
-		    {
-			    process.Kill();
-		    }
-	    });
+        // the process api is really unergonomic; trying to get process.ExitCode just fucking throws. thanks c#!!!
+        var ecTcs = new TaskCompletionSource<int>();
 
-	    return ecTcs.Task;
+        // on exit, set ecTcs' result to the exitcode value, since that looks like the only way to get it
+        process.Exited += (_, _) =>
+        {
+            ecTcs.SetResult(process.ExitCode);
+            process.Dispose();
+        };
+
+        ct.Register(() =>
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
+        });
+
+        return ecTcs.Task;
     }
-    
+
+    /// <summary>
+    /// Applies options common to both the metadata-extraction and download invocations of yt-dlp.
+    /// Currently: TikTok extraction workaround, and an optional Netscape-format cookies file.
+    /// </summary>
+    private static void ApplyCommonOptions(OptionSet opts, Uri uri, string? cookieFile)
+    {
+        // Cookies are only passed when the file exists. This keeps the bot working even if a
+        // cookies file/directory is mounted but empty (or the path is misconfigured) instead of
+        // letting yt-dlp fail on every download.
+        if (!string.IsNullOrWhiteSpace(cookieFile) && File.Exists(cookieFile))
+            opts.Cookies = cookieFile;
+
+        if (uri.Host.Contains("tiktok"))
+        {
+            // workaround for tiktok not extracting: https://github.com/yt-dlp/yt-dlp/issues/9506#issuecomment-2053987537
+            opts.ExtractorArgs = "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com;app_info=7355728856979392262";
+        }
+    }
+
     private static string OptionsToArgString(string url, OptionSet options)
-		=> options + $" -- \"{url}\"";
+        => options + $" -- \"{url}\"";
 }
