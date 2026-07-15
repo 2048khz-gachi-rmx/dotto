@@ -11,11 +11,12 @@ services:
       - dotto
     volumes:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
-      - ./dotto_resources:/app/resources:ro
+      # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
+      - ./dotto_resources:/app/resources
     environment:
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
-      # next to this file; it is mounted read-only. If the file is absent, the bot runs without cookies.
+      # next to this file; mounted read-write so yt-dlp can update cookies. If the file is absent, the bot runs without cookies.
       Downloader__CookieFile: "/app/resources/ytdlp-cookies.txt"
 
   postgres:
