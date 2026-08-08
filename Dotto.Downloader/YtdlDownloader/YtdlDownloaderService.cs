@@ -21,7 +21,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// Downloads a videos then returns a list of DownloadedMedia with the video contents, metadata and picked formats
     /// </summary>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
+    public async Task<IList<DownloadedMedia>> Download(string query, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
             ? Path.Combine(Path.GetTempPath(), "dotto_dl")
@@ -29,7 +29,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 
         var dir = Directory.CreateDirectory(tempPath);
 
-        var videos = await DownloadAllVideos(uri, dir, options, cancellationToken);
+        var videos = await DownloadAllVideos(query, dir, options, cancellationToken);
 
         return videos;
     }
@@ -59,11 +59,13 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
         return process;
     }
 
-    /// <summary>
-    /// Grabs video(s) information as a JSON, picks a format for each, then downloads them into MemoryStreams
-    /// </summary>
+    /// <param name="query">URL or yt-dlp compatible query (e.g. "https://..." or "ytsearch:...")</param>
+    /// <param name="dir">Directory to save temporary video files to</param>
+    /// <param name="options"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    private async Task<IList<DownloadedMedia>> DownloadAllVideos(Uri uri, DirectoryInfo dir, DownloadOptions options, CancellationToken ct = default)
+    private async Task<IList<DownloadedMedia>> DownloadAllVideos(string query, DirectoryInfo dir, DownloadOptions options, CancellationToken ct = default)
     {
         // Grabs information about the video(s) as JSON
         var opts = new OptionSet
@@ -78,9 +80,9 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
             MaxDownloads = (int?)options.MaxDownloads
         };
 
-        ApplyCommonOptions(opts, uri, settings.CookieFile);
+        ApplyCommonOptions(opts, query, settings.CookieFile);
 
-        var process = StartYtdlp(uri.AbsoluteUri, opts);
+        var process = StartYtdlp(query, opts);
         process.Start();
 
         var exitTask = SetupExit(process, ct);
@@ -117,7 +119,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
 
             // i'm worried launching multiple concurrent yt-dlp's may hit ratelimits,
             // but fuck it we ball
-            var task = DownloadVideo(uri, dir.FullName, line, index.ToString(), format.FormatString, ct)
+            var task = DownloadVideo(query, dir.FullName, line, index.ToString(), format.FormatString, ct)
                 .ContinueWith(task => new DownloadedMedia
                 {
                     Video = task.Result,
@@ -146,9 +148,9 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     }
 
     /// <summary>
-    /// Downloads a video in the URL given a format spec and index
+    /// Downloads a video in the query given a format spec and index
     /// </summary>
-    /// <param name="uri">URL to the video or playlist</param>
+    /// <param name="query">URL or yt-dlp compatible query (e.g. "https://..." or "ytsearch:...")</param>
     /// <param name="dirPath">Directory to save temporary video files to</param>
     /// <param name="infoJson">Info JSON to pass to yt-dlp (see: --load-info-json)</param>
     /// <param name="index">Index of the video in a playlist</param>
@@ -156,7 +158,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <param name="ct"></param>
     /// <returns>MemoryStream of the downloaded video</returns>
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
-    private async Task<Stream> DownloadVideo(Uri uri,
+    private async Task<Stream> DownloadVideo(string query,
         string dirPath, string infoJson,
         string index, string format, CancellationToken ct)
     {
@@ -173,9 +175,9 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
             MaxDownloads = 1 // format selection only applies to 1 file 
         };
 
-        ApplyCommonOptions(opts, uri, settings.CookieFile);
+        ApplyCommonOptions(opts, query, settings.CookieFile);
 
-        var process = StartYtdlp(uri.AbsoluteUri, opts);
+        var process = StartYtdlp(query, opts);
         var exitTask = SetupExit(process, ct);
 
         process.Start();
@@ -231,7 +233,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// Applies options common to both the metadata-extraction and download invocations of yt-dlp.
     /// Currently: TikTok extraction workaround, and an optional Netscape-format cookies file.
     /// </summary>
-    private static void ApplyCommonOptions(OptionSet opts, Uri uri, string? cookieFile)
+    private static void ApplyCommonOptions(OptionSet opts, string query, string? cookieFile)
     {
         // Cookies are only passed when the file exists. This keeps the bot working even if a
         // cookies file/directory is mounted but empty (or the path is misconfigured) instead of
@@ -239,7 +241,8 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
         if (!string.IsNullOrWhiteSpace(cookieFile) && File.Exists(cookieFile))
             opts.Cookies = cookieFile;
 
-        if (uri.Host.Contains("tiktok"))
+        // The TikTok workaround only makes sense for actual URLs, not arbitrary queries (e.g. "ytsearch:...")
+        if (Uri.TryCreate(query, UriKind.Absolute, out var uri) && uri.Host.Contains("tiktok"))
         {
             // workaround for tiktok not extracting: https://github.com/yt-dlp/yt-dlp/issues/9506#issuecomment-2053987537
             opts.ExtractorArgs = "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com;app_info=7355728856979392262";
