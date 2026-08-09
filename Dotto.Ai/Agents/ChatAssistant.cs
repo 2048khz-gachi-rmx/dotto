@@ -31,10 +31,9 @@ public class ChatAssistant(
             "Session {SessionId} started (caller: {CallerId}, channel: {ChannelId}, guild: {GuildId})",
             context.SessionId, context.CallerId, context.ChannelId, context.GuildId);
 
-        // Create the host session directory up front (and the rest of the sandbox
-        // lifecycle) via the scoped sandbox entity, so tools that depend on the
-        // filesystem (DownloadMedia, UploadFile) can use it immediately. The
-        // sandbox container itself is started lazily on first container use.
+        // Create the host session directory up front (and the rest of the sandbox lifecycle)
+        // via the scoped sandbox entity, so tools that depend on the filesystem (DownloadMedia, UploadFile) can use it.
+        // The sandbox container itself is started lazily on first container use (like by TerminalTools).
         if (options.Enabled)
         {
             await sandbox.InitializeAsync(context.SessionId, cancellationToken);
@@ -68,7 +67,7 @@ public class ChatAssistant(
         catch
         {
             // clean up attachment streams (if any) only if we errored and won't pass them upwards
-            context.Attachments.ForEach(att => att.Stream?.Dispose());
+            context.Attachments.ForEach(att => att.Stream.Dispose());
             throw;
         }
         finally

@@ -1,19 +1,16 @@
 namespace Dotto.Ai.Abstractions;
 
 /// <summary>
-/// The per-invocation sandbox entity. One scoped instance exists per agent
-/// invocation; it owns the Docker client and encapsulates the whole lifecycle
-/// of the session's sandbox container. Disposal stops/removes the container
-/// (if one was started) and deletes the host session directory.
+/// The per-invocation sandbox entity. One scoped instance exists per agent invocation;
+/// it owns the Docker client and encapsulates the whole lifecycle of the session's sandbox container.
+/// Disposal stops/removes the container (if one was started) and deletes the host session directory.
 /// </summary>
 /// <remarks>
 /// Exposes two segments:
 /// <list type="bullet">
-/// <item><see cref="Metadata"/> — always present after <see cref="InitializeAsync"/>
-/// (eagerly created host dir). Filesystem-only tools read from here and never
-/// start the container.</item>
-/// <item><see cref="Container"/> — nullable; populated by <see cref="EnsureStartedAsync"/>.
-/// Accessing a container operation lazily starts the container.</item>
+/// <item><see cref="Metadata"/> — always present after <see cref="InitializeAsync"/> (eagerly created host dir).
+/// Filesystem-only tools read from here and don't need to start the container.</item>
+/// <item><see cref="Container"/> — nullable; before using, must be populated by <see cref="EnsureStartedAsync"/>.</item>
 /// </list>
 /// </remarks>
 public interface ISandbox : IAsyncDisposable
@@ -30,8 +27,8 @@ public interface ISandbox : IAsyncDisposable
     SandboxContainer? Container { get; }
 
     /// <summary>
-    /// Eagerly creates the host session directory and materializes
-    /// <see cref="Metadata"/>. Idempotent; safe to call once per session.
+    /// Eagerly creates the host session directory and materializes <see cref="Metadata"/>.
+    /// Idempotent; safe to call once per session.
     /// </summary>
     Task<SandboxMetadata> InitializeAsync(string sessionId, CancellationToken ct);
 

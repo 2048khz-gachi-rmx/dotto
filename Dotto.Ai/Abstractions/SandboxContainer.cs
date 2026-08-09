@@ -10,7 +10,7 @@ namespace Dotto.Ai.Abstractions;
 /// URL, container ID, and the allowed operations on the underlying container
 /// (executing a command and checking health).
 /// </summary>
-public sealed class SandboxContainer
+public sealed class SandboxContainer(Uri apiUrl, string containerId)
 {
     private const int ExecuteTimeoutSeconds = 310; // slightly above the "long" (300s) timeout tier
 
@@ -19,17 +19,10 @@ public sealed class SandboxContainer
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    private readonly HttpClient _http;
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(ExecuteTimeoutSeconds) };
 
-    public string ContainerId { get; }
-    public Uri ApiUrl { get; }
-
-    public SandboxContainer(Uri apiUrl, string containerId)
-    {
-        ApiUrl = apiUrl;
-        ContainerId = containerId;
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(ExecuteTimeoutSeconds) };
-    }
+    public string ContainerId { get; } = containerId;
+    public Uri ApiUrl { get; } = apiUrl;
 
     /// <summary>
     /// Polls <c>GET /ping</c>. Returns <c>true</c> when it responds with HTTP 200.
@@ -51,10 +44,8 @@ public sealed class SandboxContainer
     {
         var request = new SandboxExecuteRequest { Command = command, Cwd = cwd, Timeout = timeout };
 
-        // Serialize manually so Content-Length is set — the Python stdlib HTTP
-        // server does not handle Transfer-Encoding: chunked.
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        // python stdlib HTTP server is being a cunt about Transfer-Encoding: chunked which is used by PostAsJson
+        using var content = new StringContent(JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8, "application/json");
 
         using var response = await _http.PostAsync(new Uri(ApiUrl, "/execute"), content, ct);
 
@@ -80,15 +71,10 @@ public sealed record SandboxExecuteResult(int ExitCode, string Stdout, string St
 /// <summary>
 /// Thrown when the sandbox API returns a non-success HTTP status.
 /// </summary>
-public sealed class SandboxHttpException : Exception
+public sealed class SandboxHttpException(int statusCode, string body)
+    : Exception($"Sandbox error (HTTP {statusCode}): {body}")
 {
-    public int StatusCode { get; }
-
-    public SandboxHttpException(int statusCode, string body)
-        : base($"Sandbox error (HTTP {statusCode}): {body}")
-    {
-        StatusCode = statusCode;
-    }
+    public int StatusCode { get; } = statusCode;
 }
 
 internal sealed record SandboxExecuteRequest
