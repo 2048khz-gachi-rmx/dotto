@@ -32,8 +32,11 @@ public class AiCommandHandler(
             .ToList();
 
         if (messages.LastOrDefault()?.Content != userRequest)
-            aiMessages.Add(new ChatMessage(ChatRole.User,
-                BuildSimpleHistoryElement(callerName, userRequest).ToString()));
+        {
+            var queryXml = BuildSimpleHistoryElement(callerName, userRequest);
+            queryXml.Name = "prompt";
+            aiMessages.Add(new ChatMessage(ChatRole.User, queryXml.ToString()));
+        }
 
         var context = new ChatAssistantContext
         {
