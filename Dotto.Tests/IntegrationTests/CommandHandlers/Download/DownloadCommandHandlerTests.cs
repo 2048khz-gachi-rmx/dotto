@@ -164,7 +164,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         };
         
         var downloadedMediaList = new List<DownloadedMedia> { downloadedMedia };
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
+        mockDownloader.Download(testUri.ToString(), Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
             .Returns(downloadedMediaList.AsReadOnly());
         
         // Create a message with attachments
@@ -195,7 +195,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         var mockDownloader = Substitute.For<IDownloaderService>();
         
         // Simulate service unavailable exception
-        mockDownloader.Download(testUri, Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
+        mockDownloader.Download(testUri.ToString(), Arg.Any<DownloadOptions>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new ServiceUnavailableException("TestService"));
         
         _mockMediaDownloader.DownloadMediaFromUrl(testUri, Arg.Any<DownloadOptions>())

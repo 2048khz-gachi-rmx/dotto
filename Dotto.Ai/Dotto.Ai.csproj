@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AgentFrameworkToolkit.OpenAI" Version="1.13.0" />
+      <PackageReference Include="AgentFrameworkToolkit.OpenRouter" Version="1.13.0" />
+      <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
+      <PackageReference Include="Fluid.Core" Version="2.31.0" />
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.13.0" />
+      <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+      <PackageReference Include="NetCord" Version="1.0.0-alpha.453" />
+    </ItemGroup>
+
+<ItemGroup>
+      <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
+      <ProjectReference Include="..\Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj" />
+      <ProjectReference Include="..\Dotto.Application\Dotto.Application.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <InternalsVisibleTo Include="Dotto.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="Resources\**\*" />
+    </ItemGroup>
+
+</Project>

@@ -14,7 +14,7 @@ public class MediaDownloader(IUrlCorrector urlCorrector,
     public async Task<MediaDownloadResult> DownloadMediaFromUrl(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         // if there are any replacements to be done on the URL, do them
-        var fixedUrl = urlCorrector.CorrectUrl(uri);
+        var fixedUrl = urlCorrector.CorrectUrl(uri).ToString();
         var downloaders = downloaderFactory.CreateDownloaderService(fixedUrl);
         var response = new MediaDownloadResult();
 

@@ -7,18 +7,16 @@ namespace Dotto.Application.Factories;
 
 public class DownloaderServiceFactory(IServiceProvider serviceProvider) : IDownloaderServiceFactory
 {
-    public IEnumerable<IDownloaderService> CreateDownloaderService(Uri uri)
+    public IEnumerable<IDownloaderService> CreateDownloaderService(string query)
     {
-        if (uri.Host.Contains("instagram"))
-        {
-            foreach (var downloader in GetInstagramDownloaders())
-                yield return downloader;
-            
-            yield break;
-        }
-        
-        foreach (var downloader in GetGenericDownloaders())
-            yield return downloader;
+        // Cobalt only supports plain video URLs, so if the query isn't a valid URL
+        // (e.g. yt-dlp queries like "ytsearch:..."), only yt-dlp can handle it.
+        if (!Uri.TryCreate(query, UriKind.Absolute, out var uri))
+            return GetGenericDownloaders();
+
+        return uri.Host.Contains("instagram")
+            ? GetInstagramDownloaders()
+            : GetGenericDownloaders();
     }
 
     private IEnumerable<IDownloaderService> GetInstagramDownloaders()

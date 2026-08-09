@@ -16,6 +16,37 @@ services:
       - postgres
     restart: unless-stopped
 
+  # Builds the sandbox image locally so the bot can spin up ephemeral containers.
+  # No ports needed — it exits immediately after build; the image stays cached.
+  sandbox-image:
+    container_name: dotto_sandbox_build
+    image: dotto-sandbox:latest
+    build:
+      context: ../Dotto.Ai/sandbox
+      dockerfile: Dockerfile
+
+  # Filtering proxy in front of the Docker daemon. Only the 9 endpoints the bot
+  # needs (container create/start/stop/remove/exec/inspect/list) are allowed.
+  # In dev, the bot runs from the host — set DOCKER_HOST=tcp://localhost:2375
+  # before starting the bot to route Docker API calls through this proxy.
+  socket-protector:
+    container_name: dotto_socket_protector
+    image: ghcr.io/knrdl/docker-socket-protector:latest
+    hostname: socket-protector
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      LOG_REQUESTS: "true"
+      PROFILE: "dotto"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./socket-protector-dotto:/profiles/dotto:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    mem_limit: 32mb
+    restart: unless-stopped
+
 networks:
   postgres:
     driver: bridge

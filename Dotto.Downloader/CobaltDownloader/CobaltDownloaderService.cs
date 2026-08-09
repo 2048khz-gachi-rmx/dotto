@@ -13,11 +13,11 @@ namespace Dotto.Infrastructure.Downloader.CobaltDownloader;
 
 public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
 {
-    public async Task<IList<DownloadedMedia>> Download(Uri uri, DownloadOptions options, CancellationToken cancellationToken = default)
+    public async Task<IList<DownloadedMedia>> Download(string query, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         var request = new CobaltDownloadRequest
         {
-            Url = uri.ToString(),
+            Url = query,
             AllowH265 = true,
             DownloadMode = options.AudioOnly ? DownloadMode.Audio : DownloadMode.Auto
         };

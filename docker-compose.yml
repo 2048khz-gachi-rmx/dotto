@@ -7,8 +7,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      socket-protector:
+        condition: service_started
     networks:
       - dotto
+      - docker_socket
     volumes:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
       # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
@@ -18,6 +21,28 @@ services:
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
       # next to this file; mounted read-write so yt-dlp can update cookies. If the file is absent, the bot runs without cookies.
       Downloader__CookieFile: "/app/resources/ytdlp-cookies.txt"
+      # Route all Docker API calls through the socket-protector sidecar, which
+      # whitelists only the container CRUD + exec endpoints the sandbox needs.
+      DOCKER_HOST: "tcp://socket-protector:2375"
+
+  # Filtering proxy in front of the Docker daemon. See: specs/sandbox-security/spec.md
+  socket-protector:
+    container_name: dotto_socket_protector
+    image: ghcr.io/knrdl/docker-socket-protector:latest
+    hostname: socket-protector
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      LOG_REQUESTS: "false"
+      PROFILE: "dotto"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.docker/socket-protector-dotto:/profiles/dotto:ro
+    networks:
+      - docker_socket
+    mem_limit: 32mb
+    restart: unless-stopped
 
   postgres:
     container_name: dotto_postgres
@@ -43,6 +68,8 @@ services:
 
 networks:
   dotto:
+  docker_socket:
+    internal: true
 
 volumes:
     postgres:

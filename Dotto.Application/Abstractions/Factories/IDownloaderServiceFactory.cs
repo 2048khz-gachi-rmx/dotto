@@ -4,5 +4,5 @@ namespace Dotto.Application.Abstractions.Factories;
 
 public interface IDownloaderServiceFactory
 {
-    IEnumerable<IDownloaderService> CreateDownloaderService(Uri uri);
+    IEnumerable<IDownloaderService> CreateDownloaderService(string query);
 }

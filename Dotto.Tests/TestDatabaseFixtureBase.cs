@@ -69,7 +69,7 @@ public abstract class TestDatabaseFixtureBase : TestFixtureBase
         
         sw.Stop();
         
-        Debug.WriteLine("DB cleared in {0}", sw.ElapsedMilliseconds);
+        Debug.WriteLine($"{nameof(ClearDatabase)}: DB cleared in {{0}}ms.", sw.ElapsedMilliseconds);
     }
     
     // Clearing the table is >100x faster than dropping then remigrating it
@@ -98,6 +98,6 @@ public abstract class TestDatabaseFixtureBase : TestFixtureBase
         await db.Database.EnsureCreatedAsync();
         sw.Stop();
         
-        Debug.WriteLine("DB recreated in {0}", sw.ElapsedMilliseconds);
+        Debug.WriteLine($"{nameof(RecreateDatabase)}: DB recreated in {{0}}ms.", sw.ElapsedMilliseconds);
     }
 }
