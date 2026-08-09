@@ -47,6 +47,7 @@ public class ApplicationCommand(IServiceProvider serviceProvider, IDateTimeProvi
             uploadLimit,
             messageHistory);
 
+        // Workaround: you can't get past interactions' options, so we embed the prompt to keep history
         var textResponse = $"-# prompt: {userRequest.Replace("\n", "")}\n"
                            + response.Response;
         var s3Atts = response.Attachments

@@ -31,12 +31,9 @@ public class AiCommandHandler(
             .Where(m => !(m?.Text).IsNullOrEmpty())
             .ToList();
 
-        if (messages.LastOrDefault()?.Content != userRequest)
-        {
-            var queryXml = BuildSimpleHistoryElement(callerName, userRequest);
-            queryXml.Name = "prompt";
-            aiMessages.Add(new ChatMessage(ChatRole.User, queryXml.ToString()));
-        }
+        var queryXml = BuildSimpleHistoryElement(callerName, userRequest);
+        queryXml.Name = "prompt";
+        aiMessages.Add(new ChatMessage(ChatRole.User, queryXml.ToString()));
 
         var context = new ChatAssistantContext
         {
@@ -102,6 +99,7 @@ public class AiCommandHandler(
         // InteractionMetadata doesn't expose the name of the interaction. brilliant
         var commandName = arg.Interaction?.Name;
 
+        // TODO: i think this logic shouldn't be here
         if (!commandName.IsNullOrWhitespace())
         {
             xml = new XElement("command",
