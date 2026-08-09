@@ -25,14 +25,14 @@ public class TextCommand(IServiceProvider serviceProvider, RestClient client) : 
         }
 
         var method = format == "av1" ? CompressionMethod.Av1 : CompressionMethod.Vp9;
-        var typingTask = client.EnterTypingStateAsync(Context.Message.ChannelId);
+        var typingTask = client.EnterTypingScopeAsync(Context.Message.ChannelId).AsTask();
 
         try
         {
             var msg = await _compressHandler.CreateMessage<ReplyMessageProperties>(videos, method, false);
             var replyTask = ReplyAsync(msg.Message);
 
-            var newMessage = await replyTask;
+            await replyTask;
         }
         finally
         {

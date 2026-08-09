@@ -76,7 +76,7 @@ public class MessageUrlDownload(
         
         var uri = new Uri(matchedUrls.First());
         
-        var typingTask = client.EnterTypingStateAsync(message.ChannelId);
+        var typingTask = client.EnterTypingScopeAsync(message.ChannelId).AsTask();
 
         try
         {

@@ -69,7 +69,7 @@ public class AutoVideoCompressor(
         if (videosToProcess.IsEmpty())
             return;
 
-        var typingTask = client.EnterTypingStateAsync(message.ChannelId);
+        var typingTask = client.EnterTypingScopeAsync(message.ChannelId).AsTask();
 
         try
         {
