@@ -43,6 +43,19 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         var hostDir = Path.Combine(_options.HostBasePath, sessionId);
         Directory.CreateDirectory(hostDir);
+
+        // Bot runs as root in its container; sandbox runs as a non-root user.
+        // Widen perms on the per-session dir so the sandbox can create its own
+        // subdirs (e.g. /work/outputs) for ffmpeg/curl output. Parent dir stays
+        // default (root 755). No-op on Windows (dev).
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(hostDir,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+        }
+
         _metadata = new SandboxMetadata(sessionId, hostDir);
 
         logger.LogInformation("Created session directory {Path}", hostDir);
@@ -91,13 +104,17 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                     ["/tmp"] = "size=64M"
                 },
 
-                // Publish container 8080 to a random host port so the bot can
-                // reach it via localhost regardless of network topology
-                // (Docker Desktop, Podman VM, WSL, etc.).
-                PortBindings = new Dictionary<string, IList<PortBinding>>
-                {
-                    ["8080/tcp"] = [new PortBinding { HostPort = "0" }]
-                },
+                // When a Docker network is configured (production: bot runs in a
+                // container), connect the sandbox to it. The bot reaches the
+                // sandbox by its container name on the shared network — no host
+                // port publishing needed.
+                //
+                // When no network is configured (dev: bot runs on host), publish
+                // 8080 to a random host port so the bot reaches it via 127.0.0.1.
+                // (PortBindings set below for the dev case only.)
+                NetworkMode = _options.NetworkName.IsNullOrWhitespace()
+                    ? "default"
+                    : _options.NetworkName!,
             },
             Labels = new Dictionary<string, string>
             {
@@ -107,11 +124,23 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             // Empty environment — no secrets leak into the sandbox
             Env = new List<string>(),
             Cmd = new List<string> { "python3", "/server.py" },
-            ExposedPorts = new Dictionary<string,EmptyStruct>
+            ExposedPorts = new Dictionary<string, EmptyStruct>
             {
                 ["8080/tcp"] = default
             },
         };
+
+        // Dev mode only (no shared network): publish 8080 to a random host port
+        // so the bot can reach the sandbox via 127.0.0.1. In production, the
+        // sandbox is reachable by container name on the shared network — no
+        // host port needed.
+        if (_options.NetworkName.IsNullOrWhitespace())
+        {
+            createParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>
+            {
+                ["8080/tcp"] = [new PortBinding { HostPort = "0" }]
+            };
+        }
 
         // Apply gVisor runtime if configured
         if (_options.UseGVisorRuntime)
@@ -131,8 +160,8 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         logger.LogInformation(
             "Started sandbox container {ContainerId}", createResponse.ID);
 
-        // Inspect to find the randomly assigned host port
-        var apiUrl = await ResolveApiUrlAsync(createResponse.ID, ct);
+        // Inspect to find the sandbox API URL (network-resolved name or host port)
+        var apiUrl = await ResolveApiUrlAsync(createResponse.ID, containerName, ct);
 
         var container = new SandboxContainer(apiUrl, createResponse.ID);
         await WaitForReadyAsync(container, _options.ContainerStartTimeout, ct);
@@ -246,11 +275,26 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     }
 
     /// <summary>
-    /// Inspects the container to find the randomly assigned host port for 8080/tcp,
-    /// then returns <c>http://127.0.0.1:&lt;port&gt;</c>.
+    /// Resolves the URL the bot uses to reach the sandbox HTTP server.
+    ///
+    /// If a Docker network is configured (production: bot and sandbox are on
+    /// the same network), the URL is <c>http://&lt;container-name&gt;:8080</c> —
+    /// Docker's embedded DNS resolves the container name.
+    ///
+    /// Otherwise (dev: bot runs on the host), inspects the container for the
+    /// randomly assigned host port and returns <c>http://127.0.0.1:&lt;port&gt;</c>.
     /// </summary>
-    private async Task<Uri> ResolveApiUrlAsync(string containerId, CancellationToken ct)
+    private async Task<Uri> ResolveApiUrlAsync(string containerId, string containerName, CancellationToken ct)
     {
+        if (!_options.NetworkName.IsNullOrWhitespace())
+        {
+            var url = new Uri($"http://{containerName}:8080");
+            logger.LogInformation(
+                "Sandbox reachable at {Url} via network {Network} (container: {ContainerId})",
+                url, _options.NetworkName, containerId);
+            return url;
+        }
+
         var inspect = await client.Containers.InspectContainerAsync(containerId, ct);
 
         var hostPort = inspect.NetworkSettings?.Ports["8080/tcp"].FirstOrDefault()?.HostPort;

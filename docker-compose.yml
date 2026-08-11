@@ -9,13 +9,20 @@ services:
         condition: service_healthy
       socket-protector:
         condition: service_started
+      sandbox-image:
+        condition: service_completed_successfully
     networks:
       - dotto
       - docker_socket
+      - sandbox
     volumes:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
       # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
       - ./dotto_resources:/app/resources
+      # Shared directory for file exchange between bot and sandbox containers.
+      # The bot writes downloads here; sandbox containers bind-mount subdirectories as /work.
+      # Must be a host path so the bot container and sandbox containers see the same filesystem.
+      - /tmp/dotto-sandbox:/tmp/dotto-sandbox
     environment:
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
@@ -24,6 +31,26 @@ services:
       # Route all Docker API calls through the socket-protector sidecar, which
       # whitelists only the container CRUD + exec endpoints the sandbox needs.
       DOCKER_HOST: "tcp://socket-protector:2375"
+      # Sandbox image from the registry. The socket-protector does NOT whitelist
+      # image pulls, so the image is pre-pulled by the sandbox-image service below.
+      Ai__Sandbox__ImageTag: "ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest"
+      # Attach sandbox containers to the dedicated 'sandbox' network so the bot
+      # can reach them by container name. Keeps sandboxes off the 'dotto' network
+      # (where postgres lives) for defense in depth.
+      Ai__Sandbox__NetworkName: "sandbox"
+
+  # One-shot service that ensures the sandbox image is present on the host.
+  # The socket-protector does NOT whitelist `POST /images/create` (pull), so the
+  # image must be pulled out-of-band before the bot tries to create containers.
+  # `docker compose pull` pulls it; `docker compose up` runs it once (echo + exit 0),
+  # and the bot service waits for that via `depends_on: service_completed_successfully`.
+  sandbox-image:
+    image: ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest
+    container_name: dotto_sandbox_image
+    entrypoint: ["echo", "sandbox image present"]
+    restart: "no"
+    networks:
+      - sandbox
 
   # Filtering proxy in front of the Docker daemon. See: specs/sandbox-security/spec.md
   socket-protector:
@@ -70,6 +97,11 @@ networks:
   dotto:
   docker_socket:
     internal: true
+  # Dedicated network for bot ↔ sandbox communication. Sandbox containers are
+  # attached here by the bot at creation time. Not 'internal' because sandboxes
+  # need outbound internet (curl downloads). Kept separate from 'dotto' so
+  # sandboxes cannot reach postgres or other backend services.
+  sandbox:
 
 volumes:
     postgres:

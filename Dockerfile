@@ -16,7 +16,6 @@ FROM mwader/static-ffmpeg AS ffmpeg
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
-COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
 COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
 COPY --from=ffmpeg /ffprobe /usr/local/bin/ffprobe
 WORKDIR /app

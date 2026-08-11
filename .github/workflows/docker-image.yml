@@ -56,3 +56,9 @@ jobs:
         run: |
           docker build . -t ghcr.io/2048khz-gachi-rmx/dotto:latest
           docker push ghcr.io/2048khz-gachi-rmx/dotto:latest
+
+      - name: Build and push sandbox
+        working-directory: Dotto.Ai/sandbox
+        run: |
+          docker build . -t ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest
+          docker push ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest

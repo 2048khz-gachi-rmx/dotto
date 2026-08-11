@@ -10,6 +10,14 @@ public class SandboxOptions
     [Required(AllowEmptyStrings = false)]
     public string ImageTag { get; set; } = "dotto-sandbox:latest";
 
+    /// <summary>
+    /// Docker network to attach sandbox containers to. When set, the bot reaches
+    /// the sandbox via the container's IP on this network (production: bot runs
+    /// in a container). When null/empty, the sandbox publishes port 8080 to a
+    /// random host port and the bot connects via 127.0.0.1 (dev: bot runs on host).
+    /// </summary>
+    public string? NetworkName { get; set; }
+
     public string HostBasePath { get; set; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? Path.Combine(Path.GetTempPath(), "dotto-sandbox")
         : "/tmp/dotto-sandbox";
