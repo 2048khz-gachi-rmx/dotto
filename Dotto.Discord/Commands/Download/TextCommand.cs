@@ -20,7 +20,7 @@ public class TextCommand(IServiceProvider serviceProvider, RestClient client) : 
         }
 
         // capture the typing state resource
-        var typingTask = client.EnterTypingStateAsync(Context.Message.ChannelId);
+        var typingTask = client.EnterTypingScopeAsync(Context.Message.ChannelId).AsTask();
         
         try
         {

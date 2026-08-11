@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Dotto.Common;
 using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Compress;
 using Dotto.Ffmpeg.Contracts;
@@ -42,7 +43,7 @@ public class ApplicationCommand(IServiceProvider serviceProvider,
             .Select(att => (new Uri(att.Url), att.Title ?? att.FileName))
             .ToList();
 
-        if (!string.IsNullOrEmpty(message.Content))
+        if (!message.Content.IsNullOrEmpty())
         {
             foreach (Match match in Constants.Compression.Regexes.DiscordCdn.Matches(message.Content))
             {

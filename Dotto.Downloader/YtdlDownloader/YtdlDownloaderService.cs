@@ -2,8 +2,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.IO;
-
 using Dotto.Common;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
@@ -23,7 +21,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
     /// <exception cref="ApplicationException">yt-dlp exited with a non-zero exitcode</exception>
     public async Task<IList<DownloadedMedia>> Download(string query, DownloadOptions options, CancellationToken cancellationToken = default)
     {
-        var tempPath = string.IsNullOrWhiteSpace(settings.TempPath)
+        var tempPath = settings.TempPath.IsNullOrWhitespace()
             ? Path.Combine(Path.GetTempPath(), "dotto_dl")
             : settings.TempPath;
 
@@ -238,7 +236,7 @@ public class YtdlDownloaderService(DownloaderSettings settings) : IDownloaderSer
         // Cookies are only passed when the file exists. This keeps the bot working even if a
         // cookies file/directory is mounted but empty (or the path is misconfigured) instead of
         // letting yt-dlp fail on every download.
-        if (!string.IsNullOrWhiteSpace(cookieFile) && File.Exists(cookieFile))
+        if (!cookieFile.IsNullOrWhitespace() && File.Exists(cookieFile))
             opts.Cookies = cookieFile;
 
         // The TikTok workaround only makes sense for actual URLs, not arbitrary queries (e.g. "ytsearch:...")

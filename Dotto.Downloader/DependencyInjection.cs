@@ -1,20 +1,23 @@
-﻿using Dotto.Infrastructure.Downloader.CobaltDownloader;
+﻿using Dotto.Common;
+using Dotto.Infrastructure.Downloader.CobaltDownloader;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Enum;
 using Dotto.Infrastructure.Downloader.Settings;
 using Dotto.Infrastructure.Downloader.YtdlDownloader;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Dotto.Infrastructure.Downloader;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddDownloader(this IServiceCollection services)
+    public static IServiceCollection AddDownloader(this IServiceCollection services, Action<DownloaderSettings> configure)
     {
         services.AddOptions<DownloaderSettings>()
-            .BindConfiguration("Downloader")
+            .Configure(configure)
             .ValidateDataAnnotations()
+            .Validate<ILogger<DownloaderSettings>>(ValidateYtdlpCookies)
             .ValidateOnStart();
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<DownloaderSettings>>().Value);
@@ -23,6 +26,18 @@ public static class DependencyInjection
         ConfigureCobaltService(services);
         
         return services;
+    }
+
+    private static bool ValidateYtdlpCookies(DownloaderSettings settings, ILogger<DownloaderSettings> logger)
+    {
+        if (settings.CookieFile.IsNullOrWhitespace())
+            return true;
+
+        if (File.Exists(settings.CookieFile))
+            return true;
+        
+        logger.LogError("Downloader.CookieFile is set to '{CookieFile}' but the file does not exist; yt-dlp will run without cookies.", settings.CookieFile);
+        return false;
     }
 
     private static void ConfigureYtdlService(IServiceCollection services)

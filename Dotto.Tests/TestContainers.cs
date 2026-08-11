@@ -7,8 +7,18 @@ namespace Dotto.Tests;
 
 public class TestContainers
 {
-    private readonly PostgreSqlContainer _postgreSqlContainer = new PostgreSqlBuilder()
+    private readonly PostgreSqlContainer _postgreSqlContainer = new PostgreSqlBuilder("postgres:17")
         .WithDatabase("dotto_testdb")
+        .WithCommand(
+            "-c", "shared_buffers=16MB",
+            "-c", "max_connections=5",
+            "-c", "wal_level=minimal",
+            "-c", "max_wal_senders=0",
+            "-c", "fsync=off",
+            "-c", "synchronous_commit=off",
+            "-c", "full_page_writes=off",
+            "-c", "autovacuum=off"
+        )
         .Build();
     
     public async Task InitializeAsync()

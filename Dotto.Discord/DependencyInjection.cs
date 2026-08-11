@@ -1,4 +1,5 @@
-﻿using Dotto.Discord.CommandHandlers.Compress;
+﻿using Dotto.Discord.CommandHandlers.Ai;
+using Dotto.Discord.CommandHandlers.Compress;
 using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.CommandHandlers.Flags;
 using Dotto.Discord.Commands.Compress;
@@ -42,5 +43,6 @@ public static class DependencyInjection
         services.AddTransient<DownloadCommandHandler>();
         services.AddTransient<IFlagCommandHandler, FlagCommandHandler>();
         services.AddTransient<CompressCommandHandler>();
+        services.AddTransient<AiCommandHandler>();
     }
 }

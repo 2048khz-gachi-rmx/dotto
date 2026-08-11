@@ -27,40 +27,30 @@ Dotto.Bot (entry point)
 
 | Project | Purpose |
 |---------|---------|
-| **Dotto.Bot** | Entry point. `Startup.cs` bootstraps DI, NetCord, and hosted services. |
-| **Dotto.Discord** | NetCord commands, event handlers, result handlers. |
-| **Dotto.Application** | Business logic. |
-| **Dotto.Common** | Shared utilities. No project dependencies. |
-| **Dotto.Downloader.Contracts** | Pure interfaces: `IDownloaderService`, `DownloadedMedia`, `DownloaderType`. |
-| **Dotto.Downloader** | `YtdlDownloaderService` (yt-dlp process) and `CobaltDownloaderService` (HTTP API). |
-| **Dotto.Database** | EF Core + Npgsql. `DottoDbContext` with `ChannelFlags` and `DownloadedMedia` tables. |
-| **Dotto.FileUpload** | S3 upload via `S3UploadService`. Optional — skipped if `Minio.BaseUrl` is null. |
-| **Dotto.Ffmpeg.Contracts** | Pure interfaces: `IVideoCompressorStrategy`, `CompressionResult`, `CompressionMethod`, `CompressionOptions`. |
-| **Dotto.Ffmpeg** | `FfmpegService` (ffmpeg process), `Vp9CompressionStrategy`, `Av1CompressionStrategy` (stub), `FfmpegTempCleanupService`. |
-| **Dotto.Tests** | NUnit + NSubstitute + Shouldly + Testcontainers (PostgreSQL). |
-
-### Bootstrap Sequence (`Startup.cs`)
-
-1. `AddDatabase()` — Npgsql DbContext (skipped if connection string null)
-2. `AddFileUploader()` — S3 client (skipped if `Minio.BaseUrl` null)
-3. `AddDownloader()` — Ytdl (always) + Cobalt (only if `Downloader.Cobalt.BaseUrl` set)
-4. `AddSingleton<IDateTimeProvider, DateTimeProvider>()` + `AddApplication()` — factories, HybridCache, services
-5. `AddDiscordIntegration()` — `AutoDownloadSettings` options, command handlers, event processors
-6. `AddHostedService<ChannelFlagPoller>()` — refreshes flag cache every 5 minutes
-7. `Build()` → `MigrateDatabase()` → `InitializeS3Uploader()` (fire-and-forget) → `AddModules()` → `RunAsync()`
+| Dotto.Bot | Entry point. `Startup.cs` bootstraps DI, NetCord, and hosted services. |
+| Dotto.Discord | NetCord commands, event handlers, result handlers. |
+| Dotto.Application | Business logic. |
+| Dotto.Common | Shared utilities. No project dependencies. |
+| Dotto.Downloader.Contracts | Pure interfaces: `IDownloaderService`, `DownloadedMedia`, `DownloaderType`. |
+| Dotto.Downloader | `YtdlDownloaderService` (yt-dlp process) and `CobaltDownloaderService` (HTTP API). |
+| Dotto.Database | EF Core + Npgsql. `DottoDbContext` with `ChannelFlags` and `DownloadedMedia` tables. |
+| Dotto.FileUpload | S3 upload via `S3UploadService`. Optional — skipped if `Minio.BaseUrl` is null. |
+| Dotto.Ffmpeg.Contracts | Pure interfaces: `IVideoCompressorStrategy`, `CompressionResult`, `CompressionMethod`, `CompressionOptions`. |
+| Dotto.Ffmpeg | `FfmpegService` (ffmpeg process), `Vp9CompressionStrategy`, `Av1CompressionStrategy`, `FfmpegTempCleanupService`. |
+| Dotto.Tests | NUnit + NSubstitute + Shouldly + Testcontainers (PostgreSQL). |
 
 ### DI Patterns
 
-- **Keyed services**: Downloaders by `DownloaderType` via `AddKeyedSingleton`; compression strategies by `CompressionMethod` via `AddKeyedScoped`
-- **Options**: `AddOptions<T>().BindConfiguration().ValidateDataAnnotations().ValidateOnStart()`
-- **Scoped**: command handlers (transient), event processors, `ChannelFlagsService`, compression strategies
-- **Singleton**: `DateTimeProvider`, `UrlCorrector`, `MediaProcessingService`, `FfmpegService`, downloader settings, resolved options values
+- Keyed services: Downloaders by `DownloaderType` via `AddKeyedSingleton`; compression strategies by `CompressionMethod` via `AddKeyedScoped`
+- Options: `AddOptions<T>().BindConfiguration().ValidateDataAnnotations().ValidateOnStart()`
+- Scoped: command handlers (transient), event processors, `ChannelFlagsService`, compression strategies
+- Singleton: `DateTimeProvider`, `UrlCorrector`, `MediaProcessingService`, `FfmpegService`, downloader settings, resolved options values
 
 ## Commands
 
 ### Command Structure
 
-Commands follow a strict separation: **command definitions** in `Dotto.Discord/Commands/` are thin invocation glue that delegate to **command handlers** in `Dotto.Discord/CommandHandlers/`. The same handler can be shared across slash commands, text commands, context menus, and auto-download.
+Commands follow a strict separation: command definitions in `Dotto.Discord/Commands/` are thin invocation glue that delegate to command handlers in `Dotto.Discord/CommandHandlers/`. The same handler can be shared across slash commands, text commands, context menus, and auto-download.
 
 #### Command Module Anatomy
 
@@ -75,7 +65,7 @@ Classes implementing CommandModule/ApplicationCommandModule/etc... are NOT manua
 ### Adding a New Command
 
 1. Create handler in `Dotto.Discord/CommandHandlers/<Feature>/`
-2. Register as **transient** in `AddCommandHandlers()` in `Dotto.Discord/DependencyInjection.cs`
+2. Register as transient in `AddCommandHandlers()` in `Dotto.Discord/DependencyInjection.cs`
 3. Create `ApplicationCommand.cs` and/or `TextCommand.cs` under `Dotto.Discord/Commands/<Feature>/`
 4. Command modules are NOT registered in DI — NetCord discovers them via `host.AddModules(typeof(CommandAssemblyMarker).Assembly)`
 
@@ -101,7 +91,7 @@ NetCord gateway handlers are singletons. The codebase uses a scoped processor pa
 ### Adding a New Event Processor
 
 1. Implement `IGatewayEventProcessor<T>` where `T` is the event payload (e.g., `Message`)
-2. Register as **scoped** in `AddCommands()` in `Dotto.Discord/DependencyInjection.cs`
+2. Register as scoped in `AddCommands()` in `Dotto.Discord/DependencyInjection.cs`
 3. Coordinator's `DiscoverHandlerTypes()` picks it up automatically
 
 Gateway handlers are registered from `EventHandlerAssemblyMarker` (Discord project).
@@ -121,13 +111,13 @@ Tests use `TestDateTimeProvider` (mock) instead of real `DateTimeProvider`. Test
 
 ## Quirks & Gotchas
 
-- **Downloader priority**: Instagram URLs → Cobalt first, then Ytdl. All other URLs → Ytdl first, then Cobalt.
-- **Discord upload limits**: No Nitro 10MB, Tier 2 50MB, Tier 3 100MB, NitroClassic/Basic 50MB, full Nitro 500MB.
-- **YtdlFormatPicker** scores: AV1 (1.35x) > VP9 (1.1x) > H265 (1.0x) > H264 (0.4x).
-- **S3 `ServiceURL`** is hardcoded to `s3.badcoder.dev` in `FileUpload/DependencyInjection.cs`, not from config.
-- **Cobalt DI registration** calls `BuildServiceProvider()` during setup to check if Cobalt is configured — a known hack.
-- **`ChannelFlagPoller`** runs immediately on startup, then every 5 minutes via `PeriodicTimer`.
-- **`InitializeS3Uploader`** is fire-and-forget (`_ = host.InitializeS3Uploader()`).
-- **`appsettings.json`** uses section name `Minio` for S3 settings (not `S3`).
-- **Dockerfile** installs yt-dlp (Python), ffmpeg (static build from johnvansickle), and Deno at runtime.
-- **NetCord intents**: `GuildMessages | DirectMessages | MessageContent | GuildMessageTyping`.
+- Downloader priority: Instagram URLs: Cobalt first, then Ytdl. Other URLs: Ytdl first, then Cobalt.
+- Discord upload limits: No Nitro 10MB, Tier 2 50MB, Tier 3 100MB, NitroClassic/Basic 50MB, full Nitro 500MB.
+- Optional dependency registration: some features/implementations are optional (for example, Cobalt DI in Downloader). You may `BuildServiceProvider()` during setup to check if the dependency is configured — a known hack.
+- Dockerfile installs yt-dlp (Python), ffmpeg (static build from johnvansickle), and Deno at runtime.
+
+## TODO
+
+- S3 `ServiceURL` is hardcoded to `s3.badcoder.dev` in `FileUpload/DependencyInjection.cs`, not from config.
+- `appsettings.json` uses section name `Minio` for S3 settings (not `S3`).
+- IDateTimeProvider is no longer necessary; .NET 8+ ships with a built-in TimeProvider.
