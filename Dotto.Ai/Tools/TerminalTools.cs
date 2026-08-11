@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Net.Http;
 using Dotto.Ai.Abstractions;
+using Dotto.Common;
 
 namespace Dotto.Ai.Tools;
 
@@ -39,9 +40,9 @@ public class TerminalTools(ISandbox sandbox)
         }
 
         var output = string.Empty;
-        if (!string.IsNullOrEmpty(result.Stdout))
+        if (!result.Stdout.IsNullOrEmpty())
             output += $"stdout:\n{result.Stdout}\n";
-        if (!string.IsNullOrEmpty(result.Stderr))
+        if (!result.Stderr.IsNullOrEmpty())
             output += $"stderr:\n{result.Stderr}\n";
 
         return $"Exit code: {result.ExitCode}\n{output}".TrimEnd();

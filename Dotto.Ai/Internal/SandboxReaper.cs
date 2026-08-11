@@ -1,6 +1,7 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai.Settings;
+using Dotto.Common;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -88,7 +89,7 @@ internal sealed class SandboxReaper(
                 }
 
                 // Remove the orphaned session directory if it exists
-                if (!string.IsNullOrEmpty(sessionId) && sessionId != "unknown")
+                if (!sessionId.IsNullOrWhitespace() && sessionId != "unknown")
                 {
                     var hostDir = Path.Combine(_options.HostBasePath, sessionId);
                     try

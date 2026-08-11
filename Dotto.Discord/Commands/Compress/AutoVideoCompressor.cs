@@ -50,7 +50,7 @@ public class AutoVideoCompressor(
             videosToProcess.Add((new Uri(attachment.Url), attachment.Title ?? attachment.FileName));
         }
 
-        if (!string.IsNullOrEmpty(message.Content))
+        if (!message.Content.IsNullOrEmpty())
         {
             foreach (Match match in Constants.Compression.Regexes.DiscordCdn.Matches(message.Content))
             {
