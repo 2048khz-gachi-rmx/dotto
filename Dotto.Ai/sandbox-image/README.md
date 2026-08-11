@@ -3,7 +3,7 @@
 Build with:
 
 ```powershell
-docker build -f Dotto.Ai/sandbox/Dockerfile -t dotto-sandbox:latest .
+docker build -f Dotto.Ai/sandbox-image/Dockerfile -t dotto-sandbox:latest .
 ```
 
 Run:

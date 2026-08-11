@@ -22,7 +22,7 @@ services:
     container_name: dotto_sandbox_build
     image: dotto-sandbox:latest
     build:
-      context: ../Dotto.Ai/sandbox
+      context: ../Dotto.Ai/sandbox-image
       dockerfile: Dockerfile
 
   # Filtering proxy in front of the Docker daemon. Only the 9 endpoints the bot
