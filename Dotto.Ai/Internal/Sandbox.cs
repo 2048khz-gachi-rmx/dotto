@@ -2,6 +2,7 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai.Abstractions;
 using Dotto.Ai.Settings;
+using Dotto.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +23,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     private const string ContainerLabelValue = "true";
 
     private readonly SandboxOptions _options = options.Value;
+    private readonly SemaphoreSlim _lifecycleGate = new(1);
 
     private SandboxMetadata? _metadata;
     private bool _disposed;
@@ -31,23 +33,27 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
     public SandboxContainer? Container { get; private set; }
 
-    public Task<SandboxMetadata> InitializeAsync(string sessionId, CancellationToken ct)
+    public async Task<SandboxMetadata> InitializeAsync(string sessionId, CancellationToken ct)
     {
-        // TODO: not thread-safe? can proc in concurrent tool-calls?
+        await using var _ = await _lifecycleGate.CaptureWaitAsync(ct);
+        ThrowIfDisposed();
+
         if (_metadata != null)
-            return Task.FromResult(_metadata);
+            return _metadata;
 
         var hostDir = Path.Combine(_options.HostBasePath, sessionId);
         Directory.CreateDirectory(hostDir);
         _metadata = new SandboxMetadata(sessionId, hostDir);
 
         logger.LogInformation("Created session directory {Path}", hostDir);
-        return Task.FromResult(_metadata);
+        return _metadata;
     }
 
     public async Task<SandboxContainer> EnsureStartedAsync(CancellationToken ct)
     {
-        // TODO: not thread-safe? can proc in concurrent tool-calls?
+        await using var _ = await _lifecycleGate.CaptureWaitAsync(ct);
+        ThrowIfDisposed();
+
         if (Container != null)
             return Container;
 
@@ -101,7 +107,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             // Empty environment — no secrets leak into the sandbox
             Env = new List<string>(),
             Cmd = new List<string> { "python3", "/server.py" },
-            ExposedPorts = new Dictionary<string, EmptyStruct>
+            ExposedPorts = new Dictionary<string,EmptyStruct>
             {
                 ["8080/tcp"] = default
             },
@@ -146,9 +152,11 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        await using var _ = await _lifecycleGate.CaptureWaitAsync();
+
         if (_disposed)
             return;
-        
+
         _disposed = true;
 
         try
@@ -172,6 +180,9 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             }
         }
     }
+
+    private void ThrowIfDisposed()
+        => ObjectDisposedException.ThrowIf(_disposed, typeof(Sandbox));
 
     private async Task StopAndRemoveContainerAsync(string containerId, CancellationToken ct)
     {
