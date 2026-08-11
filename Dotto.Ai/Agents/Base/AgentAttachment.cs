@@ -1,6 +1,6 @@
 ﻿using NetCord.Rest;
 
-namespace Dotto.Ai.Models;
+namespace Dotto.Ai.Agents.Base;
 
 public record AgentAttachment(Stream Stream, string FileName)
 {

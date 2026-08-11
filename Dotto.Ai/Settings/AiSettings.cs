@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Dotto.Ai.Prompts;
 
 namespace Dotto.Ai.Settings;
 

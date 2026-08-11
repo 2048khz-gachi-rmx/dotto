@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 using Dotto.Ai.Agents;
-using Dotto.Ai.Models;
+using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Application.Abstractions.Upload;
 using Dotto.Common;
 using Microsoft.Extensions.AI;

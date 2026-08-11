@@ -1,7 +1,6 @@
 using System.Reflection;
-using Dotto.Ai.Settings;
 
-namespace Dotto.Ai;
+namespace Dotto.Ai.Prompts;
 
 internal class PromptTemplate(PromptSource source)
 {

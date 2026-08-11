@@ -1,4 +1,4 @@
-namespace Dotto.Ai.Abstractions;
+namespace Dotto.Ai.Prompts;
 
 public interface IPromptProvider
 {

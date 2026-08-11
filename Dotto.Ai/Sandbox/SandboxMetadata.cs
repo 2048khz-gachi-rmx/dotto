@@ -1,4 +1,4 @@
-namespace Dotto.Ai.Abstractions;
+namespace Dotto.Ai.Sandbox;
 
 /// <summary>
 /// Always-present session metadata for the sandbox: the session ID and the

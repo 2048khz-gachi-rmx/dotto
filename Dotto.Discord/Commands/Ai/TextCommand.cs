@@ -1,4 +1,4 @@
-﻿using Dotto.Ai.Models;
+﻿using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Settings;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;

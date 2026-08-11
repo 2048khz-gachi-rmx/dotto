@@ -1,6 +1,6 @@
-﻿using Dotto.Ai.Abstractions;
-using Dotto.Ai.Internal;
-using Dotto.Ai.Models;
+﻿using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Prompts;
+using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dotto.Ai.Agents;
+namespace Dotto.Ai.Agents.ChatAssistant;
 
 public class ChatAssistant(
     ContextAccessor accessor,

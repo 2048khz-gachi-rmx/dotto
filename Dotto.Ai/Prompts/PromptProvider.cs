@@ -1,9 +1,8 @@
-using Dotto.Ai.Abstractions;
 using Dotto.Ai.Settings;
 using Fluid;
 using Microsoft.Extensions.Options;
 
-namespace Dotto.Ai;
+namespace Dotto.Ai.Prompts;
 
 internal sealed class PromptProvider(IOptions<AiSettings> options) : IPromptProvider
 {

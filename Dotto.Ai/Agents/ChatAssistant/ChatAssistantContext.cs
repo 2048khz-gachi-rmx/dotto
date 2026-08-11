@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.AI;
+﻿using Dotto.Ai.Agents.Base;
+using Microsoft.Extensions.AI;
 
-namespace Dotto.Ai.Models;
+namespace Dotto.Ai.Agents.ChatAssistant;
 
 public class ChatAssistantContext : AgentContext
 {

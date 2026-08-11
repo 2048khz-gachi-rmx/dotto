@@ -1,7 +1,4 @@
-﻿using Dotto.Ai.Agents;
-using Dotto.Ai.Models;
-
-namespace Dotto.Ai.Internal;
+﻿namespace Dotto.Ai.Agents.Base;
 
 /// <summary>
 /// Horrible crutch hack. Tools may require state (specifically, so they know the context under which the agent was invoked),

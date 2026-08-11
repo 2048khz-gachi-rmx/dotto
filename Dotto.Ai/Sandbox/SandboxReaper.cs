@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dotto.Ai.Internal;
+namespace Dotto.Ai.Sandbox;
 
 internal sealed class SandboxReaper(
     IOptions<SandboxOptions> options,

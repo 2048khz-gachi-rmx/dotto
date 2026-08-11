@@ -1,9 +1,11 @@
 ﻿using System.ClientModel;
 using System.Reflection;
 using Docker.DotNet;
-using Dotto.Ai.Abstractions;
 using Dotto.Ai.Agents;
-using Dotto.Ai.Internal;
+using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Agents.ChatAssistant;
+using Dotto.Ai.Prompts;
+using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Dotto.Ai.Tools;
 using Microsoft.Agents.AI;
@@ -11,7 +13,6 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OpenAI;
-using Type = System.Type;
 
 namespace Dotto.Ai;
 
@@ -52,7 +53,7 @@ public static class DependencyInjection
 
         // Single scoped sandbox entity per invocation — owns the Docker client,
         // lazily starts the container, and tears it down on scope disposal.
-        services.AddScoped<ISandbox, Sandbox>();
+        services.AddScoped<ISandbox, Sandbox.Sandbox>();
         services.AddHostedService<SandboxReaper>();
     }
 
@@ -83,9 +84,9 @@ public static class DependencyInjection
             {
                 var config = sp.GetRequiredService<IOptions<AiSettings>>().Value;
 
-                var apiKey = config.ChatAssistant?.ApiKey ?? config.ApiKey;
-                var baseUrl = config.ChatAssistant?.BaseUrl ?? config.BaseUrl;
-                var model = config.ChatAssistant?.Model ?? config.AssistantModel;
+                var apiKey = config.ChatAssistant.ApiKey ?? config.ApiKey;
+                var baseUrl = config.ChatAssistant.BaseUrl ?? config.BaseUrl;
+                var model = config.ChatAssistant.Model ?? config.AssistantModel;
 
                 if (apiKey == null)
                     throw new InvalidOperationException("Trying to use an AI assistant, but no API key provided.");
@@ -131,10 +132,5 @@ public static class DependencyInjection
                     .ToArray()
             ))
             .Where(g => g.Tools.Length > 0)!;
-    }
-
-    private static Delegate WrapInResolver(Type sourceType, MethodInfo method, ToolAttribute attribute)
-    {
-        return () => { };
     }
 }

@@ -1,4 +1,4 @@
-namespace Dotto.Ai.Settings;
+namespace Dotto.Ai.Prompts;
 
 public class PromptSource
 {

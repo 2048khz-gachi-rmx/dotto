@@ -1,6 +1,6 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
-using Dotto.Ai.Internal;
+using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;

@@ -1,12 +1,11 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
-using Dotto.Ai.Abstractions;
 using Dotto.Ai.Settings;
 using Dotto.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dotto.Ai.Internal;
+namespace Dotto.Ai.Sandbox;
 
 /// <summary>
 /// The single scoped sandbox entity. Encapsulates the whole lifecycle of one session's container:

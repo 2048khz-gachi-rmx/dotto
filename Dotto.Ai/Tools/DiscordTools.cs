@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
-using Dotto.Ai.Abstractions;
-using Dotto.Ai.Internal;
-using Dotto.Ai.Models;
+using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Agents.ChatAssistant;
+using Dotto.Ai.Sandbox;
 using Dotto.Application.Abstractions.Factories;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 

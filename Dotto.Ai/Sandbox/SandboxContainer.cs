@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Dotto.Ai.Abstractions;
+namespace Dotto.Ai.Sandbox;
 
 /// <summary>
 /// The lazily-started container segment of a sandbox session. Exposes the API

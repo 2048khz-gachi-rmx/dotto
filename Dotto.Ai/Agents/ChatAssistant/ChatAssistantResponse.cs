@@ -1,4 +1,6 @@
-﻿namespace Dotto.Ai.Models;
+﻿using Dotto.Ai.Agents.Base;
+
+namespace Dotto.Ai.Agents.ChatAssistant;
 
 public class ChatAssistantResponse
 {

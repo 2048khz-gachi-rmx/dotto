@@ -1,4 +1,4 @@
-namespace Dotto.Ai.Abstractions;
+namespace Dotto.Ai.Sandbox;
 
 /// <summary>
 /// The per-invocation sandbox entity. One scoped instance exists per agent invocation;

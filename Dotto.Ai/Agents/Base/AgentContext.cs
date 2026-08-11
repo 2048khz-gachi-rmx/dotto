@@ -1,4 +1,4 @@
-﻿namespace Dotto.Ai.Models;
+﻿namespace Dotto.Ai.Agents.Base;
 
 public class AgentContext
 {
