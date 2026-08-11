@@ -22,17 +22,12 @@ public static class DependencyInjection
 
     public static IServiceCollection AddAi(this IServiceCollection services, Action<AiSettings> configure)
     {
-        // Eagerly configure to register keyed prompt templates from the Prompts dict
-        // TODO: i think we should receive builder.Configuration from the outside
-        var settings = new AiSettings { BaseUrl = null!, ApiKey = null!, AssistantModel = null! };
-        configure(settings);
-
         services.AddOptions<AiSettings>()
             .Configure(configure)
             .ValidateOnStart();
 
         services.AddScoped<ContextAccessor>();
-        RegisterPromptTemplates(services, settings);
+        RegisterPromptTemplates(services);
         ConfigureChatAssistant(services);
         RegisterSandboxOptions(services);
         RegisterSandboxServices(services);
@@ -61,12 +56,9 @@ public static class DependencyInjection
         services.AddHostedService<SandboxReaper>();
     }
 
-    private static void RegisterPromptTemplates(IServiceCollection services, AiSettings settings)
+    private static void RegisterPromptTemplates(IServiceCollection services)
     {
-        services.AddSingleton<IPromptRenderer, PromptRenderer>();
-
-        foreach (var (key, source) in settings.Prompts)
-            services.AddKeyedSingleton<IPromptTemplate>(key, (_, _) => new PromptTemplate(source));
+        services.AddSingleton<IPromptProvider, PromptProvider>();
     }
 
     private static void ConfigureChatAssistant(IServiceCollection services)

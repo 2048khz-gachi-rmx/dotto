@@ -92,23 +92,27 @@ The following variables are available in every Liquid template:
 
 ### How it flows
 
-1. `AddAi()` eagerly configures `AiSettings` to discover the `Prompts` dict.
-2. Each entry is registered as a keyed singleton `IPromptTemplate` — the key
-   is the JSON key name (e.g. `"ChatAssistant"`).
-3. `IPromptRenderer` (singleton) wraps `FluidParser` + `UnsafeMemberAccessStrategy`.
-4. In `ChatAssistant.Invoke()`, the wrapper resolves
-   `IPromptTemplate("ChatAssistant")` and `IPromptRenderer`, gets the raw
-   template, renders it with the context dictionary, then prepends the result
-   as a `ChatRole.System` message.
-5. If no `ChatAssistant` prompt is configured, the system message is skipped
-   (graceful fallback).
+1. `AddAi()` binds `AiSettings` (including the `Prompts` dict) via the
+   standard options pattern.
+2. `IPromptProvider` (singleton) reads the dict from `IOptions<AiSettings>`,
+   holding one internal `PromptTemplate` per entry. It also owns the
+   `FluidParser` + `UnsafeMemberAccessStrategy`.
+3. In `ChatAssistant.Invoke()`, the wrapper calls
+   `promptProvider.RenderAsync("ChatAssistant", context)` — one call that
+   looks up the source, loads the raw text, renders the Liquid template, and
+   returns the result. The rendered text is prepended as a
+   `ChatRole.System` message.
+4. If no `ChatAssistant` prompt is configured, `RenderAsync` returns `null`
+   and the system message is skipped (graceful fallback).
 
 ### Adding a new prompt
 
 1. Add an entry to `Ai:Prompts` in config.
 2. Create the template file (embedded `.liquid` or absolute path).
-3. In the consumer, resolve `IPromptTemplate("YourKey")` from the DI scope.
-4. Call `GetAsync()` → `RenderAsync()` → prepend the rendered text.
+3. In the consumer, inject `IPromptProvider` and call
+   `RenderAsync("YourKey", context)`.
+4. Prepend the returned text as a system message (null means no prompt
+   configured).
 
 ## Registration
 

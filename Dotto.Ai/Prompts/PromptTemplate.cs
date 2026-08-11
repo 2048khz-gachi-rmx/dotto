@@ -1,10 +1,9 @@
 using System.Reflection;
-using Dotto.Ai.Abstractions;
 using Dotto.Ai.Settings;
 
 namespace Dotto.Ai;
 
-internal class PromptTemplate(PromptSource source) : IPromptTemplate
+internal class PromptTemplate(PromptSource source)
 {
     private readonly Assembly _assembly = typeof(PromptTemplate).Assembly;
     private readonly string _assemblyPrefix = typeof(PromptTemplate).Assembly.GetName().Name! + ".";

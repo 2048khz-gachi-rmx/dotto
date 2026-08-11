@@ -14,7 +14,7 @@ public class ChatAssistant(
     ContextAccessor accessor,
     IOptions<SandboxOptions> sandboxOptions,
     ILogger<ChatAssistant> logger,
-    IPromptRenderer promptRenderer,
+    IPromptProvider promptProvider,
     ISandbox sandbox,
     IServiceProvider serviceProvider)
 {
@@ -90,19 +90,8 @@ public class ChatAssistant(
     private async Task<string?> BuildSystemPromptAsync(
         ChatAssistantContext context, CancellationToken ct)
     {
-        IPromptTemplate? template;
-        try
-        {
-            template = serviceProvider.GetRequiredKeyedService<IPromptTemplate>(DependencyInjection.ChatAssistantPromptKey);
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
-
-        var raw = await template.GetAsync(ct);
         var renderContext = BuildTemplateContext(context);
-        return await promptRenderer.RenderAsync(raw, renderContext, ct);
+        return await promptProvider.RenderAsync(DependencyInjection.ChatAssistantPromptKey, renderContext, ct);
     }
 
     private static Dictionary<string, object> BuildTemplateContext(ChatAssistantContext context)
