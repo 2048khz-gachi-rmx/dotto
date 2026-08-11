@@ -1,8 +1,7 @@
-using Dotto.Application.Abstractions.VideoProcessing;
 using Dotto.Ffmpeg.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Dotto.Application.InternalServices.VideoProcessing;
+namespace Dotto.Application.VideoProcessing;
 
 internal class VideoCompressionService(
     IServiceScopeFactory scopeFactory)

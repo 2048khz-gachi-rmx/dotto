@@ -1,7 +1,7 @@
 ﻿using Dotto.Common;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 
-namespace Dotto.Application.Models;
+namespace Dotto.Application.MediaProcessing;
 
 public class MediaDownloadResult
 {

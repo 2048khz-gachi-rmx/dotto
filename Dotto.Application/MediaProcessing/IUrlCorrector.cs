@@ -1,4 +1,4 @@
-﻿namespace Dotto.Application.Abstractions.MediaProcessing;
+﻿namespace Dotto.Application.MediaProcessing;
 
 public interface IUrlCorrector
 {

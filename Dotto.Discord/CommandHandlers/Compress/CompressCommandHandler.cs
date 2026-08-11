@@ -1,6 +1,5 @@
-using Dotto.Application.Abstractions.VideoProcessing;
+using Dotto.Application.VideoProcessing;
 using Dotto.Common;
-using Dotto.Discord.Models.Compress;
 using Dotto.Ffmpeg.Contracts;
 using Dotto.Ffmpeg.Settings;
 using Microsoft.Extensions.Options;

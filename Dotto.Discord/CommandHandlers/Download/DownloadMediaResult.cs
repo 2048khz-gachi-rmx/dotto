@@ -1,7 +1,7 @@
 ﻿using Dotto.Common;
 using NetCord.Rest;
 
-namespace Dotto.Discord.Models.Download;
+namespace Dotto.Discord.CommandHandlers.Download;
 
 public class DownloadMediaResult<T>
     where T : IMessageProperties

@@ -1,4 +1,4 @@
-﻿namespace Dotto.Application.Models;
+﻿namespace Dotto.Application.MediaProcessing;
 
 public enum MediaErrorCode
 {

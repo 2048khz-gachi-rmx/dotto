@@ -1,11 +1,9 @@
 ﻿using System.Collections.Immutable;
-using Dotto.Application.Abstractions;
-using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
 
-namespace Dotto.Application.InternalServices;
+namespace Dotto.Application.ChannelFlags;
 
 public interface IChannelFlagsService
 {
@@ -27,7 +25,7 @@ public class ChannelFlagsService(
 
         if (flags == null)
         {
-            flags = new ChannelFlags(channelId);
+            flags = new Entities.ChannelFlags(channelId);
             dbContext.ChannelFlags.Add(flags);
         }
 

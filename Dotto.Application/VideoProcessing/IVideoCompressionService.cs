@@ -1,6 +1,6 @@
 using Dotto.Ffmpeg.Contracts;
 
-namespace Dotto.Application.Abstractions.VideoProcessing;
+namespace Dotto.Application.VideoProcessing;
 
 public interface IVideoCompressionService
 {

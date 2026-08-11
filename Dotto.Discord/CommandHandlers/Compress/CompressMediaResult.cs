@@ -1,7 +1,7 @@
 using Dotto.Common;
 using NetCord.Rest;
 
-namespace Dotto.Discord.Models.Compress;
+namespace Dotto.Discord.CommandHandlers.Compress;
 
 public class CompressMediaResult<T>
     where T : IMessageProperties

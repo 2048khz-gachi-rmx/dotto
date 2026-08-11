@@ -1,4 +1,3 @@
-using Dotto.Application.Abstractions.Factories;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Enum;
 using Microsoft.Extensions.DependencyInjection;

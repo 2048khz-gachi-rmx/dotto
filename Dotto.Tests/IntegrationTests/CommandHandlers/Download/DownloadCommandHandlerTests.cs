@@ -1,7 +1,6 @@
 ﻿using System.Text;
-using Dotto.Application.Abstractions.MediaProcessing;
-using Dotto.Application.Abstractions.Upload;
-using Dotto.Application.Models;
+using Dotto.Application.MediaProcessing;
+using Dotto.Application.Upload;
 using Dotto.Common.Constants;
 using Dotto.Common.Exceptions;
 using Dotto.Discord.CommandHandlers.Download;

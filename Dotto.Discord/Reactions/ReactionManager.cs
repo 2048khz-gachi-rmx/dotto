@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Dotto.Common.DateTimeProvider;
 using NetCord.Rest;
 
-namespace Dotto.Discord.Services;
+namespace Dotto.Discord.Reactions;
 
 public record ReactionSession(
     object Payload,

@@ -3,7 +3,7 @@ using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Tools;
-using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Factories;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models.Metadata;

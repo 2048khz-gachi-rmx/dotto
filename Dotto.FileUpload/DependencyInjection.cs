@@ -1,6 +1,6 @@
 ﻿using Amazon.Runtime;
 using Amazon.S3;
-using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Upload;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;

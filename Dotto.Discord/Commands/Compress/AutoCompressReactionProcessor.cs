@@ -1,5 +1,5 @@
 using Dotto.Discord.EventHandlers;
-using Dotto.Discord.Services;
+using Dotto.Discord.Reactions;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Rest;

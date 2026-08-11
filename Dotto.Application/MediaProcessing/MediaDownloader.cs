@@ -1,11 +1,9 @@
-﻿using Dotto.Application.Abstractions.Factories;
-using Dotto.Application.Abstractions.MediaProcessing;
-using Dotto.Application.Models;
+﻿using Dotto.Application.Factories;
 using Dotto.Common;
 using Dotto.Common.Exceptions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 
-namespace Dotto.Application.InternalServices.MediaProcessing;
+namespace Dotto.Application.MediaProcessing;
 
 public class MediaDownloader(IUrlCorrector urlCorrector,
     IDownloaderServiceFactory downloaderFactory)

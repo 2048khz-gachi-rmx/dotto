@@ -1,7 +1,6 @@
-﻿using Dotto.Application.Models;
-using Dotto.Infrastructure.Downloader.Contracts.Models;
+﻿using Dotto.Infrastructure.Downloader.Contracts.Models;
 
-namespace Dotto.Application.Abstractions.MediaProcessing;
+namespace Dotto.Application.MediaProcessing;
 
 public interface IMediaDownloader
 {

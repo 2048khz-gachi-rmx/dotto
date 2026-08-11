@@ -1,13 +1,12 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
-using Dotto.Application.Abstractions;
-using Dotto.Application.Abstractions.MediaProcessing;
-using Dotto.Application.Abstractions.Upload;
+using Dotto.Application;
 using Dotto.Application.Entities;
+using Dotto.Application.MediaProcessing;
+using Dotto.Application.Upload;
 using Dotto.Common;
 using Dotto.Common.Constants;
 using Dotto.Common.DateTimeProvider;
-using Dotto.Discord.Models.Download;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
 using NetCord.Gateway;

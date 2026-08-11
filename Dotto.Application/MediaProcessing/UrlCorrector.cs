@@ -1,9 +1,8 @@
-﻿using Dotto.Application.Abstractions.MediaProcessing;
-using Dotto.Application.Settings;
+﻿using Dotto.Application.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dotto.Application.InternalServices.MediaProcessing;
+namespace Dotto.Application.MediaProcessing;
 
     public class UrlCorrector(IOptions<UrlCorrectionSettings> config,
         ILogger<UrlCorrector> logger) : IUrlCorrector

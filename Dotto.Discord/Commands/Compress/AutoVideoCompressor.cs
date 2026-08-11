@@ -1,10 +1,10 @@
 using System.Text.RegularExpressions;
-using Dotto.Application.InternalServices;
+using Dotto.Application.ChannelFlags;
 using Dotto.Common;
 using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Compress;
 using Dotto.Discord.EventHandlers;
-using Dotto.Discord.Services;
+using Dotto.Discord.Reactions;
 using Dotto.Ffmpeg.Contracts;
 using Dotto.Ffmpeg.Settings;
 using Microsoft.Extensions.DependencyInjection;

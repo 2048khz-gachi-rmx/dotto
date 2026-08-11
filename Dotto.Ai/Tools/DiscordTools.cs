@@ -2,7 +2,7 @@
 using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
-using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Factories;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 
 namespace Dotto.Ai.Tools;

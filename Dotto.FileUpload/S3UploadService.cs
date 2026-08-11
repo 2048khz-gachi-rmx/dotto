@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
-using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Upload;
 using Microsoft.Extensions.Options;
 
 namespace Dotto.Infrastructure.FileUpload;

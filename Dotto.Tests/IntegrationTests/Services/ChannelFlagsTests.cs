@@ -1,4 +1,4 @@
-using Dotto.Application.InternalServices;
+using Dotto.Application.ChannelFlags;
 using Dotto.Common.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;

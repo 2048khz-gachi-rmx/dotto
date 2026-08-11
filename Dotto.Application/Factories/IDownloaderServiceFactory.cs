@@ -1,6 +1,6 @@
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 
-namespace Dotto.Application.Abstractions.Factories;
+namespace Dotto.Application.Factories;
 
 public interface IDownloaderServiceFactory
 {

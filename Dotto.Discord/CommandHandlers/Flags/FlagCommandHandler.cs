@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Dotto.Application.InternalServices;
+using Dotto.Application.ChannelFlags;
 using Dotto.Common;
 using Dotto.Common.Constants;
 using NetCord;

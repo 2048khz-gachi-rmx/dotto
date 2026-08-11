@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using Dotto.Application.Abstractions;
+using Dotto.Application;
 using Dotto.Application.Entities;
 using Microsoft.EntityFrameworkCore;
 

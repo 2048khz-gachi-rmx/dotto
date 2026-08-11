@@ -1,11 +1,8 @@
-﻿using Dotto.Application.Abstractions.Factories;
-using Dotto.Application.Abstractions.MediaProcessing;
-using Dotto.Application.Abstractions.VideoProcessing;
+﻿using Dotto.Application.ChannelFlags;
 using Dotto.Application.Factories;
-using Dotto.Application.InternalServices;
-using Dotto.Application.InternalServices.MediaProcessing;
-using Dotto.Application.InternalServices.VideoProcessing;
+using Dotto.Application.MediaProcessing;
 using Dotto.Application.Settings;
+using Dotto.Application.VideoProcessing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dotto.Application;

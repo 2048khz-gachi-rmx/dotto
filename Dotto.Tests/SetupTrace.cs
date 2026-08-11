@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 
+namespace Dotto.Tests;
+
 [SetUpFixture]
 public class SetupTrace
 {

@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using Dotto.Application.InternalServices;
+using Dotto.Application.ChannelFlags;
 using Dotto.Common.Constants;
 using Dotto.Discord.CommandHandlers.Flags;
 using NetCord.Rest;

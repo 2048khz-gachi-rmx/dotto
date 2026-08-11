@@ -1,7 +1,7 @@
 using System.Xml.Linq;
 using Dotto.Ai.Agents;
 using Dotto.Ai.Agents.ChatAssistant;
-using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Upload;
 using Dotto.Common;
 using Microsoft.Extensions.AI;
 using NetCord.Gateway;

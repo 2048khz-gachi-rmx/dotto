@@ -1,4 +1,4 @@
-﻿using Dotto.Application.InternalServices;
+﻿using Dotto.Application.ChannelFlags;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

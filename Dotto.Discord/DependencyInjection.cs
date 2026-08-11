@@ -4,7 +4,7 @@ using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.CommandHandlers.Flags;
 using Dotto.Discord.Commands.Compress;
 using Dotto.Discord.Commands.Download;
-using Dotto.Discord.Services;
+using Dotto.Discord.Reactions;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
