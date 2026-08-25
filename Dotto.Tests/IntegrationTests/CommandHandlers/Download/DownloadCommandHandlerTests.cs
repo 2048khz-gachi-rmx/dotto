@@ -107,7 +107,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
             .Returns(uploadedUrl);
 
         // Act
-        var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false, 10 << 20); // 10MB limit
+        var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false, 20 << 20); // 20MB limit
 
         // Assert - External media handling
         result.Message.Content.ShouldNotBeNull();
