@@ -7,9 +7,10 @@ namespace Dotto.Infrastructure.Downloader.YtdlDownloader;
 
 internal class YtdlFormatPicker
 {
+    // ideal split of a pair's total size between the video and audio tracks
     private const double PerfectVideoRatio = 0.80;
     private const double PerfectAudioRatio = 0.20;
-    
+
     /// <summary>
     /// Given a list of formats, tries to pick one (merged) or multiple (audio+video) that would be the best,
     /// taking into account their resolutions, video codecs, filesizes and the upload limit.
@@ -133,9 +134,6 @@ internal class YtdlFormatPicker
                 : null;
         }
 
-        var maxVideoSize = (long)(options.MaxFilesize * PerfectVideoRatio);
-        var maxAudioSize = (long)(options.MaxFilesize * PerfectAudioRatio);
-
         #if DEBUG
         Dictionary<(string, string), (double, double)> scores = new();
         #endif
@@ -177,13 +175,12 @@ internal class YtdlFormatPicker
                     if (!videoScore.HasValue || !audioScore.HasValue)
                         continue;
                     
-                    // size efficiency: peaks at target ratio (maxVideoSize / maxAudioSize), falls off below
-                    // the idea is that pairs that get closest to the perfect ratio get the highest mult
-                    var videoSizeBonus = Math.Clamp(vsize / (double)maxVideoSize, 0.01, 1.0);
-                    var audioSizeBonus = Math.Clamp(asize / (double)maxAudioSize, 0.01, 1.0);
-                
-                    // this ensures a terrible audio track drags down the score of a huge video (and vice versa)
-                    var totalScore = videoScore * videoSizeBonus * audioScore * audioSizeBonus;
+                    // keep the pair near the ideal video/audio split (80/20) so a video that hogs the budget
+                    // can't drag in a garbage audio track (and vice versa).
+                    var videoBalance = GetSizeBalance(vsize, vsize + asize, PerfectVideoRatio);
+                    var audioBalance = GetSizeBalance(asize, vsize + asize, PerfectAudioRatio);
+
+                    var totalScore = videoScore * videoBalance * audioScore * audioBalance;
 
                     if (totalScore < bestScore) continue;
                     
@@ -194,6 +191,26 @@ internal class YtdlFormatPicker
         }
 		
         return choice;
+    }
+
+    /// <summary>
+    /// Scores how close a single track's share of the pair's total size is to its ideal share,
+    /// without rewarding absolute size (that is already accounted for in the format scores).
+    /// Penalizes both directions: a track that is starved (too small a share) and one that is
+    /// wasteful (too large a share) both score worse than one sitting at its ideal share.
+    /// </summary>
+    private static double GetSizeBalance(long trackSize, long totalSize, double idealShare)
+    {
+        // both sizes unknown; no information to penalize with
+        if (totalSize <= 0)
+            return 1d;
+
+        var actualShare = trackSize / (double)totalSize;
+
+        // min(actual/ideal, ideal/actual) peaks at 1.0 when actual == ideal and falls off both ways
+        var balance = Math.Min(actualShare / idealShare, idealShare / actualShare);
+
+        return Math.Clamp(balance, 0.01, 1.0);
     }
 	
     private static FormatData? TryPickOptimalAudioFormat(IList<FormatData> audioFormats, IList<FormatData> videoFormats, DownloadOptions options)

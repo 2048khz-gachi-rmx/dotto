@@ -170,7 +170,7 @@ public class YtdlFormatPickerTests : TestFixtureBase
     }
 
     [Test]
-    public void TryPickOptimalFormat_ShouldReturnOptimizedCodec()
+    public void TryPickOptimalFormat_ShouldPreferBetterCodecAndBalancedSplit()
     {
         // Arrange
         var videoFormats = new List<FormatData>
@@ -181,7 +181,6 @@ public class YtdlFormatPickerTests : TestFixtureBase
         var audioFormats = new List<FormatData>
         {
             new() { FormatId = "audio1", AudioCodec = "aac", FileSize = 200 },
-            new() { FormatId = "audio2", AudioCodec = "mp3", FileSize = 150 }
         };
         var options = new DownloadOptions { MaxFilesize = 1000 };
 
@@ -190,6 +189,7 @@ public class YtdlFormatPickerTests : TestFixtureBase
 
         // Assert
         result.ShouldNotBeNull();
+        // hevc (450) beats h264 (500) on codec multiplier despite being smaller
         result.VideoFormat?.FormatId.ShouldBe("video2");
         result.AudioFormat?.FormatId.ShouldBe("audio1");
     }
@@ -530,5 +530,101 @@ public class YtdlFormatPickerTests : TestFixtureBase
         result.ShouldNotBeNull();
         result.VideoFormat.ShouldNotBeNull().FormatId.ShouldBe("http-2176"); // biggest filesize below limit
         result.AudioFormat.ShouldNotBeNull().FormatId.ShouldBe("hls-audio-128000-Audio"); // best available audio, still below limit
+    }
+    
+    // Regression for https://www.youtube.com/watch?v=yEBQHXW5POY: a source-quality 1080p vp9 stream was picked
+    // over an av1 stream ~24% smaller at the same resolution.
+    // Issue was: raw size is already a score factor inside, but it was getting weighed against the budget a second time
+    // (with perfect ratio score bonus), so a better codec got punished by roughly size^2 even with the codec mult
+    [Test]
+    public void PickFormat_ShouldPreferEfficientCodecOverLargerBitrate()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Formats =
+            [
+                new()
+                {
+                    FormatId = "248", VideoCodec = "vp9", AudioCodec = "none", Extension = "webm",
+                    VideoExtension = "webm", AudioExtension = "none", Width = 1920, Height = 1080, FileSize = 7_577_041
+                },
+                new()
+                {
+                    FormatId = "399", VideoCodec = "av01.0.08M.08", AudioCodec = "none", Extension = "webm",
+                    VideoExtension = "webm", AudioExtension = "none", Width = 1920, Height = 1080, FileSize = 5_788_899
+                },
+                new()
+                {
+                    FormatId = "251", VideoCodec = "none", AudioCodec = "opus", Extension = "webm",
+                    VideoExtension = "none", AudioExtension = "webm", FileSize = 588_360, AudioBitrate = 125.849
+                }
+            ]
+        };
+        var options = new DownloadOptions { MaxFilesize = 10 * 1024 * 1024 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("399");
+        result.AudioFormat?.FormatId.ShouldBe("251");
+    }
+
+    // The pair should stay near the ideal video/audio split (80/20). Real candidates never total the same size,
+    // so the split has to beat raw total size: 75mb+20mb (79/21, near ideal) must beat 50mb+49mb (51/49), even
+    // though the latter is a bigger pair overall and has a bigger audio track. The balance term used to only
+    // penalize a track that was too *small* and never one that was too *large*, so a bloated audio track won.
+    [Test]
+    public void TryPickOptimalFormat_ShouldPreferBalancedSplitOverBiggerTotal()
+    {
+        // Arrange
+        var videoFormats = new List<FormatData>
+        {
+            new() { FormatId = "video_75mb", VideoCodec = "h264", FileSize = 75_000_000 },
+            new() { FormatId = "video_50mb", VideoCodec = "h264", FileSize = 50_000_000 }
+        };
+        var audioFormats = new List<FormatData>
+        {
+            new() { FormatId = "audio_20mb", AudioCodec = "aac", FileSize = 20_000_000, AudioBitrate = 128 },
+            new() { FormatId = "audio_49mb", AudioCodec = "aac", FileSize = 49_000_000, AudioBitrate = 128 }
+        };
+        var options = new DownloadOptions { MaxFilesize = 100_000_000 };
+
+        // Act
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("video_75mb");
+        result.AudioFormat?.FormatId.ShouldBe("audio_20mb");
+    }
+
+    // Testing the audio/video balance: a video that eats almost the whole budget leaves fuckall room for audio,
+    // and that pair should lose to a smaller video that can afford decent audio.
+    [Test]
+    public void TryPickOptimalFormat_ShouldAvoidBudgetHoggingVideoWithScrapAudio()
+    {
+        // Arrange
+        var videoFormats = new List<FormatData>
+        {
+            new() { FormatId = "video_hog", VideoCodec = "h264", FileSize = 980 },
+            new() { FormatId = "video_accomodating", VideoCodec = "h264", FileSize = 800 }
+        };
+        var audioFormats = new List<FormatData>
+        {
+            new() { FormatId = "audio_shit", AudioCodec = "aac", FileSize = 10, AudioBitrate = 128 },
+            new() { FormatId = "audio_good", AudioCodec = "aac", FileSize = 150, AudioBitrate = 128 }
+        };
+        var options = new DownloadOptions { MaxFilesize = 1000 };
+
+        // Act
+        var result = _picker.TryPickOptimalFormat(audioFormats, videoFormats, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat?.FormatId.ShouldBe("video_accomodating");
+        result.AudioFormat?.FormatId.ShouldBe("audio_good");
     }
 }
