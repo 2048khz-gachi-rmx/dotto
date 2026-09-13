@@ -43,6 +43,10 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
         {
             throw new ApplicationException("Cobalt request timed out", ex);
         }
+        catch (HttpRequestException ex)
+        {
+            throw new ApplicationException("Cobalt HTTP request failed", ex);
+        }
         catch (CobaltApiException ex)
         {
             throw new ApplicationException("Cobalt API Error", ex);
