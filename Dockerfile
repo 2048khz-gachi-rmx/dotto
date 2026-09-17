@@ -25,7 +25,7 @@ WORKDIR /app
 # yt-dlp static build has a huge startup delay, so we're using the system python install
 RUN apt-get update \
 	&& apt-get install -y python3 xz-utils wget curl \
-	&& curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+	&& curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp 
 
 COPY --from=build /Dotto.Bot/out .
