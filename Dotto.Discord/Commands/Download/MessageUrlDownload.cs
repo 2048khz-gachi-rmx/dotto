@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 using Dotto.Application.InternalServices;
 using Dotto.Common;
 using Dotto.Common.Constants;
-using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.EventHandlers;
+using Dotto.Discord.Services;
 using Dotto.Discord.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,91 +15,99 @@ using NetCord.Rest;
 namespace Dotto.Discord.Commands.Download;
 
 /// <summary>
-/// Downloads media from messages containing an eligible URL is posted in chat, assuming the appropriate flag is set in the channel.
-/// <seealso cref="Constants.ChannelFlags.FunctionalFlags.LinkAutodownload" />
+/// Handles URLs posted in chat when the channel has the <see cref="Constants.ChannelFlags.FunctionalFlags.LinkAutodownload"/> flag.
+/// <para>
+/// Regular URLs (<see cref="AutoDownloadSettings.Patterns"/>) are downloaded immediately and the original's embeds suppressed.
+/// Ambiguous URLs (<see cref="AutoDownloadSettings.AmbiguousPatterns"/>, e.g. x.com) instead get an inbox-tray reaction from
+/// the bot and are only downloaded once a human confirms with the same reaction — this keeps the original embed as context.
+/// </para>
 /// </summary>
 public class MessageUrlDownload(
     IOptionsMonitor<AutoDownloadSettings> settings,
-    RestClient client,
     IChannelFlagsService channelFlagsService,
     IServiceProvider serviceProvider,
+    ReactionManager reactionManager,
     ILogger<MessageUrlDownload> logger)
     : IGatewayEventProcessor<Message>, IDisposable
 {
-    private readonly DownloadCommandHandler _downloadHandler = serviceProvider.GetRequiredService<DownloadCommandHandler>();
-    
+    /// <summary>The reaction the bot adds to ambiguous URLs, and expects back to confirm a download.</summary>
+    internal static readonly ReactionEmojiProperties DownloadReaction = new("📥");
+
+    private readonly MessageDownloadExecutor _executor = serviceProvider.GetRequiredService<MessageDownloadExecutor>();
+
     // precompile all regexes
     private static Regex[]? _patterns;
+    private static Regex[]? _ambiguousPatterns;
     private readonly IDisposable? _changeTracker = settings.OnChange(GenerateRegexes);
 
-    [MemberNotNull(nameof(_patterns))]
+    [MemberNotNull(nameof(_patterns), nameof(_ambiguousPatterns))]
     private static void GenerateRegexes(AutoDownloadSettings settings)
     {
         _patterns = settings.Patterns.Select(str => new Regex(str, RegexOptions.Compiled)).ToArray();
+        _ambiguousPatterns = settings.AmbiguousPatterns.Select(str => new Regex(str, RegexOptions.Compiled)).ToArray();
     }
-    
+
     public async ValueTask HandleAsync(Message message)
     {
-        if (_patterns == null)
+        if (_patterns == null || _ambiguousPatterns == null)
             GenerateRegexes(settings.CurrentValue);
 
         if (message.Author.IsBot)
             return;
-        
+
         var flags = await channelFlagsService.GetChannelFlags(message.ChannelId);
         if (!flags.Contains(Constants.ChannelFlags.FunctionalFlags.LinkAutodownload))
             return;
-        
-        var text = message.Content;
-        var matchedUrls = new List<string>();
-        
-        foreach (var pattern in _patterns)
-        {
-            var match = pattern.Matches(text);
-            matchedUrls.AddRange(match.Select(m => m.Value));
-        }
 
-        if (matchedUrls.IsEmpty())
-            return;
-        
-        await DownloadFromMessage(message, matchedUrls);
-    }
-
-    private async ValueTask DownloadFromMessage(Message message, List<string> matchedUrls)
-    {
         // I won't bother with supporting multiple URLs in a message since i believe noone ever posts multiple,
         // but let's log them in case i'm wrong
-        if (matchedUrls.Count > 1)
+        if (CountMatches(message.Content) > 1)
         {
             logger.LogWarning("Someone posted more than 1 downloadable URLs in chat just to spite me");
         }
-        
-        var uri = new Uri(matchedUrls.First());
-        
-        var typingTask = client.EnterTypingStateAsync(message.ChannelId);
 
-        try
+        // ambiguous URLs take precedence so an x.com link isn't downloaded before someone opts in
+        var ambiguous = FirstMatch(_ambiguousPatterns, message.Content);
+        if (ambiguous != null)
         {
-            var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(message.Guild);
-            var msg = await _downloadHandler.CreateMessage<ReplyMessageProperties>(uri, false, uploadLimit);
-
-            if (!msg.HasAnyMedia)
-                return;
-            
-            var replyTask = message.ReplyAsync(msg.Message);
-
-            await message.SuppressEmbeds();
-            var newMessage = await replyTask;
-            await _downloadHandler.LogDownloadedMedia(newMessage, msg, message.Author.Id);
+            await RequestDownloadReaction(message, ambiguous);
+            return;
         }
-        finally
-        {
-            _ = typingTask.ContinueWith(task => task.Result.Dispose());
-        }
+
+        var regular = FirstMatch(_patterns, message.Content);
+        if (regular == null)
+            return;
+
+        await _executor.DownloadAndReplyAsync(message, regular, suppressEmbeds: true);
     }
-    
+
+    private async Task RequestDownloadReaction(Message message, Uri uri)
+    {
+        await message.AddReactionAsync(DownloadReaction);
+        reactionManager.TrackMessage(message.Id, message.ChannelId, new PendingDownload(message, uri), ReactionSessionKind.Download);
+    }
+
+    private int CountMatches(string text)
+        => _ambiguousPatterns!.Sum(p => p.Matches(text).Count)
+           + _patterns!.Sum(p => p.Matches(text).Count);
+
+    private static Uri? FirstMatch(Regex[] patterns, string text)
+    {
+        foreach (var pattern in patterns)
+        {
+            var match = pattern.Match(text);
+            if (match.Success)
+                return new Uri(match.Value);
+        }
+
+        return null;
+    }
+
     public void Dispose()
     {
         _changeTracker?.Dispose();
     }
 }
+
+/// <summary>A message whose media is waiting for a human's confirmation reaction before it gets downloaded.</summary>
+public record PendingDownload(Message SourceMessage, Uri Url);

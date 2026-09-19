@@ -93,7 +93,7 @@ public class AutoVideoCompressor(
                 await reply.AddReactionAsync(_thumbsUp);
                 await reply.AddReactionAsync(removeEmoji);
 
-                reactionManager.TrackMessage(reply, message);
+                reactionManager.TrackMessage(reply, message, ReactionSessionKind.Compression);
             }
         }
         catch

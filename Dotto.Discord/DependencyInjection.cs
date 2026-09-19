@@ -33,6 +33,8 @@ public static class DependencyInjection
     private static void AddMessageListeners(this IServiceCollection services)
     {
         services.AddScoped<MessageUrlDownload>();
+        services.AddScoped<MessageDownloadReactionProcessor>();
+        services.AddScoped<MessageDownloadExecutor>();
         services.AddScoped<AutoVideoCompressor>();
         services.AddScoped<AutoCompressReactionProcessor>();
     }

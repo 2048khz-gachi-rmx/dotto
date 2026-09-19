@@ -29,7 +29,7 @@ internal class AutoCompressReactionProcessor(
         if (args.User == null || args.User.IsBot)
             return;
 
-        if (!reactionManager.TryGetSession(args.MessageId, out var session))
+        if (!reactionManager.TryGetSession(args.MessageId, ReactionSessionKind.Compression, out var session))
             return;
 
         if (await IsAuthorized(args.User, session) == false)
@@ -67,7 +67,7 @@ internal class AutoCompressReactionProcessor(
         {
             if (IsRemove(args.Emoji))
             {
-                await gatewayClient.Rest.DeleteMessageAsync(session.ChannelId, session.BotReplyMessageId);
+                await gatewayClient.Rest.DeleteMessageAsync(session.ChannelId, session.MessageId);
                 return;
             }
             
@@ -82,7 +82,7 @@ internal class AutoCompressReactionProcessor(
                 {
                     try
                     {
-                        await gatewayClient.Rest.DeleteAllMessageReactionsForEmojiAsync(session.ChannelId, session.BotReplyMessageId, reactionToRemove);
+                        await gatewayClient.Rest.DeleteAllMessageReactionsForEmojiAsync(session.ChannelId, session.MessageId, reactionToRemove);
                     } catch { /* don't care didn't ask */ }
                 }
             }

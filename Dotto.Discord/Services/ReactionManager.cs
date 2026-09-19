@@ -5,11 +5,22 @@ using NetCord.Rest;
 
 namespace Dotto.Discord.Services;
 
+/// <summary>
+/// Distinguishes what a tracked reaction session is for, so multiple reaction-driven
+/// workflows can coexist without consuming each other's sessions.
+/// </summary>
+public enum ReactionSessionKind
+{
+    Compression,
+    Download
+}
+
 public record ReactionSession(
     object Payload,
-    ulong BotReplyMessageId,
+    ulong MessageId,
     ulong ChannelId,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    ReactionSessionKind Kind);
 
 public class ReactionManager(IDateTimeProvider dateTimeProvider)
 {
@@ -17,33 +28,45 @@ public class ReactionManager(IDateTimeProvider dateTimeProvider)
 
     private readonly ConcurrentDictionary<ulong, ReactionSession> _sessions = new();
 
-    public void TrackMessage(RestMessage botMessage, object payload)
+    public void TrackMessage(RestMessage message, object payload, ReactionSessionKind kind)
+        => TrackMessage(message.Id, message.ChannelId, payload, kind);
+
+    public void TrackMessage(ulong messageId, ulong channelId, object payload, ReactionSessionKind kind)
     {
         var session = new ReactionSession(
             payload,
-            botMessage.Id,
-            botMessage.ChannelId,
-            dateTimeProvider.UtcNow.Add(SessionTtl));
+            messageId,
+            channelId,
+            dateTimeProvider.UtcNow.Add(SessionTtl),
+            kind);
 
-        _sessions.TryAdd(botMessage.Id, session);
+        _sessions.TryAdd(messageId, session);
     }
 
-    public bool TryGetSession(ulong botReplyMessageId, [NotNullWhen(true)] out ReactionSession? session)
+    public bool TryGetSession(ulong messageId, ReactionSessionKind kind, [NotNullWhen(true)] out ReactionSession? session)
     {
-        if (!_sessions.TryGetValue(botReplyMessageId, out session))
+        if (!_sessions.TryGetValue(messageId, out session))
             return false;
 
-        if (dateTimeProvider.UtcNow > session!.ExpiresAt)
+        // another workflow owns this session; leave it alone
+        if (session!.Kind != kind)
         {
-            _sessions.TryRemove(botReplyMessageId, out _);
+            session = null;
+            return false;
+        }
+
+        if (dateTimeProvider.UtcNow > session.ExpiresAt)
+        {
+            _sessions.TryRemove(messageId, out _);
+            session = null;
             return false;
         }
 
         return true;
     }
 
-    public bool RemoveSession(ulong botReplyMessageId)
-        => _sessions.TryRemove(botReplyMessageId, out _);
+    public bool RemoveSession(ulong messageId)
+        => _sessions.TryRemove(messageId, out _);
 
     public void CleanupExpired()
     {
