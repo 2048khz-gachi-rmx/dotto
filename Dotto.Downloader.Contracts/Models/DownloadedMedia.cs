@@ -43,15 +43,12 @@ public record DownloadedMedia : IDisposable, IAsyncDisposable
     public string GetFileName()
         => (Metadata.Title ?? Guid.NewGuid().ToString("N")) + $".{GetExtension()}";
 
-    public string GetResolution()
-        => VideoFormat?.Resolution != null
-            ? VideoFormat?.Resolution ?? "unknown resolution"
-            : AudioFormat?.AudioBitrate != null
-                ? $"{Math.Ceiling(AudioFormat.AudioBitrate.Value)}kbps"
-                : "unknown bitrate";
+    public string? GetResolution()
+        => VideoFormat?.Resolution
+           ?? (AudioFormat?.AudioBitrate != null
+               ? $"{Math.Ceiling(AudioFormat.AudioBitrate.Value)}kbps"
+               : null);
 
-    public string GetCodec()
-        => VideoFormat?.VideoCodec != null
-            ? VideoFormat.VideoCodec ?? "unknown codec"
-            : AudioFormat?.AudioCodec ?? "unknown codec";
+    public string? GetCodec()
+        => VideoFormat?.VideoCodec ?? AudioFormat?.AudioCodec;
 }

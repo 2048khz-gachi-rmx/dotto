@@ -105,10 +105,16 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
                 response.AttachedVideos.Add(attachment);
             }
 
-            messageLines.AppendLine($"-# {videoName}" +
-                                    $" | {media.GetResolution()}" +
-                                    $" | {StringUtils.HumanReadableSize(media.Video.Length)}" +
-                                    $" | {Format.Escape(StringUtils.VideoCodecToFriendlyName(media.GetCodec()))}");
+            var mediaInfo = new StringBuilder($"-# {videoName}");
+            mediaInfo.Append($" | {StringUtils.HumanReadableSize(media.Video.Length)}");
+
+            if (media.GetResolution() is { } resolution)
+                mediaInfo.Append($" | {resolution}");
+
+            if (media.GetCodec() is { } codec)
+                mediaInfo.Append($" | {Format.Escape(StringUtils.VideoCodecToFriendlyName(codec))}");
+
+            messageLines.AppendLine(mediaInfo.ToString());
         }
 
         response.Message.WithAllowedMentions(new()

@@ -66,8 +66,8 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         result.AttachedVideos.Count.ShouldBe(1);
         
         var expectedContent = $"-# Test Video.mp4" +
-                             $" | 1920x1080" +
                              $" | {downloadedMedia.Video.Length} B" +
+                             $" | 1920x1080" +
                              $" | H264 (AVC)";
         
         result.Message.Content.ShouldBe(expectedContent);
@@ -118,8 +118,8 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         
         // Verify Discord message formatting is correct for external media
         var expectedContent = $"-# [Large Test Video.mp4](https://example.com/uploaded/video.mp4)" +
-                             $" | 1920x1080" +
                              $" | {downloadedMedia.Video.Length} B" +
+                             $" | 1920x1080" +
                              $" | H264 (AVC)";
         
         result.Message.Content.ShouldContain(expectedContent);
@@ -268,8 +268,8 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         var result = await _sut.CreateMessage<InteractionMessageProperties>(testUri, false);
 
         var expectedContent = $"-# Test Video.mp4" +
-                              $" | 1920x1080" +
                               $" | {downloadedMedia.Video.Length} B" +
+                              $" | 1920x1080" +
                               $" | H264 (AVC)";
         
         result.Message.Content.ShouldBe(expectedContent);
