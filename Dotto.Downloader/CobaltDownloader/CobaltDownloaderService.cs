@@ -158,7 +158,7 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
             Metadata = new()
             {
                 Title = response.Output.Metadata?.Title ?? Path.GetFileNameWithoutExtension(response.Output.Filename),
-                Extension = response.Output.Metadata?.Title ?? Path.GetExtension(response.Output.Filename)
+                Extension = Path.GetExtension(response.Output.Filename)
             },
             VideoFormat = null,
             AudioFormat = null
