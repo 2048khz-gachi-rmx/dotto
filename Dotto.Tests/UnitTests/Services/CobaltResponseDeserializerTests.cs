@@ -26,7 +26,22 @@ public class CobaltResponseDeserializerTests
     public void Deserialize_WithTunnelStatus_ReturnsTunnelEnum()
     {
         // Arrange
-        var json = @"{""status"": ""classic""}";
+        var json = @"{""status"": ""tunnel"", ""url"": ""https://example.com/tunnel"", ""filename"": ""video.mp4""}";
+
+        // Act
+        var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);
+
+        // Assert
+        var tunnel = result.ShouldBeOfType<CobaltTunnelResponse>();
+        tunnel.Url.ShouldBe("https://example.com/tunnel");
+        tunnel.Filename.ShouldBe("video.mp4");
+    }
+
+    [Test]
+    public void Deserialize_WithRedirectStatus_ReturnsTunnelResponse()
+    {
+        // Arrange
+        var json = @"{""status"": ""redirect"", ""url"": ""https://example.com/video.mp4"", ""filename"": ""video.mp4""}";
 
         // Act
         var result = CobaltResponseDeserializer.DeserializeToCobaltResponse(json);

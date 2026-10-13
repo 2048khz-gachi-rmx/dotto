@@ -4,7 +4,7 @@ namespace Dotto.Infrastructure.Downloader.CobaltDownloader.Response;
 
 internal enum CobaltResponseStatus
 {
-    [JsonStringEnumMemberName("classic")]
+    [JsonStringEnumMemberName("tunnel")]
     Tunnel = 1,
     
     [JsonStringEnumMemberName("local-processing")]

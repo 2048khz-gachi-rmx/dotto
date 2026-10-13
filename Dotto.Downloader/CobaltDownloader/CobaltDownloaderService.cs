@@ -119,7 +119,7 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
         
         if (!tunnelResponse.IsSuccessStatusCode)
             throw new ApplicationException("Invalid media URL",
-                new Exception($"Cobalt replied with a media URL, but actually downloading from it fails ({tunnelResponse.StatusCode}"));
+                new Exception($"Cobalt replied with a media URL, but actually downloading from it fails ({tunnelResponse.StatusCode})"));
         
         var length = tunnelResponse.Content.Headers.ContentLength;
 
