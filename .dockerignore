@@ -1,0 +1,16 @@
+# Keep the build context small and stable: without this, `.git` and local
+# `bin/obj` change on every commit and bust the Docker layer cache.
+.git
+.gitignore
+.gitattributes
+**/bin
+**/obj
+**/*.user
+.vs
+.vscode
+.idea
+.docker
+docker-compose.yml
+Dockerfile
+Dockerfile.*
+**/FEATURE.md
