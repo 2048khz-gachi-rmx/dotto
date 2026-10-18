@@ -12,10 +12,12 @@ env:
   # long-lived host. On an ephemeral CI runner it only costs an extra image pull
   # and container start, so skip it.
   TESTCONTAINERS_RYUK_DISABLED: "true"
+  # Must match PostgreSqlBuilder's default image in Dotto.Tests/TestContainers.cs
+  POSTGRES_TEST_IMAGE: postgres:15.1
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read
@@ -25,22 +27,34 @@ jobs:
       with:
         submodules: true
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v6
+    # The ubuntu runner image already ships .NET 10 SDKs (10.0.112/204/303/401).
+    # actions/setup-dotnet resolves "10.0.x" to the newest channel release
+    # (10.0.402), which is NOT preinstalled, so it downloads a 240 MB SDK +
+    # 36 MB runtime on every run (~10s). global.json picks the installed SDK
+    # instead. Print it so a missing SDK fails loudly.
+    - name: Show .NET SDK
+      run: dotnet --info
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v6
       with:
-        dotnet-version: 10.0.x
-        # Cache ~/.nuget/packages, keyed on the project files. Restore then
-        # runs offline instead of re-downloading every package each run.
-        cache: true
-        cache-dependency-path: |
-          **/*.csproj
-          **/packages.lock.json
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/packages.lock.json', 'global.json') }}
+        restore-keys: nuget-${{ runner.os }}-
 
     - name: Restore dependencies
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --no-restore
+      run: |
+        # Warm the test database image in the background so the Test step
+        # doesn't pay the ~9s registry pull serially. postgres:15.1 is what
+        # Dotto.Tests/TestContainers.cs uses.
+        docker pull -q "$POSTGRES_TEST_IMAGE" &
+        pull_pid=$!
+        dotnet build --no-restore -m
+        # Don't fail the build if the pull hiccups; Testcontainers would retry it.
+        wait "$pull_pid" || true
 
     - name: Test
       run: dotnet test --no-build --verbosity normal
@@ -50,7 +64,7 @@ jobs:
 
     needs: test
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read

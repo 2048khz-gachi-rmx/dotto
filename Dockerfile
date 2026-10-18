@@ -16,9 +16,9 @@ COPY Dotto.Ffmpeg.Contracts/Dotto.Ffmpeg.Contracts.csproj           Dotto.Ffmpeg
 COPY Dotto.FileUpload/Dotto.FileUpload.csproj                       Dotto.FileUpload/
 COPY Dotto.Tests/Dotto.Tests.csproj                                 Dotto.Tests/
 
-# Cache the NuGet packages in the buildkit cache so repeated builds don't re-download them.
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet restore
+# Restore here, leaving the downloaded packages inside the image layer so they
+# come back with it on a layer-cache hit.
+RUN dotnet restore
 
 # Copy everything else (only rebuilds when source actually changes).
 COPY . ./
@@ -26,8 +26,7 @@ COPY . ./
 # Build and publish a release, skipping the restore we already did.
 # Publish the Bot (exe) project: it pulls in every runtime dependency but leaves
 # the test assemblies out of the final image.
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet publish Dotto.Bot/Dotto.Bot.csproj -c Release -o out --no-restore
+RUN dotnet publish Dotto.Bot/Dotto.Bot.csproj -c Release -o out --no-restore
 
 FROM mwader/static-ffmpeg AS ffmpeg
 
