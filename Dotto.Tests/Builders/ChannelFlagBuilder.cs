@@ -1,4 +1,4 @@
-﻿using Dotto.Application.Entities;
+using Dotto.Domain.Entities;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Infrastructure.Database;
 

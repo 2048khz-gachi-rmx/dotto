@@ -25,7 +25,7 @@ namespace Dotto.Infrastructure.Database.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Dotto.Application.Entities.ChannelFlags", b =>
+            modelBuilder.Entity("Dotto.Domain.Entities.ChannelFlags", b =>
                 {
                     b.Property<decimal>("ChannelId")
                         .ValueGeneratedOnAdd()

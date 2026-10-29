@@ -1,4 +1,4 @@
-﻿namespace Dotto.Application.Entities;
+namespace Dotto.Domain.Entities;
 
 public class DownloadedMediaRecord
 {

@@ -22,7 +22,7 @@ namespace Dotto.Infrastructure.Database.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Dotto.Application.Entities.ChannelFlags", b =>
+            modelBuilder.Entity("Dotto.Domain.Entities.ChannelFlags", b =>
                 {
                     b.Property<decimal>("ChannelId")
                         .ValueGeneratedOnAdd()
@@ -42,7 +42,7 @@ namespace Dotto.Infrastructure.Database.Migrations
                     b.ToTable("ChannelFlags");
                 });
 
-            modelBuilder.Entity("Dotto.Application.Entities.DownloadedMediaRecord", b =>
+            modelBuilder.Entity("Dotto.Domain.Entities.DownloadedMediaRecord", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

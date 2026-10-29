@@ -1,8 +1,8 @@
-﻿using NetCord;
+using NetCord;
 using NetCord.Gateway;
 using NetCord.Rest;
 
-namespace Dotto.Common;
+namespace Dotto.Discord;
 
 public static class MessageUtils
 {

@@ -4,6 +4,7 @@ WORKDIR /Dotto.Bot
 # Copy just the project files and restore first. This layer is only invalidated
 # when a .csproj/.sln changes, so the (slow) restore stays cached across builds.
 COPY Dotto.sln ./
+COPY Dotto.Domain/Dotto.Domain.csproj                             Dotto.Domain/
 COPY Dotto.Application/Dotto.Application.csproj                     Dotto.Application/
 COPY Dotto.Bot/Dotto.Bot.csproj                                     Dotto.Bot/
 COPY Dotto.Common/Dotto.Common.csproj                               Dotto.Common/

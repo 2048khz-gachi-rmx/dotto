@@ -16,10 +16,11 @@ Layered architecture with projects in `Dotto.sln`:
 Dotto.Bot (entry point)
   └── Dotto.Discord (Discord integration)
         └── Dotto.Application (business logic)
-              ├── Dotto.Common (shared utilities)
+              ├── Dotto.Database (PostgreSQL data access)
+              │     └── Dotto.Domain (entities)
+              │           └── Dotto.Common (shared utilities)
               ├── Dotto.Downloader.Contracts (downloader interfaces)
               └── Dotto.Ffmpeg.Contracts (compression interfaces)
-  └── Dotto.Database (PostgreSQL data access)
   └── Dotto.Downloader (media download implementations)
   └── Dotto.FileUpload (S3 storage)
   └── Dotto.Ffmpeg (ffmpeg compression)
@@ -29,11 +30,12 @@ Dotto.Bot (entry point)
 |---------|---------|
 | **Dotto.Bot** | Entry point. `Startup.cs` bootstraps DI, NetCord, and hosted services. |
 | **Dotto.Discord** | NetCord commands, event handlers, result handlers. |
-| **Dotto.Application** | Business logic. |
+| **Dotto.Application** | Business logic. Injects the concrete `DottoDbContext`. |
+| **Dotto.Domain** | Entities (`ChannelFlags`, `DownloadedMediaRecord`). Depends only on `Dotto.Common`. |
 | **Dotto.Common** | Shared utilities. No project dependencies. |
 | **Dotto.Downloader.Contracts** | Pure interfaces: `IDownloaderService`, `DownloadedMedia`, `DownloaderType`. |
 | **Dotto.Downloader** | `YtdlDownloaderService` (yt-dlp process) and `CobaltDownloaderService` (HTTP API). |
-| **Dotto.Database** | EF Core + Npgsql. `DottoDbContext` with `ChannelFlags` and `DownloadedMedia` tables. |
+| **Dotto.Database** | EF Core + Npgsql. `DottoDbContext`, configurations, migrations. Does not reference `Dotto.Application`. |
 | **Dotto.FileUpload** | S3 upload via `S3UploadService`. Optional — skipped if `Minio.BaseUrl` is null. |
 | **Dotto.Ffmpeg.Contracts** | Pure interfaces: `IVideoCompressorStrategy`, `CompressionResult`, `CompressionMethod`, `CompressionOptions`. |
 | **Dotto.Ffmpeg** | `FfmpegService` (ffmpeg process), `Vp9CompressionStrategy`, `Av1CompressionStrategy` (stub), `FfmpegTempCleanupService`. |

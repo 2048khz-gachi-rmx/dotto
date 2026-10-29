@@ -1,13 +1,12 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
-using Dotto.Application.Abstractions;
 using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.Upload;
-using Dotto.Application.Entities;
 using Dotto.Common;
-using Dotto.Common.Constants;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Discord.Models.Download;
+using Dotto.Domain.Entities;
+using Dotto.Infrastructure.Database;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
 using NetCord;
 using NetCord.Gateway;
@@ -15,7 +14,7 @@ using NetCord.Rest;
 
 namespace Dotto.Discord.CommandHandlers.Download;
 
-internal class DownloadCommandHandler(IDottoDbContext dbContext,
+internal class DownloadCommandHandler(DottoDbContext dbContext,
     IMediaDownloader mediaDownloader,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
@@ -49,7 +48,7 @@ internal class DownloadCommandHandler(IDottoDbContext dbContext,
             response.Message.AddEmbeds([
                 new EmbedProperties
                 {
-                    Color = isNonFatal ? Constants.Colors.WarningColor : Constants.Colors.ErrorColor,
+                    Color = isNonFatal ? DiscordColors.Warning : DiscordColors.Error,
                     Title = downloadError.Message,
                     Description = downloadError.Details
                 }

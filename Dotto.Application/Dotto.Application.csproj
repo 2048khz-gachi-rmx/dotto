@@ -12,10 +12,11 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="9.9.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.14" />
         <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="9.0.14" />
-        <PackageReference Include="NetCord" Version="1.0.0-alpha.453" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Dotto.Database\Dotto.Database.csproj" />
+      <ProjectReference Include="..\Dotto.Domain\Dotto.Domain.csproj" />
       <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
       <ProjectReference Include="..\Dotto.Downloader.Contracts\Dotto.Downloader.Contracts.csproj" />
       <ProjectReference Include="..\Dotto.Ffmpeg.Contracts\Dotto.Ffmpeg.Contracts.csproj" />

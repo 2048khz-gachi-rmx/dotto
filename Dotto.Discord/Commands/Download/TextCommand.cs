@@ -1,5 +1,4 @@
-﻿using Dotto.Common;
-using Dotto.Discord.CommandHandlers.Download;
+﻿using Dotto.Discord.CommandHandlers.Download;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord.Rest;
 using NetCord.Services.Commands;

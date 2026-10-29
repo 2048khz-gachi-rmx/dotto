@@ -2,8 +2,8 @@
 using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.Upload;
 using Dotto.Application.Models;
-using Dotto.Common.Constants;
 using Dotto.Common.Exceptions;
+using Dotto.Discord;
 using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
@@ -223,10 +223,10 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         result.Message.Embeds.ShouldNotBeNull();
         result.Message.Embeds.Count().ShouldBe(2);
         
-        result.Message.Embeds.ElementAt(0).Color.ShouldBe(Constants.Colors.ErrorColor);
+        result.Message.Embeds.ElementAt(0).Color.ShouldBe(DiscordColors.Error);
         result.Message.Embeds.ElementAt(0).Title.ShouldBe("Downloader Unavailable");
                 
-        result.Message.Embeds.ElementAt(1).Color.ShouldBe(Constants.Colors.ErrorColor);
+        result.Message.Embeds.ElementAt(1).Color.ShouldBe(DiscordColors.Error);
         result.Message.Embeds.ElementAt(1).Title.ShouldBe("Downloader Error");
     }
 
@@ -277,10 +277,10 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
         result.Message.Embeds.ShouldNotBeNull();
         result.Message.Embeds.Count().ShouldBe(2);
         
-        result.Message.Embeds.ElementAt(0).Color.ShouldBe(Constants.Colors.WarningColor);
+        result.Message.Embeds.ElementAt(0).Color.ShouldBe(DiscordColors.Warning);
         result.Message.Embeds.ElementAt(0).Title.ShouldBe("Downloader Unavailable");
                 
-        result.Message.Embeds.ElementAt(1).Color.ShouldBe(Constants.Colors.WarningColor);
+        result.Message.Embeds.ElementAt(1).Color.ShouldBe(DiscordColors.Warning);
         result.Message.Embeds.ElementAt(1).Title.ShouldBe("Downloader Error");
     }
     

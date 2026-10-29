@@ -1,4 +1,4 @@
-﻿using Dotto.Application.Entities;
+using Dotto.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

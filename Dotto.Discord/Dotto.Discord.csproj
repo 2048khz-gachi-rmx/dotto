@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Dotto.Application\Dotto.Application.csproj" />
+      <ProjectReference Include="..\Dotto.Database\Dotto.Database.csproj" />
       <ProjectReference Include="..\Dotto.Ffmpeg\Dotto.Ffmpeg.csproj" />
     </ItemGroup>
 

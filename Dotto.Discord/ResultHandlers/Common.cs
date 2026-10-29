@@ -1,5 +1,4 @@
-﻿using Dotto.Common.Constants;
-using NetCord.Rest;
+﻿using NetCord.Rest;
 
 namespace Dotto.Discord.ResultHandlers;
 
@@ -14,7 +13,7 @@ internal class Common
             [
                 new()
                 {
-                    Color = Constants.Colors.ErrorColor,
+                    Color = DiscordColors.Error,
                     Fields = [
                         new() { Name = "Command Error", Value = error }
                     ]

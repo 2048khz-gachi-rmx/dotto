@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Text.RegularExpressions;
-using NetCord;
 
 namespace Dotto.Common.Constants;
 
@@ -36,11 +35,5 @@ public static class Constants
             
             public static readonly Regex VideoExts = new(@"\.(mov|mp4|webm)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
-    }
-
-    public static class Colors
-    {
-        public static Color WarningColor = new(235, 175, 40);
-        public static Color ErrorColor = new(230, 50, 50);
     }
 }

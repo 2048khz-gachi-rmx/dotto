@@ -1,4 +1,3 @@
-using Dotto.Common;
 using Dotto.Discord.CommandHandlers.Download;
 using NetCord.Gateway;
 using NetCord.Rest;

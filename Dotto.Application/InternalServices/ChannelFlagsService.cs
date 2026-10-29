@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
-using Dotto.Application.Abstractions;
-using Dotto.Application.Entities;
 using Dotto.Common.DateTimeProvider;
+using Dotto.Domain.Entities;
+using Dotto.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
 
@@ -16,7 +16,7 @@ public interface IChannelFlagsService
 }
 
 public class ChannelFlagsService(
-    IDottoDbContext dbContext,
+    DottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     HybridCache hybridCache
     ) : IChannelFlagsService

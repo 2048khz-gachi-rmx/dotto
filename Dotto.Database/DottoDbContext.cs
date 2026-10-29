@@ -1,11 +1,10 @@
-﻿using System.Reflection;
-using Dotto.Application.Abstractions;
-using Dotto.Application.Entities;
+using System.Reflection;
+using Dotto.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dotto.Infrastructure.Database;
 
-public class DottoDbContext : DbContext, IDottoDbContext
+public class DottoDbContext : DbContext
 {
     public DbSet<ChannelFlags> ChannelFlags { get; init; }
     public DbSet<DownloadedMediaRecord> DownloadedMedia { get; init; }

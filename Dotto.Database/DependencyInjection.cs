@@ -1,5 +1,4 @@
-﻿using Dotto.Application.Abstractions;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -15,7 +14,6 @@ public static class DependencyInjection
         }
         
         services.AddNpgsql<DottoDbContext>(connectionString);
-        services.AddTransient<IDottoDbContext>(isp => isp.GetRequiredService<DottoDbContext>());
         return services;
     }
     
