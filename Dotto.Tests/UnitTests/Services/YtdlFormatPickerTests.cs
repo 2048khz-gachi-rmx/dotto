@@ -531,6 +531,45 @@ public class YtdlFormatPickerTests : TestFixtureBase
         result.VideoFormat.ShouldNotBeNull().FormatId.ShouldBe("http-2176"); // biggest filesize below limit
         result.AudioFormat.ShouldNotBeNull().FormatId.ShouldBe("hls-audio-128000-Audio"); // best available audio, still below limit
     }
+
+    // Regression for https://x.com/tmuxvim/status/2118929151155425395/video/1: with a ~250mb budget the 720p
+    // http-2176 got picked over the 1206p hls-3239. Both renditions exist twice on X: a progressive http-* file
+    // (no vcodec reported, tbr-derived filesize_approx) and an hls-* one (labelled avc1, manifest size).
+    // unknown codec used to score as the h265 baseline (no multiplier) while avc1 got 0.4, so the unlabelled
+    // 720p entry outscored the labelled same-resolution one by 8.5x and the bigger 1206p file lost.
+    [Test]
+    public void PickFormat_ShouldNotRewardUnknownCodecOverH264()
+    {
+        // Arrange
+        var metadata = new DownloadedMediaMetadata
+        {
+            Extractor = "twitter",
+            Formats =
+            [
+                new() { FormatId = "hls-audio-32000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", VideoExtension = "none", AudioExtension = "mp4", ApproximateFileSize = 1_254_432, AudioBitrate = 32 },
+                new() { FormatId = "hls-audio-64000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", VideoExtension = "none", AudioExtension = "mp4", ApproximateFileSize = 2_508_864, AudioBitrate = 64 },
+                new() { FormatId = "hls-audio-128000-Audio", VideoCodec = "none", AudioCodec = null, Extension = "mp4", VideoExtension = "none", AudioExtension = "mp4", ApproximateFileSize = 5_017_728, AudioBitrate = 128 },
+                new() { FormatId = "http-256", Width = 476, Height = 270, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 10_035_456 },
+                new() { FormatId = "hls-93", Width = 476, Height = 270, VideoCodec = "avc1.4D4015", AudioCodec = "none", VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 3_676_661 },
+                new() { FormatId = "http-832", Width = 636, Height = 360, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 32_615_232 },
+                new() { FormatId = "hls-237", Width = 636, Height = 360, VideoCodec = "avc1.4D401E", AudioCodec = "none", VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 9_324_428 },
+                new() { FormatId = "http-2176", Width = 1272, Height = 720, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 85_301_376 },
+                new() { FormatId = "hls-640", Width = 1272, Height = 720, VideoCodec = "avc1.640020", AudioCodec = "none", VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 25_122_274 },
+                new() { FormatId = "http-10368", Width = 2132, Height = 1206, VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 406_435_968 },
+                new() { FormatId = "hls-3239", Width = 2132, Height = 1206, VideoCodec = "avc1.640032", AudioCodec = "none", VideoExtension = "mp4", AudioExtension = "none", Extension = "mp4", ApproximateFileSize = 127_009_044 }
+            ]
+        };
+
+        var options = new DownloadOptions { MaxFilesize = 264_857_600 };
+
+        // Act
+        var result = _picker.PickFormat(metadata, options);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.VideoFormat.ShouldNotBeNull().FormatId.ShouldBe("hls-3239"); // highest resolution that fits the budget
+        result.AudioFormat.ShouldNotBeNull().FormatId.ShouldBe("hls-audio-128000-Audio");
+    }
     
     // Regression for https://www.youtube.com/watch?v=yEBQHXW5POY: a source-quality 1080p vp9 stream was picked
     // over an av1 stream ~24% smaller at the same resolution.

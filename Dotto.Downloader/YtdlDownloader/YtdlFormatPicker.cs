@@ -64,19 +64,21 @@ internal class YtdlFormatPicker
         return TryPickOptimalFormat(audioFormats, videoFormats, options);
     }
 
+    /// <summary>
+    /// Codec multipliers, relative to 1.0. A bigger difference between the scores means a higher tolerance for
+    /// other factors (quality heuristics) affecting score; i.e. bitrate and size.
+    /// </summary>
     private static readonly List<(Regex FormatPattern, double ScoreMult)> VideoFormatQualityRatio =
     [
-        // fuck h264
-        (new("^(avc.*|h264.*)", RegexOptions.Compiled), 0.4d),
+        // "unknown" and unhandled codecs (incl. h264) are baseline @ x1
 		
-        // h265 is baseline quality
-        (new("^(hevc.*|h265.*)", RegexOptions.Compiled), 1d),
+        (new("^(hevc.*|h265.*)", RegexOptions.Compiled), 2.5d),
 		
-        // about the same for vp9, but vp9 gets a boost for being more supported :^)
-        (new("^(vp0?9.*)", RegexOptions.Compiled), 1.1d),
+        // vp9 gets a boost for being more supported :^)
+        (new("^(vp0?9.*)", RegexOptions.Compiled), 2.75d),
 				
         // av1 is now supported by discord so lets ball
-        (new("^(av0?1.*)", RegexOptions.Compiled), 1.35d),
+        (new("^(av0?1.*)", RegexOptions.Compiled), 3.375d),
     ];
 	
     private static readonly List<(Regex FormatPattern, double ScoreMult)> AudioFormatQualityRatio =
