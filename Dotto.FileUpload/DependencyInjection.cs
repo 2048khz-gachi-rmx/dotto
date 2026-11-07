@@ -30,10 +30,10 @@ public static class DependencyInjection
             var options = provider.GetRequiredService<IOptions<S3Settings>>().Value;
 
             return new AmazonS3Client(
-                new BasicAWSCredentials(s3Settings.AccessKey, s3Settings.SecretKey),
+                new BasicAWSCredentials(options.AccessKey, options.SecretKey),
                 new AmazonS3Config
                 {
-                    ServiceURL = "https://s3.badcoder.dev",
+                    ServiceURL = options.BaseUrl!.AbsoluteUri,
                     ForcePathStyle = true,
                     LogMetrics = false,
                     AuthenticationRegion = options.Region

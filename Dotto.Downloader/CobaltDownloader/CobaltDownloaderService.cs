@@ -145,7 +145,7 @@ public class CobaltDownloaderService(HttpClient httpClient) : IDownloaderService
         if (tunnels.Length != 1)
             // sure, it'd make sense if there were multiple files or something.
             // but the "output" member isn't an array; tf am i supposed to do with multiple URLs?
-            throw new InvalidDataException("Cobalt returned a locally-processed response with more than 1 tunnel URL. I have no idea how to process that...");
+            throw new ApplicationException("Cobalt returned a locally-processed response with more than 1 tunnel URL");
         
         var tunnelResponse = await httpClient.GetAsync(tunnels.Single(), ct);
         var length = tunnelResponse.Content.Headers.ContentLength;

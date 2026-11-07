@@ -126,7 +126,7 @@ Tests use `TestDateTimeProvider` (mock) instead of real `DateTimeProvider`. Test
 - **Downloader priority**: Instagram URLs → Cobalt first, then Ytdl. All other URLs → Ytdl first, then Cobalt.
 - **Discord upload limits**: No Nitro 10MB, Tier 2 50MB, Tier 3 100MB, NitroClassic/Basic 50MB, full Nitro 500MB.
 - **YtdlFormatPicker** scores: AV1 (1.35x) > VP9 (1.1x) > H265 (1.0x) > H264 (0.4x).
-- **S3 `ServiceURL`** is hardcoded to `s3.badcoder.dev` in `FileUpload/DependencyInjection.cs`, not from config.
+- **S3 `ServiceURL`** comes from `Minio.BaseUrl` in config.
 - **Cobalt DI registration** calls `BuildServiceProvider()` during setup to check if Cobalt is configured — a known hack.
 - **`ChannelFlagPoller`** runs immediately on startup, then every 5 minutes via `PeriodicTimer`.
 - **`InitializeS3Uploader`** is fire-and-forget (`_ = host.InitializeS3Uploader()`).
