@@ -9,7 +9,9 @@ namespace Dotto.Infrastructure.FileUpload;
 public class S3UploadService(IAmazonS3 s3Client, IOptions<S3Settings> s3Settings) : IUploadService
 {
     private S3Settings S3Settings => s3Settings.Value;
-    
+
+    public long MaxFileSizeBytes => S3Settings.MaxFileSizeBytes;
+
     public async Task<Uri> UploadFile(Stream stream, long fileSize, string? filename, string? contentType, CancellationToken token)
     {
         filename ??= Guid.NewGuid().ToString("N");

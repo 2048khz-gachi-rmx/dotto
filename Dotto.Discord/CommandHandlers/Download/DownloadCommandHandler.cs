@@ -19,14 +19,13 @@ internal class DownloadCommandHandler(DottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
 {
-    private const long UploadS3 = 100 << 20;
     private const long UploadLimitNoNitro = 20 << 20;
 
     public async Task<DownloadMediaResult<T>> CreateMessage<T>(Uri uri, bool audioOnly, long discordUploadLimit = UploadLimitNoNitro, CancellationToken ct = default)
         where T: IMessageProperties, new()
     {
         var uploadLimit = uploadService != null
-            ? UploadS3
+            ? uploadService.MaxFileSizeBytes
             : discordUploadLimit;
 
         var response = new DownloadMediaResult<T>

@@ -16,4 +16,8 @@ public record S3Settings
     public string Region { get; init; } = null!;
     
     public Uri? BaseUrl { get; init; } = null!;
+
+    /// <summary>Largest file the bot will send to S3, in bytes. Defaults to 100 MiB.</summary>
+    [Range(1, long.MaxValue, ErrorMessage = "S3 max file size must be positive")]
+    public long MaxFileSizeBytes { get; init; } = 100 << 20;
 }

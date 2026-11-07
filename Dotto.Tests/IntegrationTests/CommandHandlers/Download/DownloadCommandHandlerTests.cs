@@ -31,6 +31,7 @@ public class DownloadCommandHandlerTests : TestDatabaseFixtureBase
     [SetUp]
     public new void Setup()
     {
+        _mockUploadService.MaxFileSizeBytes.Returns(100 << 20);
         _sut = new DownloadCommandHandler(DbContext, _mockMediaDownloader, TestDateTimeProvider, _mockUploadService);
     }
 
