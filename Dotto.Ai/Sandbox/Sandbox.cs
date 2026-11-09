@@ -109,6 +109,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 NanoCPUs = (long)(_options.CpuCount * 1_000_000_000),
                 Memory = _options.MemoryMb * 1024 * 1024,
                 MemorySwap = _options.MemoryMb * 1024 * 1024, // same as memory (no swap)
+                PidsLimit = 256,
 
                 // Hardening
                 ReadonlyRootfs = true,
