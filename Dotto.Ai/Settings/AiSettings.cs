@@ -47,4 +47,10 @@ public class ChatAssistantSettings
     /// Amount of time before the message is excluded from the context.
     /// </summary>
     public TimeSpan HistoryMaxAge { get; set; } = TimeSpan.FromDays(2);
+
+    /// <summary>
+    /// Maximum number of attachments the assistant may return per response.
+    /// </summary>
+    [Range(1, 100)]
+    public int MaxAttachments { get; set; } = 10;
 }

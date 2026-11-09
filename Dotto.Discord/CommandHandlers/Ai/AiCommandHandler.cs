@@ -2,9 +2,11 @@ using System.Xml.Linq;
 using Dotto.Ai.Agents;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
+using Dotto.Ai.Settings;
 using Dotto.Application.Abstractions.Upload;
 using Dotto.Common;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Options;
 using NetCord.Gateway;
 using NetCord.Rest;
 
@@ -14,6 +16,7 @@ public class AiCommandHandler(
     ChatAssistant chatAssistant,
     ISandbox sandbox,
     GatewayClient gateway,
+    IOptions<AiSettings> aiSettings,
     IUploadService? uploadService = null)
 {
     public async Task<ChatAssistantResponse> Invoke(string userRequest,
@@ -48,8 +51,23 @@ public class AiCommandHandler(
 
         var response = await chatAssistant.Invoke(context, ct);
 
+        var maxAttachments = Math.Max(0, aiSettings.Value.ChatAssistant.MaxAttachments);
+        var maxUploadSize = Math.Max(discordUploadLimit, uploadService?.MaxFileSizeBytes ?? 0);
+        var omittedCount = 0;
+        var oversizedCount = 0;
+
         try
         {
+            // Enforce the attachment budget before touching any bytes.
+            if (response.Attachments.Count > maxAttachments)
+            {
+                foreach (var extra in response.Attachments.Skip(maxAttachments))
+                    await extra.Stream.DisposeAsync();
+
+                omittedCount = response.Attachments.Count - maxAttachments;
+                response.Attachments.RemoveRange(maxAttachments, omittedCount);
+            }
+
             // Process enqueued attachments — upload to Discord or S3 depending on size.
             //
             // Attachments stream out of the sandbox over HTTP, so their bytes are
@@ -60,6 +78,13 @@ public class AiCommandHandler(
             foreach (var att in response.Attachments)
             {
                 var length = att.Length;
+
+                if (length > maxUploadSize)
+                {
+                    await att.Stream.DisposeAsync();
+                    oversizedCount++;
+                    continue;
+                }
 
                 if (length <= discordUploadLimit)
                 {
@@ -131,6 +156,20 @@ public class AiCommandHandler(
             // bot-owned temp stream (Discord), so the container can stop now.
             // Dispose is idempotent and DI scope disposal may also call it.
             await sandbox.DisposeAsync();
+        }
+
+        if (omittedCount > 0 || oversizedCount > 0)
+        {
+            var notes = new List<string>();
+            if (omittedCount > 0)
+                notes.Add($"{omittedCount} attachment(s) omitted (limit is {maxAttachments} per response).");
+            if (oversizedCount > 0)
+                notes.Add($"{oversizedCount} attachment(s) omitted (exceeds the {maxUploadSize} byte upload limit).");
+
+            var note = string.Join(" ", notes);
+            response.Response = response.Response.IsNullOrEmpty()
+                ? note
+                : $"{response.Response}\n\n{note}";
         }
 
         return response;

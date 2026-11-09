@@ -14,26 +14,37 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
 {
     private const int ExecuteTimeoutSeconds = 310; // slightly above the "long" (300s) timeout tier
     private const int FileTimeoutSeconds = 900;
+    // The sandbox server caps tool output at 32k chars; JSON escaping can
+    // inflate that, so allow up to 64k on the buffered (execute/ping) client.
+    private const long MaxBufferedResponseBytes = 64 * 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    private readonly HttpClient _http = CreateHttpClient(ExecuteTimeoutSeconds);
+    private readonly HttpClient _http = CreateHttpClient(ExecuteTimeoutSeconds, MaxBufferedResponseBytes);
     private readonly HttpClient _fileHttp = CreateHttpClient(FileTimeoutSeconds);
 
-    private static HttpClient CreateHttpClient(int timeoutSeconds) => new(
-        new SocketsHttpHandler
-        {
-            // The sandbox must never be able to bounce the bot (and the token
-            // header) somewhere else.
-            AllowAutoRedirect = false,
-            UseCookies = false,
-        })
+    private static HttpClient CreateHttpClient(int timeoutSeconds, long? maxBufferedResponseBytes = null)
     {
-        Timeout = TimeSpan.FromSeconds(timeoutSeconds)
-    };
+        var client = new HttpClient(
+            new SocketsHttpHandler
+            {
+                // The sandbox must never be able to bounce the bot (and the token
+                // header) somewhere else.
+                AllowAutoRedirect = false,
+                UseCookies = false,
+            })
+        {
+            Timeout = TimeSpan.FromSeconds(timeoutSeconds)
+        };
+
+        if (maxBufferedResponseBytes is > 0)
+            client.MaxResponseContentBufferSize = maxBufferedResponseBytes.Value;
+
+        return client;
+    }
 
     public string ContainerId { get; } = containerId;
     public Uri ApiUrl { get; } = apiUrl;

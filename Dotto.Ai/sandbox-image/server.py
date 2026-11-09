@@ -30,8 +30,38 @@ TIMEOUTS = {
     "long": 300,
 }
 DEFAULT_TIMEOUT = 20
+# Tool output is fed straight back to the model. Cap it so a chatty command
+# cannot make the bot buffer an unbounded JSON response.
+MAX_OUTPUT_CHARS = 32_000
 
 CHUNK_SIZE = 64 * 1024
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    if limit <= 0:
+        return ""
+    marker = f"[... {len(text) - limit} chars truncated]\n"
+    if len(marker) >= limit:
+        return text[-limit:]
+    return marker + text[-(limit - len(marker)):]
+
+
+def _cap_output(stdout, stderr):
+    """Keep the tail of stdout/stderr, capped so the JSON response stays small."""
+    out, err = stdout or "", stderr or ""
+    if len(out) + len(err) <= MAX_OUTPUT_CHARS:
+        return out, err
+    if not err:
+        return _truncate(out, MAX_OUTPUT_CHARS), err
+    if not out:
+        return out, _truncate(err, MAX_OUTPUT_CHARS)
+
+    half = MAX_OUTPUT_CHARS // 2
+    out = _truncate(out, half)
+    err = _truncate(err, MAX_OUTPUT_CHARS - len(out))
+    return out, err
 
 
 def _storage_usage() -> int:
@@ -311,19 +341,23 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
             except OSError:
                 pass
             stdout, stderr = process.communicate()
+            stdout, stderr = _cap_output(
+                stdout, (stderr or "") + f"\nCommand timed out after {timeout}s"
+            )
             return 200, {
                 "exitCode": -1,
-                "stdout": stdout or "",
-                "stderr": f"Command timed out after {timeout}s",
+                "stdout": stdout,
+                "stderr": stderr,
             }
 
         if breached[0]:
             stderr = (stderr or "") + "\nStorage quota exceeded; process killed."
 
+        stdout, stderr = _cap_output(stdout, stderr)
         return 200, {
             "exitCode": process.returncode,
-            "stdout": stdout or "",
-            "stderr": stderr or "",
+            "stdout": stdout,
+            "stderr": stderr,
         }
 
 
