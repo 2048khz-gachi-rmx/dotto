@@ -19,24 +19,31 @@ services:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
       # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
       - ./dotto_resources:/app/resources
-      # Shared directory for file exchange between bot and sandbox containers.
-      # The bot writes downloads here; sandbox containers bind-mount subdirectories as /work.
-      # Must be a host path so the bot container and sandbox containers see the same filesystem.
-      - /tmp/dotto-sandbox:/tmp/dotto-sandbox
+      # Persistent per-caller sandbox storage. Mounted at the *same absolute
+      # path* on the host and in the bot container: sandbox containers are
+      # created by the host daemon, so the bind source the bot passes must be a
+      # host path. All file traffic crosses the sandbox HTTP API, never this
+      # mount.
+      - /var/lib/dotto-sandbox:/var/lib/dotto-sandbox
     environment:
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
       # next to this file; mounted read-write so yt-dlp can update cookies. If the file is absent, the bot runs without cookies.
       Downloader__CookieFile: "/app/resources/ytdlp-cookies.txt"
       # Route all Docker API calls through the socket-protector sidecar, which
-      # whitelists only the container CRUD + exec endpoints the sandbox needs.
+      # whitelists only the container lifecycle endpoints the sandbox needs.
       DOCKER_HOST: "tcp://socket-protector:2375"
       # Sandbox image from the registry. The socket-protector does NOT whitelist
       # image pulls, so the image is pre-pulled by the sandbox-image service below.
       Ai__Sandbox__ImageTag: "ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest"
+      # Base directory for per-caller persistent storage (/storage inside the sandbox).
+      Ai__Sandbox__StorageBasePath: "/var/lib/dotto-sandbox"
       # Attach sandbox containers to the dedicated 'sandbox' network so the bot
       # can reach them by container name. Keeps sandboxes off the 'dotto' network
-      # (where postgres lives) for defense in depth.
+      # (where postgres lives) for defense in depth. Inter-container communication
+      # stays enabled here: Docker's enable_icc=false would also block the bot's
+      # calls to the sandbox API. The sandbox has no Docker route either way —
+      # the socket-protector lives on a separate network.
       Ai__Sandbox__NetworkName: "sandbox"
 
   # One-shot service that ensures the sandbox image is present on the host.

@@ -31,12 +31,12 @@ public class ChatAssistant(
             "Session {SessionId} started (caller: {CallerId}, channel: {ChannelId}, guild: {GuildId})",
             context.SessionId, context.CallerId, context.ChannelId, context.GuildId);
 
-        // Create the host session directory up front (and the rest of the sandbox lifecycle)
-        // via the scoped sandbox entity, so tools that depend on the filesystem (DownloadMedia, UploadFile) can use it.
-        // The sandbox container itself is started lazily on first container use (like by TerminalTools).
+        // Provision per-caller persistent storage up front via the scoped sandbox
+        // entity. The container itself starts lazily on first container use (by
+        // any tool); the bot never resolves sandbox paths on the host filesystem.
         if (options.Enabled)
         {
-            await sandbox.InitializeAsync(context.SessionId, cancellationToken);
+            await sandbox.InitializeAsync(context.SessionId, context.CallerId, cancellationToken);
             logger.LogInformation("Initialized sandbox metadata for session {SessionId}", context.SessionId);
         }
 
@@ -66,13 +66,19 @@ public class ChatAssistant(
         }
         catch
         {
-            // clean up attachment streams (if any) only if we errored and won't pass them upwards
+            // Clean up attachment streams (if any) only if we errored and won't
+            // pass them upwards, then let the finally below stop the container.
             context.Attachments.ForEach(att => att.Stream.Dispose());
+            context.Attachments.Clear();
             throw;
         }
         finally
         {
-            if (options.Enabled)
+            // If attachments were returned, the command handler owns teardown:
+            // their bytes still have to be streamed out of the container. With no
+            // attachments there is nothing left to wait for, so stop it now.
+            // Dispose is idempotent and DI scope disposal may also call it.
+            if (context.Attachments.Count == 0)
                 await sandbox.DisposeAsync();
 
             var totalDuration = DateTime.UtcNow - startTime;

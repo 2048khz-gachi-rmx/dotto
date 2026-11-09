@@ -1,7 +1,6 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai.Settings;
-using Dotto.Common;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -62,53 +61,33 @@ internal sealed class SandboxReaper(
 
         foreach (var container in containers)
         {
-            var created = container.Created;
-            var age = now - created;
+            var age = now - container.Created;
+            if (age <= _options.WallClockTimeout)
+                continue;
+
             container.Labels.TryGetValue("dotto-session-id", out var sessionId);
-            sessionId ??= "unknown";
 
-            if (age > _options.WallClockTimeout)
+            logger.LogWarning(
+                "Reaping orphan sandbox container {ContainerId} (session: {SessionId}, age: {Age})",
+                container.ID, sessionId ?? "unknown", age);
+
+            try
             {
-                logger.LogWarning(
-                    "Reaping orphan sandbox container {ContainerId} (session: {SessionId}, age: {Age})",
-                    container.ID, sessionId, age);
-
-                try
-                {
-                    await client.Containers.StopContainerAsync(
-                        container.ID,
-                        new ContainerStopParameters
-                        {
-                            WaitBeforeKillSeconds = 10
-                        },
-                        ct);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to stop orphan container {ContainerId}", container.ID);
-                }
-
-                // Remove the orphaned session directory if it exists
-                if (!sessionId.IsNullOrWhitespace() && sessionId != "unknown")
-                {
-                    var hostDir = Path.Combine(_options.HostBasePath, sessionId);
-                    try
+                // AutoRemove handles removal; persistent storage is never
+                // touched here. Orphaned storage is reclaimed by the owner via
+                // whatever policy we settle on separately.
+                await client.Containers.StopContainerAsync(
+                    container.ID,
+                    new ContainerStopParameters
                     {
-                        if (Directory.Exists(hostDir))
-                        {
-                            Directory.Delete(hostDir, recursive: true);
-                            logger.LogInformation(
-                                "Deleted orphan session directory {Path}", hostDir);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex,
-                            "Failed to delete orphan directory {Path}", hostDir);
-                    }
-                }
+                        WaitBeforeKillSeconds = 10
+                    },
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to stop orphan container {ContainerId}", container.ID);
             }
         }
     }
-
 }

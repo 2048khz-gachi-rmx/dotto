@@ -25,8 +25,8 @@ services:
       context: ../Dotto.Ai/sandbox-image
       dockerfile: Dockerfile
 
-  # Filtering proxy in front of the Docker daemon. Only the 9 endpoints the bot
-  # needs (container create/start/stop/remove/exec/inspect/list) are allowed.
+  # Filtering proxy in front of the Docker daemon. Only the container lifecycle
+  # endpoints the bot needs (create/start/stop/remove/inspect/list) are allowed.
   # In dev, the bot runs from the host — set DOCKER_HOST=tcp://localhost:2375
   # before starting the bot to route Docker API calls through this proxy.
   socket-protector:

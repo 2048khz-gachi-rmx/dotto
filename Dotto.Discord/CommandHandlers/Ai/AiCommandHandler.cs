@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Dotto.Ai.Agents;
 using Dotto.Ai.Agents.ChatAssistant;
+using Dotto.Ai.Sandbox;
 using Dotto.Application.Abstractions.Upload;
 using Dotto.Common;
 using Microsoft.Extensions.AI;
@@ -11,6 +12,7 @@ namespace Dotto.Discord.CommandHandlers.Ai;
 
 public class AiCommandHandler(
     ChatAssistant chatAssistant,
+    ISandbox sandbox,
     GatewayClient gateway,
     IUploadService? uploadService = null)
 {
@@ -46,38 +48,89 @@ public class AiCommandHandler(
 
         var response = await chatAssistant.Invoke(context, ct);
 
-        // Process enqueued attachments — upload to Discord or S3 depending on size
-        foreach (var att in response.Attachments)
+        try
         {
-            var length = att.Stream.Length;
-            att.Stream.Position = 0;
+            // Process enqueued attachments — upload to Discord or S3 depending on size.
+            //
+            // Attachments stream out of the sandbox over HTTP, so their bytes are
+            // only readable while the container is alive. S3 uploads happen inline,
+            // but Discord uploads happen after this method returns — buffer those
+            // into a bot-owned temp file (random name, never derived from sandbox
+            // input) so the container can be stopped immediately.
+            foreach (var att in response.Attachments)
+            {
+                var length = att.Length;
 
-            if (length <= discordUploadLimit)
-            {
-                att.DiscordAttachment = new AttachmentProperties(att.FileName.SanitizeHttpHeaderValue(), att.Stream);
-            }
-            else if (uploadService != null)
-            {
-                var extension = Path.GetExtension(att.FileName).TrimStart('.');
-                var contentType = extension switch
+                if (length <= discordUploadLimit)
                 {
-                    "mp4" => "video/mp4",
-                    "webm" => "video/webm",
-                    "mov" => "video/quicktime",
-                    "gif" => "image/gif",
-                    "png" => "image/png",
-                    "jpg" or "jpeg" => "image/jpeg",
-                    "mp3" => "audio/mpeg",
-                    _ => "application/octet-stream"
-                };
+                    var tempPath = Path.Combine(
+                        Path.GetTempPath(),
+                        $"dotto-ai-{Guid.NewGuid():N}{Path.GetExtension(att.FileName)}");
 
-                att.S3AttachmentUrl = await uploadService.UploadFile(att.Stream, length, att.FileName, contentType, ct);
+                    var temp = new FileStream(
+                        tempPath,
+                        FileMode.CreateNew,
+                        FileAccess.ReadWrite,
+                        FileShare.Read,
+                        bufferSize: 81920,
+                        FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+
+                    try
+                    {
+                        await att.Stream.CopyToAsync(temp, ct);
+                        temp.Position = 0;
+                    }
+                    catch
+                    {
+                        await temp.DisposeAsync();
+                        throw;
+                    }
+                    finally
+                    {
+                        await att.Stream.DisposeAsync();
+                    }
+
+                    att.DiscordAttachment = new AttachmentProperties(
+                        att.FileName.SanitizeHttpHeaderValue(), temp);
+                }
+                else if (uploadService != null)
+                {
+                    var extension = Path.GetExtension(att.FileName).TrimStart('.');
+                    var contentType = extension switch
+                    {
+                        "mp4" => "video/mp4",
+                        "webm" => "video/webm",
+                        "mov" => "video/quicktime",
+                        "gif" => "image/gif",
+                        "png" => "image/png",
+                        "jpg" or "jpeg" => "image/jpeg",
+                        "mp3" => "audio/mpeg",
+                        _ => "application/octet-stream"
+                    };
+
+                    try
+                    {
+                        att.S3AttachmentUrl = await uploadService.UploadFile(
+                            att.Stream, length, att.FileName, contentType, ct);
+                    }
+                    finally
+                    {
+                        await att.Stream.DisposeAsync();
+                    }
+                }
+                else
+                {
+                    // File too large, no S3 — dispose the stream, it'll be silently dropped
+                    await att.Stream.DisposeAsync();
+                }
             }
-            else
-            {
-                // File too large, no S3 — dispose the stream, it'll be silently dropped
-                await att.Stream.DisposeAsync();
-            }
+        }
+        finally
+        {
+            // Every attachment has been materialized (S3) or buffered into a
+            // bot-owned temp stream (Discord), so the container can stop now.
+            // Dispose is idempotent and DI scope disposal may also call it.
+            await sandbox.DisposeAsync();
         }
 
         return response;

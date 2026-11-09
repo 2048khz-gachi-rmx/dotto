@@ -1,10 +1,9 @@
 namespace Dotto.Ai.Sandbox;
 
 /// <summary>
-/// Always-present session metadata for the sandbox: the session ID and the
-/// eagerly-created host directory that is bind-mounted as <c>/work</c> when the
-/// container is eventually started. Operations that only need the filesystem
-/// (e.g. <c>DownloadMedia</c>, <c>UploadFile</c>) read from here and never
-/// touch the container.
+/// Materialized session metadata: the session ID, the caller the persistent
+/// storage belongs to, and the host directory bind-mounted as <c>/storage</c>.
+/// The bot only ever creates this directory — it never reads or writes the
+/// files the sandbox puts in it.
 /// </summary>
-public sealed record SandboxMetadata(string SessionId, string HostSessionDir);
+public sealed record SandboxMetadata(string SessionId, ulong CallerId, string HostStorageDir);

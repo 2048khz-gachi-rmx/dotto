@@ -97,7 +97,11 @@ dotnet user-secrets set "Ai:AssistantModel" "deepseek/deepseek-v4-flash-0731" # 
 # dotnet user-secrets set "Ai:ChatAssistant:HistoryContextSize" "50"
 
 # AI sandbox settings (optional — sandbox containers for LLM tool execution)
-# Optional: HostBasePath must be a path accessible to both the bot and the Docker/Podman VM.
-# On Windows, it's %TEMP%\dotto-sandbox; on Linux it's /tmp/dotto-sandbox
-dotnet user-secrets set "Ai:Sandbox:HostBasePath" "%TEMP%\dotto-sandbox"
+# Optional: StorageBasePath is the host directory for per-user persistent storage
+# (/storage in the sandbox). The bot only creates it; file content moves through
+# the sandbox HTTP API. Defaults: /var/lib/dotto-sandbox (Linux),
+# %TEMP%\dotto-sandbox-storage (Windows). The Docker daemon resolves this path on
+# the host, so when the bot itself runs in a container, mount the same absolute
+# path into it (see docker-compose.yml).
+dotnet user-secrets set "Ai:Sandbox:StorageBasePath" "%TEMP%\dotto-sandbox-storage"
 ```

@@ -2,7 +2,7 @@
 
 namespace Dotto.Ai.Agents.Base;
 
-public record AgentAttachment(Stream Stream, string FileName)
+public record AgentAttachment(Stream Stream, string FileName, long Length)
 {
     /// <summary>
     /// Set by the handler after uploading to Discord directly.

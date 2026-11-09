@@ -41,6 +41,10 @@ public static class DependencyInjection
         services.AddOptions<SandboxOptions>()
             .BindConfiguration("Ai:Sandbox")
             .ValidateDataAnnotations()
+            .Validate(
+                o => o.MemoryMb > o.WorkTmpfsMb,
+                "Ai:Sandbox:MemoryMb must be larger than Ai:Sandbox:WorkTmpfsMb " +
+                "(tmpfs pages count against the container memory cgroup).")
             .ValidateOnStart();
     }
 

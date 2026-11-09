@@ -15,8 +15,7 @@ public class SandboxReaperTests
 {
     private static SandboxOptions DefaultOptions() => new()
     {
-        WallClockTimeout = TimeSpan.FromMinutes(15),
-        HostBasePath = Path.GetTempPath()
+        WallClockTimeout = TimeSpan.FromMinutes(15)
     };
 
     private static SandboxReaper CreateReaper(
@@ -105,14 +104,13 @@ public class SandboxReaperTests
     }
 
     [Test]
-    public async Task SweepAsync_DeletesOrphanSessionDirectory()
+    public async Task SweepAsync_DoesNotTouchPersistentStorage()
     {
-        // Arrange
+        // Arrange — persistent storage belongs to the caller and must survive reaping
         var tempBase = Path.Combine(Path.GetTempPath(), "dotto-reaper-test-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempBase);
-        var sessionDir = Path.Combine(tempBase, "session-orphan");
-        Directory.CreateDirectory(sessionDir);
-        await File.WriteAllTextAsync(Path.Combine(sessionDir, "leftover.txt"), "data");
+        var storageDir = Path.Combine(tempBase, "123");
+        Directory.CreateDirectory(storageDir);
+        await File.WriteAllTextAsync(Path.Combine(storageDir, "kept.txt"), "data");
 
         var client = Substitute.For<IDockerClient>();
         var orphan = RunningContainer(
@@ -124,11 +122,7 @@ public class SandboxReaperTests
             Arg.Any<CancellationToken>())
             .Returns(new List<ContainerListResponse> { orphan });
 
-        var reaper = CreateReaper(client, new SandboxOptions
-        {
-            WallClockTimeout = TimeSpan.FromMinutes(15),
-            HostBasePath = tempBase
-        });
+        var reaper = CreateReaper(client);
 
         try
         {
@@ -137,7 +131,8 @@ public class SandboxReaperTests
             await (Task)sweepMethod!.Invoke(reaper, [CancellationToken.None])!;
 
             // Assert
-            Directory.Exists(sessionDir).ShouldBeFalse();
+            Directory.Exists(storageDir).ShouldBeTrue();
+            File.Exists(Path.Combine(storageDir, "kept.txt")).ShouldBeTrue();
         }
         finally
         {
@@ -149,11 +144,6 @@ public class SandboxReaperTests
     public async Task SweepAsync_ContinuesWhenStopFails()
     {
         // Arrange
-        var tempBase = Path.Combine(Path.GetTempPath(), "dotto-reaper-test-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempBase);
-        var sessionDir = Path.Combine(tempBase, "session-fail");
-        Directory.CreateDirectory(sessionDir);
-
         var client = Substitute.For<IDockerClient>();
         var orphan = RunningContainer(
             "fail000",
@@ -170,26 +160,13 @@ public class SandboxReaperTests
             Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("docker daemon unavailable"));
 
-        var reaper = CreateReaper(client, new SandboxOptions
-        {
-            WallClockTimeout = TimeSpan.FromMinutes(15),
-            HostBasePath = tempBase
-        });
+        var reaper = CreateReaper(client);
 
-        try
-        {
-            var sweepMethod = typeof(SandboxReaper).GetMethod("SweepAsync",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            // Act — should not throw
-            await (Task)sweepMethod!.Invoke(reaper, [CancellationToken.None])!;
+        var sweepMethod = typeof(SandboxReaper).GetMethod("SweepAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance);
 
-            // Assert — the session dir should still be cleaned up despite stop failure
-            Directory.Exists(sessionDir).ShouldBeFalse();
-        }
-        finally
-        {
-            if (Directory.Exists(tempBase)) Directory.Delete(tempBase, true);
-        }
+        // Act — should not throw
+        await (Task)sweepMethod!.Invoke(reaper, [CancellationToken.None])!;
     }
 
     [Test]

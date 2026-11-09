@@ -1,3 +1,4 @@
+using System.Net;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai.Sandbox;
@@ -59,7 +60,8 @@ public class SandboxIntegrationTests
             ImageTag = SandboxImage,
             ContainerStartTimeout = StartTimeout,
             WallClockTimeout = TimeSpan.FromMinutes(15),
-            HostBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-it-" + Guid.NewGuid().ToString("N")),
+            StorageBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-it-" + Guid.NewGuid().ToString("N")),
+            WorkTmpfsMb = 256,
             CpuCount = 1.0,
             MemoryMb = 512,
         };
@@ -68,22 +70,25 @@ public class SandboxIntegrationTests
     }
 
     [Test]
-    public async Task InitializeAsync_CreatesHostDirectory()
+    public async Task InitializeAsync_CreatesPersistentStorageDirectory()
     {
         if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
 
         // Arrange
         var sandbox = CreateSandbox();
         var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+        const ulong callerId = 1234;
 
         try
         {
             // Act
-            var meta = await sandbox.InitializeAsync(sessionId, CancellationToken.None);
+            var meta = await sandbox.InitializeAsync(sessionId, callerId, CancellationToken.None);
 
             // Assert
             meta.SessionId.ShouldBe(sessionId);
-            Directory.Exists(meta.HostSessionDir).ShouldBeTrue();
+            meta.CallerId.ShouldBe(callerId);
+            Directory.Exists(meta.HostStorageDir).ShouldBeTrue();
+            meta.HostStorageDir.ShouldEndWith(callerId.ToString());
         }
         finally
         {
@@ -102,7 +107,7 @@ public class SandboxIntegrationTests
 
         try
         {
-            await sandbox.InitializeAsync(sessionId, CancellationToken.None);
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
 
             // Act
             var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
@@ -132,7 +137,7 @@ public class SandboxIntegrationTests
 
         try
         {
-            await sandbox.InitializeAsync(sessionId, CancellationToken.None);
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
 
             var first = await sandbox.EnsureStartedAsync(CancellationToken.None);
             var second = await sandbox.EnsureStartedAsync(CancellationToken.None);
@@ -157,7 +162,7 @@ public class SandboxIntegrationTests
 
         try
         {
-            await sandbox.InitializeAsync(sessionId, CancellationToken.None);
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
             var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
 
             // Act
@@ -174,32 +179,138 @@ public class SandboxIntegrationTests
     }
 
     [Test]
-    public async Task DisposeAsync_StopsContainerAndDeletesHostDir()
+    public async Task ContainerApi_RejectsRequestsWithoutToken()
     {
         if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
         if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
 
         var sandbox = CreateSandbox();
         var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
-        string? hostDir;
-        string? containerId;
 
         try
         {
-            await sandbox.InitializeAsync(sessionId, CancellationToken.None);
-            hostDir = sandbox.Metadata.HostSessionDir;
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            using var http = new HttpClient();
+            using var response = await http.GetAsync(new Uri(container.ApiUrl, "/ping"));
+
+            // Assert
+            response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+        }
+    }
+
+    [Test]
+    public async Task FileRoundTrip_StreamsThroughSandboxApi()
+    {
+        if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
+        if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
+
+        var sandbox = CreateSandbox();
+        var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+
+        try
+        {
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            var payload = new byte[] { 1, 2, 3, 4, 5 };
+            await using var source = new MemoryStream(payload);
+            var path = await container.PutFileAsync("/storage/roundtrip.bin", source, payload.Length, false, CancellationToken.None);
+
+            path.ShouldBe("/storage/roundtrip.bin");
+
+            var file = await container.GetFileAsync(path, CancellationToken.None);
+            file.Length.ShouldBe(payload.Length);
+
+            using var sink = new MemoryStream();
+            await file.Stream.CopyToAsync(sink, CancellationToken.None);
+            await file.Stream.DisposeAsync();
+
+            sink.ToArray().ShouldBe(payload);
+
+            // File must be visible from inside the sandbox as /storage/...
+            var ls = await container.ExecuteAsync("test -f /storage/roundtrip.bin && echo present", "/work", "", CancellationToken.None);
+            ls.Stdout.ShouldContain("present");
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+        }
+    }
+
+    [Test]
+    public async Task GetFileAsync_RejectsSymlinkEscape()
+    {
+        if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
+        if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
+
+        var sandbox = CreateSandbox();
+        var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+
+        try
+        {
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            // Plant a symlink inside /storage pointing at the root filesystem.
+            var ln = await container.ExecuteAsync("ln -s / /storage/escape", "/work", "", CancellationToken.None);
+            ln.ExitCode.ShouldBe(0);
+
+            // Reading through the symlink must be refused by the server.
+            var ex = await Should.ThrowAsync<SandboxHttpException>(
+                () => container.GetFileAsync("/storage/escape/etc/passwd", CancellationToken.None));
+
+            ex.StatusCode.ShouldBe(400);
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+        }
+    }
+
+    [Test]
+    public async Task DisposeAsync_StopsContainerButKeepsPersistentStorage()
+    {
+        if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
+        if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
+
+        var sandbox = CreateSandbox();
+        var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+        string? storageDir;
+        string? containerId;
+        var options = new SandboxOptions
+        {
+            ImageTag = SandboxImage,
+            ContainerStartTimeout = StartTimeout,
+            WallClockTimeout = TimeSpan.FromMinutes(15),
+            StorageBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-it-" + Guid.NewGuid().ToString("N")),
+            WorkTmpfsMb = 256,
+            MemoryMb = 512,
+        };
+
+        sandbox = CreateSandbox(options);
+
+        try
+        {
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            storageDir = sandbox.Metadata.HostStorageDir;
             var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
             containerId = container.ContainerId;
 
-            Directory.Exists(hostDir).ShouldBeTrue();
+            Directory.Exists(storageDir).ShouldBeTrue();
         }
         finally
         {
             await sandbox.DisposeAsync();
         }
 
-        // Assert — host dir deleted
-        Directory.Exists(hostDir).ShouldBeFalse();
+        // Assert — persistent storage survives
+        Directory.Exists(storageDir).ShouldBeTrue();
 
         // Assert — container removed (auto-remove via --rm)
         // Poll for removal instead of a fixed delay
@@ -219,22 +330,26 @@ public class SandboxIntegrationTests
             }
         }
         removed.ShouldBeTrue("Container should have been auto-removed after stop");
+
+        if (Directory.Exists(storageDir)) Directory.Delete(storageDir, true);
+        var storageBase = Path.GetDirectoryName(storageDir);
+        if (storageBase != null && Directory.Exists(storageBase)) Directory.Delete(storageBase, true);
     }
 
     [Test]
-    public async Task DisposeAsync_WithoutContainerStart_DeletesHostDirOnly()
+    public async Task DisposeAsync_WithoutContainerStart_LeavesStorageAlone()
     {
         if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
 
         var sandbox = CreateSandbox();
         var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
-        string? hostDir;
+        string? storageDir;
 
         try
         {
-            await sandbox.InitializeAsync(sessionId, CancellationToken.None);
-            hostDir = sandbox.Metadata.HostSessionDir;
-            Directory.Exists(hostDir).ShouldBeTrue();
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            storageDir = sandbox.Metadata.HostStorageDir;
+            Directory.Exists(storageDir).ShouldBeTrue();
             // Don't call EnsureStartedAsync
         }
         finally
@@ -243,6 +358,10 @@ public class SandboxIntegrationTests
         }
 
         // Assert
-        Directory.Exists(hostDir).ShouldBeFalse();
+        Directory.Exists(storageDir).ShouldBeTrue();
+
+        if (Directory.Exists(storageDir)) Directory.Delete(storageDir, true);
+        var storageBase = Path.GetDirectoryName(storageDir);
+        if (storageBase != null && Directory.Exists(storageBase)) Directory.Delete(storageBase, true);
     }
 }

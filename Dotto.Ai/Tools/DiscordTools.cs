@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
@@ -13,7 +13,6 @@ public class DiscordTools(
     ISandbox sandbox)
 {
     private readonly ChatAssistantContext _context = accessor.Get<ChatAssistantContext>();
-    private readonly string _sessionDir = sandbox.Metadata.HostSessionDir;
 
     [Tool(ToolAttribute.ToolTypeFlag.UserAssistant)]
     [Description("Download media using yt-dlp. Saves the file to the sandbox at /work/downloads/... for further processing. Use for Instagram, TikTok, YouTube, Twitter, etc.")]
@@ -21,7 +20,8 @@ public class DiscordTools(
         [Description("Query: either a URL or yt-dlp compatible query (in the format: \"prefix:search query\". " +
                      "Supported prefixes: `ytsearch` for YouTube, `scsearch` for SoundCloud.")]
         string query,
-        bool audioOnly = false)
+        bool audioOnly = false,
+        CancellationToken ct = default)
     {
         var downloaders = downloaderFactory.CreateDownloaderService(query);
         IList<DownloadedMedia> downloaded = [];
@@ -34,7 +34,7 @@ public class DiscordTools(
                 {
                     AudioOnly = audioOnly,
                     MaxFilesize = 100L * 1024 * 1024
-                });
+                }, ct);
 
                 if (results.Count > 0)
                 {
@@ -48,32 +48,35 @@ public class DiscordTools(
         if (downloaded.Count == 0)
             return "Failed to download media from the provided URL.";
 
-        var downloadsDir = Path.Combine(_sessionDir, "downloads");
-        Directory.CreateDirectory(downloadsDir);
+        var container = await sandbox.EnsureStartedAsync(ct);
 
         var sandboxPaths = new List<string>();
         try
         {
             foreach (var media in downloaded)
             {
-                var fileName = media.GetFileName();
-                var filePath = Path.Combine(downloadsDir, fileName);
+                var fileName = Path.GetFileName(media.GetFileName());
+                if (string.IsNullOrWhiteSpace(fileName))
+                    fileName = "download";
 
-                // Avoid clobbering existing files (e.g. duplicate titles in a playlist)
-                if (File.Exists(filePath))
-                {
-                    var dir = Path.GetDirectoryName(filePath)!;
-                    var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                    var ext = Path.GetExtension(fileName);
-                    var i = 1;
-                    while (File.Exists(filePath))
-                        filePath = Path.Combine(dir, $"{nameWithoutExt}_{i++}{ext}");
-                }
+                if (media.Video.CanSeek)
+                    media.Video.Position = 0;
 
-                await using var fileStream = File.Create(filePath);
-                await media.Video.CopyToAsync(fileStream);
+                var length = media.Video.CanSeek
+                    ? media.Video.Length
+                    : media.FileSize ?? throw new InvalidOperationException(
+                        "Non-seekable media was returned without a known file size.");
 
-                sandboxPaths.Add($"/work/downloads/{Path.GetFileName(filePath)}");
+                // The server owns path resolution and collision handling. The
+                // bytes are the only thing that crosses the boundary.
+                var sandboxPath = await container.PutFileAsync(
+                    $"/work/downloads/{fileName}",
+                    media.Video,
+                    length,
+                    dedupe: true,
+                    ct);
+
+                sandboxPaths.Add(sandboxPath);
             }
         }
         finally
@@ -92,30 +95,31 @@ public class DiscordTools(
     }
 
     [Tool(ToolAttribute.ToolTypeFlag.UserAssistant)]
-    [Description("Upload a file from the sandbox to Discord as an attachment. The path is sandbox-relative and starts with /work (e.g. \"/work/outputs/result.mp4\").")]
-    public async Task<string> UploadFile(string sandboxPath)
+    [Description("Upload a file from the sandbox to Discord as an attachment. The path is sandbox-relative and starts with /work or /storage (e.g. \"/work/outputs/result.mp4\").")]
+    public async Task<string> UploadFile(string sandboxPath, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(sandboxPath) ||
-            !sandboxPath.StartsWith("/work/", StringComparison.Ordinal) ||
+            !(sandboxPath.StartsWith("/work/", StringComparison.Ordinal) ||
+              sandboxPath.StartsWith("/storage/", StringComparison.Ordinal)) ||
             sandboxPath.Contains(".."))
         {
-            return "Invalid file path: path must be a sandbox-relative /work/... path and must not contain '..'.";
+            return "Invalid file path: path must be a sandbox-relative /work/... or /storage/... path and must not contain '..'.";
         }
 
-        var relative = sandboxPath["/work/".Length..].Replace('\\', '/');
-        var fullPath = Path.Combine(_sessionDir, relative);
-        if (!File.Exists(fullPath))
+        var container = await sandbox.EnsureStartedAsync(ct);
+
+        SandboxFile file;
+        try
+        {
+            file = await container.GetFileAsync(sandboxPath, ct);
+        }
+        catch (SandboxHttpException ex) when (ex.StatusCode == 404)
+        {
             return $"File not found: `{sandboxPath}`. Check the path and try again.";
+        }
 
-        var fileInfo = new FileInfo(fullPath);
-        var fileName = fileInfo.Name;
-
-        var fileStream = new FileStream(fullPath,
-            FileMode.Open, FileAccess.Read, FileShare.Delete,
-            16384,
-            FileOptions.DeleteOnClose);
-
-        _context.Attachments.Add(new(fileStream, fileName));
+        var fileName = Path.GetFileName(sandboxPath);
+        _context.Attachments.Add(new AgentAttachment(file.Stream, fileName, file.Length));
         return $"Enqueued `{fileName}` for upload.";
     }
 }

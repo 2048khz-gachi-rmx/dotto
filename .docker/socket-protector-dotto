@@ -1,8 +1,7 @@
 # Profile for the Dotto bot — allows only the container lifecycle endpoints
 # needed by the sandbox (create, start, stop, remove, inspect, list).
 # Exec endpoints are excluded — the bot communicates with sandboxes via HTTP,
-# not Docker exec.
-# See: specs/sandbox-security/spec.md — Requirement: Docker Socket Protection
+# not Docker exec, and sandbox containers are never put on this network.
 
 # Method Path
 POST /(v\d+\.\d+/)?containers/create(\?.*)?

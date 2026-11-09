@@ -1,4 +1,5 @@
 FROM python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y curl jq && rm -rf /var/lib/apt/lists/*
 
 # Static ffmpeg build — avoids pulling in the entire Debian ffmpeg dependency tree (GUI libs, systemd, etc.)
