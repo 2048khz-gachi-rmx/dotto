@@ -141,3 +141,6 @@ $RECYCLE.BIN/
 _NCrunch*
 
 .idea
+# Python bytecode caches
+__pycache__/
+*.py[cod]
