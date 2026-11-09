@@ -12,7 +12,7 @@ internal class MessageDownloadExecutor(DownloadCommandHandler downloadHandler, R
 {
     public async Task DownloadAndReplyAsync(Message message, Uri uri, bool suppressEmbeds)
     {
-        var typingTask = client.EnterTypingStateAsync(message.ChannelId);
+        var typingTask = client.EnterTypingScopeAsync(message.ChannelId).AsTask();
 
         try
         {

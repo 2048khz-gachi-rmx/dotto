@@ -98,3 +98,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
+
+      - name: Build and push sandbox
+        uses: docker/build-push-action@v7
+        with:
+          context: Dotto.Ai/sandbox-image
+          push: true
+          tags: ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false

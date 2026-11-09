@@ -20,13 +20,14 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.14" />
-    <PackageReference Include="NetCord" Version="1.0.0-alpha.453" />
-    <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.453" />
-    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.453" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageReference Include="NetCord" Version="1.0.0-beta.12" />
+    <PackageReference Include="NetCord.Hosting" Version="1.0.0-beta.12" />
+    <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-beta.12" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Dotto.Ai\Dotto.Ai.csproj" />
     <ProjectReference Include="..\Dotto.Application\Dotto.Application.csproj" />
     <ProjectReference Include="..\Dotto.Common\Dotto.Common.csproj" />
     <ProjectReference Include="..\Dotto.Discord\Dotto.Discord.csproj" />

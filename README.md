@@ -70,6 +70,8 @@ Want to set up the project locally?
 You'll find a Docker Compose file with auxilary services (PostgreSQL) ready to go in the `.docker/` folder.  
 You'll probably also want to set up user secrets:
 ```sh
+cd Dotto.Bot # need to be in the project to set user secrets
+
 dotnet user-secrets set "Discord:Token" "YOURTOKENHERE"
 
 # Optionally, set up MinIO credentials if you have an S3 server:
@@ -82,4 +84,20 @@ dotnet user-secrets set "Minio:SecretKey" "YOUR_SECRET_KEY"
 # Optionally, set up Cobalt credentials to use for certain URLs (currently: only instagram)
 dotnet user-secrets set "Downloader:Cobalt:BaseUrl" "YOUR_COBALT_URL"
 dotnet user-secrets set "Downloader:Cobalt:ApiKey" "YOUR_COBALT_KEY"
+
+# AI settings — model, API key, base URL
+dotnet user-secrets set "Ai:BaseUrl" "https://openrouter.ai/api/v1"
+dotnet user-secrets set "Ai:ApiKey" "YOUR_API_KEY"
+dotnet user-secrets set "Ai:AssistantModel" "deepseek/deepseek-v4-flash-0731" # You're absolutely right—
+
+# Optional per-assistant overrides (falls back to top-level Ai values)
+# dotnet user-secrets set "Ai:ChatAssistant:BaseUrl" "https://api.neuralwatt.com/v1"
+# dotnet user-secrets set "Ai:ChatAssistant:ApiKey" "YOUR_OTHER_API_KEY"
+# dotnet user-secrets set "Ai:ChatAssistant:Model" "mechaepstein"
+# dotnet user-secrets set "Ai:ChatAssistant:HistoryContextSize" "50"
+
+# AI sandbox settings (optional — sandbox containers for LLM tool execution)
+# Optional: HostBasePath must be a path accessible to both the bot and the Docker/Podman VM.
+# On Windows, it's %TEMP%\dotto-sandbox; on Linux it's /tmp/dotto-sandbox
+dotnet user-secrets set "Ai:Sandbox:HostBasePath" "%TEMP%\dotto-sandbox"
 ```
