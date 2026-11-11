@@ -2,8 +2,7 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /Dotto.Bot
 
 # Copy just the project files and restore first. This layer is only invalidated
-# when a .csproj/.sln changes, so the (slow) restore stays cached across builds.
-COPY Dotto.sln ./
+# when a .csproj changes, so the (slow) restore stays cached across builds.
 COPY Dotto.Ai/Dotto.Ai.csproj                                     Dotto.Ai/
 COPY Dotto.Domain/Dotto.Domain.csproj                             Dotto.Domain/
 COPY Dotto.Application/Dotto.Application.csproj                     Dotto.Application/
@@ -17,9 +16,11 @@ COPY Dotto.Ffmpeg/Dotto.Ffmpeg.csproj                               Dotto.Ffmpeg
 COPY Dotto.Ffmpeg.Contracts/Dotto.Ffmpeg.Contracts.csproj           Dotto.Ffmpeg.Contracts/
 COPY Dotto.FileUpload/Dotto.FileUpload.csproj                       Dotto.FileUpload/
 
-# Restore here, leaving the downloaded packages inside the image layer so they
-# come back with it on a layer-cache hit.
-RUN dotnet restore
+# Restore here, leaving the packages inside the image layer so they come back
+# with it on a layer-cache hit. Only the bot's graph is restored (not the test
+# project's packages), and EF Core tooling - and the Roslyn workspaces it pulls
+# in, ~150 MB - is design-time only, so it is skipped for the image build.
+RUN dotnet restore Dotto.Bot/Dotto.Bot.csproj -p:EfTools=false
 
 # Copy everything else (only rebuilds when source actually changes).
 COPY . ./
@@ -27,7 +28,7 @@ COPY . ./
 # Build and publish a release, skipping the restore we already did.
 # Publish the Bot (exe) project: it pulls in every runtime dependency but leaves
 # the test assemblies out of the final image.
-RUN dotnet publish Dotto.Bot/Dotto.Bot.csproj -c Release -o out --no-restore
+RUN dotnet publish Dotto.Bot/Dotto.Bot.csproj -c Release -o out --no-restore -p:EfTools=false
 
 FROM mwader/static-ffmpeg AS ffmpeg
 
