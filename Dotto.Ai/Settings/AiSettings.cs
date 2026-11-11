@@ -53,4 +53,18 @@ public class ChatAssistantSettings
     /// </summary>
     [Range(1, 100)]
     public int MaxAttachments { get; set; } = 10;
+
+    /// <summary>
+    /// Maximum number of tool calls a single run may execute. Calls past the limit
+    /// are refused and the model is told to answer with what it has.
+    /// </summary>
+    [Range(1, 100)]
+    public int MaxTurns { get; set; } = 20;
+
+    /// <summary>
+    /// Runs with at least this many tool calls include the tool transcript in the
+    /// final answer.
+    /// </summary>
+    [Range(1, 100)]
+    public int TranscriptTurns { get; set; } = 5;
 }

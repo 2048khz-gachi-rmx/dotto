@@ -85,9 +85,10 @@ public class DiscordTools(
         {
             const string failure = "Failed to download media from the provided URL.";
             if (fatalErrors.Count == 0)
-                return failure;
+                throw new ToolFailureException(failure);
 
-            return $"{failure}\n{string.Join("\n", fatalErrors.Distinct().Select(e => $"- {e}"))}";
+            throw new ToolFailureException(
+                $"{failure}\n{string.Join("\n", fatalErrors.Distinct().Select(e => $"- {e}"))}");
         }
 
         ISandboxContainer container;
@@ -99,7 +100,7 @@ public class DiscordTools(
         {
             await DisposeAllAsync(downloaded);
             logger?.LogError(ex, "Sandbox failed to start for DownloadMedia");
-            return SandboxToolMessages.StartFailed;
+            throw new ToolFailureException(SandboxToolMessages.StartFailed);
         }
 
         var sandboxPaths = new List<string>();
@@ -132,7 +133,7 @@ public class DiscordTools(
         catch (SandboxHttpException ex)
         {
             logger?.LogWarning(ex, "Sandbox rejected a downloaded file");
-            return $"Failed to write the downloaded media into the sandbox: {ex.Message}";
+            throw new ToolFailureException($"Failed to write the downloaded media into the sandbox: {ex.Message}");
         }
         finally
         {
@@ -157,7 +158,8 @@ public class DiscordTools(
               sandboxPath.StartsWith("/storage/", StringComparison.Ordinal)) ||
             sandboxPath.Contains(".."))
         {
-            return "Invalid file path: path must be a sandbox-relative /work/... or /storage/... path and must not contain '..'.";
+            throw new ToolFailureException(
+                "Invalid file path: path must be a sandbox-relative /work/... or /storage/... path and must not contain '..'.");
         }
 
         ISandboxContainer container;
@@ -168,7 +170,7 @@ public class DiscordTools(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger?.LogError(ex, "Sandbox failed to start for UploadFile");
-            return SandboxToolMessages.StartFailed;
+            throw new ToolFailureException(SandboxToolMessages.StartFailed);
         }
 
         SandboxFile file;
@@ -178,12 +180,12 @@ public class DiscordTools(
         }
         catch (SandboxHttpException ex) when (ex.StatusCode == 404)
         {
-            return $"File not found: `{sandboxPath}`. Check the path and try again.";
+            throw new ToolFailureException($"File not found: `{sandboxPath}`. Check the path and try again.");
         }
         catch (SandboxHttpException ex)
         {
             logger?.LogWarning(ex, "Sandbox rejected an upload request for {Path}", sandboxPath);
-            return $"Failed to read `{sandboxPath}` from the sandbox: {ex.Message}";
+            throw new ToolFailureException($"Failed to read `{sandboxPath}` from the sandbox: {ex.Message}");
         }
 
         var fileName = Path.GetFileName(sandboxPath);

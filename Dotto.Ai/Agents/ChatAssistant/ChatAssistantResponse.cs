@@ -13,4 +13,9 @@ public class ChatAssistantResponse
     /// Populated when the agent invokes an upload tool. These are passed into the response.
     /// </summary>
     public List<AgentAttachment> Attachments { get; set; } = [];
+
+    /// <summary>
+    /// Wall-clock time the agent run took, used for the answer footer.
+    /// </summary>
+    public TimeSpan Duration { get; set; }
 }

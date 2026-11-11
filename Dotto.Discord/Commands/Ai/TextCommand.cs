@@ -1,10 +1,13 @@
-﻿using Dotto.Ai.Agents.ChatAssistant;
+﻿using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Settings;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Discord.CommandHandlers.Ai;
 using Dotto.Discord.CommandHandlers.Download;
+using Dotto.Discord.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetCord.Rest;
 using NetCord.Services.Commands;
@@ -14,7 +17,8 @@ namespace Dotto.Discord.Commands.Ai;
 public class TextCommand(
     IServiceProvider serviceProvider,
     IDateTimeProvider dateTimeProvider,
-    RestClient client) : CommandModule<CommandContext>
+    RestClient client,
+    ILogger<TextCommand> logger) : CommandModule<CommandContext>
 {
     private readonly AiCommandHandler _aiHandler = serviceProvider.GetRequiredService<AiCommandHandler>();
     private readonly AiSettings _settings = serviceProvider.GetRequiredService<IOptions<AiSettings>>().Value;
@@ -48,37 +52,84 @@ public class TextCommand(
 
         var uploadLimit = DownloadCommandHandler.GetMaxDiscordFileSize(Context.Guild, Context.User);
 
-        var typingTask = client.EnterTypingScopeAsync(Context.Message.ChannelId).AsTask();
+        var progress = new AgentProgress(_settings.ChatAssistant.MaxTurns);
+
+        // One placeholder message carries the activity and is later replaced by the answer.
+        var placeholder = await ReplyAsync(new ReplyMessageProperties { Content = "-# thinking…" });
+
         ChatAssistantResponse response;
         try
         {
-            response = await _aiHandler.Invoke(userRequest,
-                Context.User.Id,
-                Context.User.Username,
-                channelId,
-                guildId,
-                uploadLimit,
-                messageHistory);
+            await using (var activity = AgentActivityMessage.Create(
+                             progress,
+                             options => placeholder.ModifyAsync(options),
+                             logger))
+            {
+                response = await _aiHandler.Invoke(userRequest,
+                    Context.User.Id,
+                    Context.User.Username,
+                    channelId,
+                    guildId,
+                    uploadLimit,
+                    messageHistory,
+                    progress: progress);
+            }
         }
-        finally
+        catch
         {
-            _ = typingTask.ContinueWith(task => task.Result.Dispose());
+            // The error handler posts its own message; don't leave a stale placeholder.
+            try
+            {
+                await placeholder.DeleteAsync();
+            }
+            catch (Exception)
+            {
+                // The original exception is the one that gets reported.
+            }
+
+            throw;
         }
 
-        var textResponse = response.Response ?? "";
         var s3Atts = response.Attachments
             .Select(att => att.S3AttachmentUrl)
             .Where(att => att != null)
+            .Select(att => att!.ToString())
             .ToList();
 
-        if (!s3Atts.IsNullOrEmpty())
-            textResponse += "\n" + string.Join("\n", s3Atts.Select(url => "-# " + url));
+        var textResponse = AgentRunMessage.Compose(
+            response.Response,
+            progress,
+            verbose: false,
+            _settings.ChatAssistant.TranscriptTurns,
+            response.Duration,
+            response.Attachments.Count,
+            links: s3Atts);
 
-        var sentMessage = await ReplyAsync(new ReplyMessageProperties
+        var attachments = response.Attachments
+            .Select(att => att.DiscordAttachment)
+            .Where(att => att != null)
+            .Select(att => att!)
+            .ToList();
+
+        RestMessage sentMessage;
+        try
         {
-            Content = textResponse,
-            Attachments = response.Attachments.Select(att => att.DiscordAttachment).Where(att => att != null)!
-        });
+            sentMessage = await placeholder.ModifyAsync(options =>
+            {
+                options.Content = textResponse;
+                options.Attachments = attachments;
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not replace the ai activity message; replying with the answer instead");
+
+            sentMessage = await ReplyAsync(new ReplyMessageProperties
+            {
+                Content = textResponse,
+                Attachments = attachments,
+            });
+        }
 
         await _aiHandler.LogUploadedMedia(sentMessage, response, Context.User.Id);
     }

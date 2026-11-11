@@ -191,10 +191,11 @@ public class DiscordToolsTests
         try
         {
             // Act
-            var result = await tools.DownloadMedia("https://example.com/notfound");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.DownloadMedia("https://example.com/notfound"));
 
             // Assert
-            result.ShouldContain("Failed");
+            failure.Message.ShouldContain("Failed");
         }
         finally
         {
@@ -251,10 +252,11 @@ public class DiscordToolsTests
         try
         {
             // Act
-            var result = await tools.UploadFile("/work/../../etc/passwd");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.UploadFile("/work/../../etc/passwd"));
 
             // Assert
-            result.ShouldContain("Invalid");
+            failure.Message.ShouldContain("Invalid");
         }
         finally
         {
@@ -271,8 +273,9 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.UploadFile("/etc/passwd");
-            result.ShouldContain("Invalid");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.UploadFile("/etc/passwd"));
+            failure.Message.ShouldContain("Invalid");
         }
         finally
         {
@@ -289,8 +292,9 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.UploadFile("/work/outputs/nonexistent.mp4");
-            result.ShouldContain("not found");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.UploadFile("/work/outputs/nonexistent.mp4"));
+            failure.Message.ShouldContain("not found");
         }
         finally
         {
@@ -359,12 +363,13 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.DownloadMedia("https://example.com/gone");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.DownloadMedia("https://example.com/gone"));
 
             // Fatal errors are forwarded to the model; non-fatal ones are noise.
-            result.ShouldContain("Failed to download media from the provided URL.");
-            result.ShouldContain("yt-dlp exited with code 1");
-            result.ShouldNotContain("cobalt is down");
+            failure.Message.ShouldContain("Failed to download media from the provided URL.");
+            failure.Message.ShouldContain("yt-dlp exited with code 1");
+            failure.Message.ShouldNotContain("cobalt is down");
             await sandbox.DidNotReceive().EnsureStartedAsync(Arg.Any<CancellationToken>());
         }
         finally
@@ -402,7 +407,7 @@ public class DiscordToolsTests
     }
 
     [Test]
-    public async Task DownloadMedia_WhenSandboxCannotStart_ReturnsActionableMessage()
+    public async Task DownloadMedia_WhenSandboxCannotStart_ThrowsActionableMessage()
     {
         var sessionDir = Path.Combine(Path.GetTempPath(), "dotto-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(sessionDir);
@@ -418,9 +423,10 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.DownloadMedia("https://example.com/video.mp4");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.DownloadMedia("https://example.com/video.mp4"));
 
-            result.ShouldBe(SandboxToolMessages.StartFailed);
+            failure.Message.ShouldBe(SandboxToolMessages.StartFailed);
         }
         finally
         {
@@ -446,9 +452,10 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.DownloadMedia("https://example.com/video.mp4");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.DownloadMedia("https://example.com/video.mp4"));
 
-            result.ShouldContain("No space left on device");
+            failure.Message.ShouldContain("No space left on device");
         }
         finally
         {
@@ -457,7 +464,7 @@ public class DiscordToolsTests
     }
 
     [Test]
-    public async Task UploadFile_WhenSandboxCannotStart_ReturnsActionableMessage()
+    public async Task UploadFile_WhenSandboxCannotStart_ThrowsActionableMessage()
     {
         var sessionDir = Path.Combine(Path.GetTempPath(), "dotto-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(sessionDir);
@@ -468,9 +475,10 @@ public class DiscordToolsTests
 
         try
         {
-            var result = await tools.UploadFile("/work/outputs/result.mp4");
+            var failure = await Should.ThrowAsync<ToolFailureException>(
+                () => tools.UploadFile("/work/outputs/result.mp4"));
 
-            result.ShouldBe(SandboxToolMessages.StartFailed);
+            failure.Message.ShouldBe(SandboxToolMessages.StartFailed);
             context.Attachments.ShouldBeEmpty();
         }
         finally

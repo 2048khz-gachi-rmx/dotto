@@ -5,6 +5,7 @@ using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Discord.CommandHandlers.Ai;
 using Dotto.Discord.CommandHandlers.Download;
+using Dotto.Discord.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -23,11 +24,13 @@ public class ApplicationCommand(
     private readonly AiCommandHandler _aiHandler = serviceProvider.GetRequiredService<AiCommandHandler>();
     private readonly AiSettings _settings = serviceProvider.GetRequiredService<IOptions<AiSettings>>().Value;
 
-    private async Task Invoke(string userRequest)
+    private async Task Invoke(string userRequest, bool verbose = false)
     {
         // Only the followup needs the interaction acknowledged, so the round trip
         // overlaps with the history fetch and the assistant call.
         var acknowledge = RespondAsync(InteractionCallback.DeferredMessage());
+
+        var progress = new AgentProgress(_settings.ChatAssistant.MaxTurns);
 
         ChatAssistantResponse response;
         try
@@ -46,6 +49,15 @@ public class ApplicationCommand(
             if (historyUnavailable is not null)
                 notes.Add(new("Message history", historyUnavailable));
 
+            // The activity renderer edits the deferred response, so the acknowledgement
+            // must have landed before the run starts.
+            await acknowledge;
+
+            await using var activity = AgentActivityMessage.Create(
+                progress,
+                options => Context.Interaction.ModifyResponseAsync(options),
+                logger);
+
             response = await _aiHandler.Invoke(userRequest,
                 Context.User.Id,
                 Context.User.Username,
@@ -53,9 +65,8 @@ public class ApplicationCommand(
                 Context.Guild?.Id ?? 0,
                 uploadLimit,
                 messageHistory,
-                notes);
-
-            await acknowledge;
+                notes,
+                progress);
         }
         catch
         {
@@ -74,21 +85,50 @@ public class ApplicationCommand(
         }
 
         // Workaround: interactions can't expose options to history, so embed the prompt.
-        var textResponse = $"-# prompt: {userRequest.Replace("\n", "")}\n"
-                           + response.Response;
+        var promptLine = $"-# prompt: {userRequest.Replace("\n", "")}";
         var s3Atts = response.Attachments
             .Select(att => att.S3AttachmentUrl)
             .Where(att => att != null)
+            .Select(att => att!.ToString())
             .ToList();
 
-        if (!s3Atts.IsNullOrEmpty())
-            textResponse += "\n" + string.Join("\n", s3Atts.Select(url => "-# " + url));
+        var textResponse = AgentRunMessage.Compose(
+            response.Response,
+            progress,
+            verbose,
+            _settings.ChatAssistant.TranscriptTurns,
+            response.Duration,
+            response.Attachments.Count,
+            promptLine,
+            s3Atts);
 
-        var sentMessage = await FollowupAsync(new()
+        var attachments = response.Attachments
+            .Select(att => att.DiscordAttachment)
+            .Where(att => att != null)
+            .Select(att => att!)
+            .ToList();
+
+        RestMessage sentMessage;
+        try
         {
-            Content = textResponse,
-            Attachments = response.Attachments.Select(att => att.DiscordAttachment).Where(att => att != null)!
-        });
+            sentMessage = await Context.Interaction.ModifyResponseAsync(options =>
+            {
+                options.Content = textResponse;
+                options.Attachments = attachments;
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The response edit can fail (expired interaction token); the answer must
+            // still reach the user, so send it as a normal followup instead.
+            logger.LogWarning(ex, "Could not replace the /ai activity message; sending the answer as a followup");
+
+            sentMessage = await FollowupAsync(new InteractionMessageProperties
+            {
+                Content = textResponse,
+                Attachments = attachments,
+            });
+        }
 
         await _aiHandler.LogUploadedMedia(sentMessage, response, Context.User.Id);
     }
@@ -135,8 +175,10 @@ public class ApplicationCommand(
         DefaultGuildPermissions = Permissions.SendMessages)]
     public Task InvokeSlash(
         [SlashCommandParameter(Name = "prompt", Description = "What you want to ask the assistant")]
-        string userRequest)
-        => Invoke(userRequest);
+        string userRequest,
+        [SlashCommandParameter(Name = "verbose", Description = "Always include the tool-call transcript")]
+        bool verbose = false)
+        => Invoke(userRequest, verbose);
 
     [MessageCommand("Ask AI",
         Contexts = [InteractionContextType.Guild, InteractionContextType.DMChannel, InteractionContextType.BotDMChannel])]

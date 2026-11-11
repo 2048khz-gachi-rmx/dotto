@@ -23,7 +23,7 @@ public class ChatAssistantPromptTests
         Notes = [.. notes],
     };
 
-    private static async Task<string> RenderAsync(ChatAssistantContext context)
+    private static async Task<string> RenderAsync(ChatAssistantContext context, bool sandboxEnabled = false)
     {
         var settings = new AiSettings
         {
@@ -37,7 +37,7 @@ public class ChatAssistantPromptTests
         };
 
         var provider = new PromptProvider(Options.Create(settings));
-        var renderContext = ChatAssistant.BuildTemplateContext(context, sandboxEnabled: false);
+        var renderContext = ChatAssistant.BuildTemplateContext(context, sandboxEnabled);
 
         var prompt = await provider.RenderAsync("ChatAssistant", renderContext);
         prompt.ShouldNotBeNull();
@@ -60,5 +60,15 @@ public class ChatAssistantPromptTests
         var prompt = await RenderAsync(CreateContext());
 
         prompt.ShouldNotContain(NotesHeader);
+    }
+
+    [Test]
+    public async Task Render_WithToolsEnabled_DisclosesTheTurnBudget()
+    {
+        var prompt = await RenderAsync(CreateContext(), sandboxEnabled: true);
+
+        prompt.ShouldContain("limited number of tool calls");
+        prompt.ShouldContain("approaching the limit");
+        prompt.ShouldContain("last turn");
     }
 }

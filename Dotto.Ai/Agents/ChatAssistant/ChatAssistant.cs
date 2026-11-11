@@ -56,6 +56,7 @@ public class ChatAssistant(
             };
 
             var duration = DateTime.UtcNow - startTime;
+            assistantResponse.Duration = duration;
             logger.LogInformation(
                 "Session {SessionId} completed in {Duration}s",
                 context.SessionId, duration.TotalSeconds);

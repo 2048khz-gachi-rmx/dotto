@@ -7,6 +7,12 @@ public class AgentContext
     public string SessionId { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional per-run tool-call record. The tool wrapper observes it and the
+    /// caller renders it; tools themselves stay unaware of it.
+    /// </summary>
+    public AgentProgress? Progress { get; init; }
+
+    /// <summary>
     /// Extra facts for this invocation; the caller layer fills these when the
     /// environment differs from the default.
     /// </summary>

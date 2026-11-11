@@ -33,6 +33,7 @@ public class AiCommandHandler(
         long discordUploadLimit,
         IList<RestMessage> messages,
         IReadOnlyList<ContextNote>? notes = null,
+        AgentProgress? progress = null,
         CancellationToken ct = default)
     {
         if (SelfUserId == null)
@@ -55,6 +56,7 @@ public class AiCommandHandler(
             CallerName = callerName,
             Messages = aiMessages,
             Notes = notes?.ToList() ?? [],
+            Progress = progress ?? new AgentProgress(aiSettings.Value.ChatAssistant.MaxTurns),
         };
 
         ChatAssistantResponse response;

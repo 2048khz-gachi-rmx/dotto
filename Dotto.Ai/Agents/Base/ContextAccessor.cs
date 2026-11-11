@@ -10,11 +10,20 @@ public class ContextAccessor
 {
     private readonly Dictionary<Type, object> _contexts = new();
 
+    /// <summary>
+    /// The most recently set context, if any. Tool wrappers read the caller's
+    /// progress record through this without resolving a context type.
+    /// </summary>
+    public AgentContext? Current { get; private set; }
+
     public T Get<T>() where T : AgentContext =>
         _contexts.TryGetValue(typeof(T), out var ctx)
             ? (T)ctx
             : throw new InvalidOperationException($"No {typeof(T).Name} context set.");
 
-    public void Set<T>(T context) where T : AgentContext =>
+    public void Set<T>(T context) where T : AgentContext
+    {
         _contexts[typeof(T)] = context;
+        Current = context;
+    }
 }

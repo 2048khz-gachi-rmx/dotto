@@ -30,7 +30,7 @@ public class TerminalTools(ISandbox sandbox, ILogger<TerminalTools>? logger = nu
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger?.LogError(ex, "Sandbox failed to start for ExecuteCommand");
-            return SandboxToolMessages.StartFailed;
+            throw new ToolFailureException(SandboxToolMessages.StartFailed);
         }
 
         try
@@ -40,17 +40,17 @@ public class TerminalTools(ISandbox sandbox, ILogger<TerminalTools>? logger = nu
         catch (SandboxHttpException ex)
         {
             logger?.LogWarning(ex, "Sandbox rejected command execution");
-            return ex.Message;
+            throw new ToolFailureException(ex.Message);
         }
         catch (TimeoutException ex)
         {
             logger?.LogWarning(ex, "Sandbox HTTP request timed out");
-            return $"Sandbox timeout error: {ex.Message}";
+            throw new ToolFailureException($"Sandbox timeout error: {ex.Message}");
         }
         catch (HttpRequestException ex)
         {
             logger?.LogWarning(ex, "Sandbox communication failed");
-            return $"Sandbox communication error: {ex.Message}";
+            throw new ToolFailureException($"Sandbox communication error: {ex.Message}");
         }
 
         var output = string.Empty;

@@ -131,6 +131,11 @@ public static class DependencyInjection
         IEnumerable<(Type SourceType, (MethodInfo Method, ToolAttribute Attribute)[] Tools)> toolGroups,
         bool sandboxEnabled)
     {
+        var maxTurns = sp.GetService<IOptions<AiSettings>>()?.Value.ChatAssistant.MaxTurns ?? 20;
+        var accessor = sp.GetService<ContextAccessor>();
+        var fallbackProgress = new AgentProgress(maxTurns);
+        AgentProgress? ResolveProgress() => accessor?.Current?.Progress ?? fallbackProgress;
+
         if (!sandboxEnabled && Interlocked.Exchange(ref _sandboxDisabledLogged, 1) == 0)
         {
             sp.GetService<ILoggerFactory>()
@@ -143,11 +148,17 @@ public static class DependencyInjection
         return toolGroups
             .SelectMany(toolGroup => toolGroup.Tools.Select(tool => (toolGroup.SourceType, Tool: tool)))
             .Where(item => sandboxEnabled || !item.Tool.Attribute.SandboxBacked)
-            .Select(item => AIFunctionFactory.Create(
-                method: item.Tool.Method,
-                target: sp.GetRequiredService(item.SourceType),
-                name: item.Tool.Attribute.Name))
-            .Cast<AITool>()
+            .Select(item =>
+            {
+                var function = AIFunctionFactory.Create(
+                    method: item.Tool.Method,
+                    target: sp.GetRequiredService(item.SourceType),
+                    name: item.Tool.Attribute.Name);
+
+                // One fallback per built agent: if the caller supplied no progress record
+                // the turn budget still applies, it is just not visible to anyone.
+                return (AITool)new TurnLimitedAIFunction(function, ResolveProgress);
+            })
             .ToList();
     }
 
