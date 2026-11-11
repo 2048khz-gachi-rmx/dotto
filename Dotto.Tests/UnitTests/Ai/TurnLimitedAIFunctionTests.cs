@@ -85,7 +85,7 @@ public class TurnLimitedAIFunctionTests
 
         var call = progress.Calls[14];
         call.ArgumentPreview.ShouldBe("whois 15");
-        call.ResultPreview.ShouldBe("Exit code: 0");
+        call.ResultPreview.ShouldBeEmpty();
         call.Completed.ShouldBeTrue();
     }
 
@@ -98,7 +98,6 @@ public class TurnLimitedAIFunctionTests
 
         progress.Calls[0].Failed.ShouldBeTrue();
         progress.Calls[0].ResultPreview.ShouldBe("Exit code: 127 sh: 1: whois: not found");
-        progress.AnyFailed.ShouldBeTrue();
     }
 
     [Test]
@@ -127,7 +126,6 @@ public class TurnLimitedAIFunctionTests
         await function.InvokeAsync(Arguments("grep -c error log.txt"));
 
         progress.Calls[0].Failed.ShouldBeFalse();
-        progress.AnyFailed.ShouldBeFalse();
     }
 
     [Test]
@@ -147,9 +145,9 @@ public class TurnLimitedAIFunctionTests
     [Test]
     public void BuildArgumentPreview_TruncatesLongCommands()
     {
-        var preview = TurnLimitedAIFunction.BuildArgumentPreview(Arguments(new string('x', 100)));
+        var preview = TurnLimitedAIFunction.BuildArgumentPreview(Arguments(new string('x', 400)));
 
-        preview.Length.ShouldBe(AgentProgress.PreviewLength + 1);
+        preview.Length.ShouldBe(AgentProgress.ArgumentPreviewLength + 1);
         preview.ShouldEndWith(AgentProgress.TruncationMarker.ToString());
     }
 }

@@ -21,8 +21,8 @@ update.
 
 #### Scenario: Recent calls replace older ones
 
-- **WHEN** a run has executed more than three tool calls
-- **THEN** the activity shows only the most recent calls, not the full history
+- **WHEN** a run has executed more than five tool calls
+- **THEN** the activity shows only the five most recent calls, not the full history
 
 #### Scenario: Edits are coalesced
 
@@ -37,13 +37,25 @@ update.
 ### Requirement: Tool Call Preview
 
 Each recorded tool call SHALL carry the tool name, an argument preview and a result preview.
-Both previews SHALL be collapsed to single-line text and truncated to 50 characters, with a
-truncation marker when text was cut.
+Previews SHALL be collapsed to single-line text and truncated with a truncation marker when cut:
+arguments to 200 characters, results to 300 characters. A shell result's preview SHALL start with
+`Exit code: <n> ` when the exit status was non-zero, followed by the stderr output (or stdout when
+stderr is empty); a successful call with no output SHALL have no result part.
 
 #### Scenario: Long command is truncated
 
-- **WHEN** a tool is called with an argument longer than 50 characters
-- **THEN** the recorded preview contains at most 50 characters plus a truncation marker
+- **WHEN** a tool is called with an argument longer than 200 characters
+- **THEN** the recorded preview contains at most 200 characters plus a truncation marker
+
+#### Scenario: Result preview prefers stderr and names a failure
+
+- **WHEN** a shell command exits non-zero after writing to stderr
+- **THEN** the result preview reads `Exit code: <n> <stderr>`
+
+#### Scenario: Silent success is not padded
+
+- **WHEN** a shell command exits zero without output
+- **THEN** the recorded call has no result preview
 
 #### Scenario: Multiline output is collapsed
 
@@ -107,9 +119,10 @@ model will be warned when approaching the limit and on its last turn.
 ### Requirement: Run Transcript
 
 The final answer SHALL include the recorded tool calls when the run exceeded a configurable number
-of turns (default 5) or when any tool call failed. The caller SHALL be able to force the
-transcript for a run regardless of those conditions. The appended transcript SHALL be truncated
-so that the final message stays within Discord's 2000-character message limit.
+of turns (default 5). The caller SHALL be able to force the transcript for a run regardless of that
+condition. Failed tool calls alone SHALL NOT trigger the transcript: commands fail routinely, and a
+short run does not need its history dumped. The inline transcript SHALL be trimmed so the message
+fits Discord's 2000-character limit; calls that do not fit are summarised as a count.
 
 #### Scenario: Short successful run omits the transcript
 
@@ -122,20 +135,44 @@ so that the final message stays within Discord's 2000-character message limit.
 - **WHEN** a run exceeds the transcript turn threshold
 - **THEN** the final answer lists the recorded tool calls
 
-#### Scenario: Any failure includes the transcript
+#### Scenario: A failed call alone does not include the transcript
 
-- **WHEN** a run has at least one failed tool call
-- **THEN** the final answer lists the recorded tool calls
+- **WHEN** a short run has one or more failed tool calls but stayed under the turn threshold
+- **THEN** the final answer contains no tool transcript
 
 #### Scenario: Caller forces the transcript
 
 - **WHEN** the caller requests verbose output
-- **THEN** the final answer lists the recorded tool calls regardless of turn count or failures
+- **THEN** the final answer lists the recorded tool calls regardless of turn count
 
 #### Scenario: Transcript respects the message limit
 
 - **WHEN** the recorded calls would push the final message over Discord's message limit
-- **THEN** the transcript is truncated and the message remains within the limit
+- **THEN** the transcript is trimmed and the message remains within the limit
+
+### Requirement: Overflow Answer Attachment
+
+When the composed final message would exceed Discord's 2000-character limit, the bot SHALL attach
+the complete answer text (including the transcript and attachment links) as a text file named
+`answer.txt`, and keep the prompt line, an excerpt of the answer, a note naming the attachment and
+the footer in the message. Content SHALL NOT be silently truncated: whatever the message cannot
+show is present in the file.
+
+#### Scenario: Long answer is attached, not trimmed
+
+- **WHEN** the answer alone exceeds Discord's message limit
+- **THEN** the message carries the prompt line, an excerpt, the attachment note and the footer, and
+  `answer.txt` contains the full answer
+
+#### Scenario: Transcript survives the overflow
+
+- **WHEN** an overflowing answer also has a transcript to show
+- **THEN** the transcript is included in `answer.txt` rather than dropped
+
+#### Scenario: Short answers get no attachment
+
+- **WHEN** the composed message fits within the limit
+- **THEN** no `answer.txt` is attached
 
 ### Requirement: Run Footer
 

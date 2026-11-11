@@ -85,9 +85,26 @@ normal followup/reply instead, so the user always receives it.
 
 ### Transcript trigger and budget
 
-The transcript is appended when the run exceeded `TranscriptTurns` or any call failed, or when the
-caller passed `verbose`. It is capped (last calls, ~1200 characters) so the answer together with
-attachments notes stays inside 2000 characters; omitted calls are summarised as a count.
+The transcript is appended when the run exceeded `TranscriptTurns`, or when the caller passed
+`verbose`. Failed calls do not trigger it — a command failing is ordinary (a missing binary, a
+non-matching `grep`) and a short run's history is noise; the answer already says what went wrong,
+and a failed call inside a long transcript is marked `(failed)`. The transcript is capped (last
+calls, ~1200 characters) so the answer together with attachment notes stays inside 2000 characters;
+omitted calls are summarised as a count.
+
+### Oversized answers become a file, never a truncation
+
+If the composed message still exceeds the limit, the full text (answer, transcript, links) is sent
+as `answer.txt`, and the message keeps the prompt line, a truncated excerpt, a note naming the file
+and the footer. The prompt line stays inline because channel history is rebuilt from message
+content; the footer stays last. `answer.txt` counts against Discord's 10-attachment limit, so if
+the run already produced 10 files the last one is dropped with a warning — the answer text wins,
+and the media still exists in the sandbox/S3.
+
+*Alternatives:* truncating the answer (the original behaviour — silently loses content, and the
+user cannot tell what was cut); splitting the answer across followup messages (multi-message
+answers pollute history and can be reordered); always attaching a file (pointless for the common
+short answer).
 
 ### Failure is structural, not word-matched
 
@@ -111,9 +128,12 @@ every tool (would change the model-facing return schema for no extra benefit).
 - [Edit bursts hit a 429] → edits are debounced and `RestException`/HTTP failures during rendering
   are swallowed with a debug log; the next edit repairs the display.
 - [A shell command exits non-zero for a non-error reason (e.g. `grep` with no match)] → the call is
-  marked failed, which only affects whether the transcript is shown.
-- [A tool forgets to throw on a failure path] → the call looks successful and the transcript may be
-  omitted; the model still sees the message, so the run is not broken.
+  marked failed but the run keeps going; only the `(failed)` marker inside an already-triggered
+  transcript shows it.
+- [A tool forgets to throw on a failure path] → the call looks successful and carries no
+  `(failed)` marker; the model still sees the message, so the run is not broken.
+- [The answer overflows while the run already attached 10 files] → the last file is dropped to make
+  room for `answer.txt`; the media is still addressed in the sandbox/S3 and this is logged.
 - [Activity text leaks tool arguments into the channel] → arguments and results are user-initiated
   data in the caller's own channel; previews are the same data the final answer already exposes.
 

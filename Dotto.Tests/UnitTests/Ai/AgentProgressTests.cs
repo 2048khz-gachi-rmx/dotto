@@ -16,11 +16,11 @@ public class AgentProgressTests
     }
 
     [Test]
-    public void Preview_LongText_TruncatesToFiftyCharactersPlusMarker()
+    public void Preview_LongText_TruncatesToTheArgumentBudgetPlusMarker()
     {
-        var preview = AgentProgress.Preview(new string('a', 120));
+        var preview = AgentProgress.Preview(new string('a', 1200));
 
-        preview.Length.ShouldBe(AgentProgress.PreviewLength + 1);
+        preview.Length.ShouldBe(AgentProgress.ArgumentPreviewLength + 1);
         preview.ShouldEndWith(AgentProgress.TruncationMarker.ToString());
     }
 
@@ -29,6 +29,47 @@ public class AgentProgressTests
     {
         AgentProgress.Preview("Exit code: 127\nsh: 1: whois: not found")
             .ShouldBe("Exit code: 127 sh: 1: whois: not found");
+    }
+
+    [Test]
+    public void PreviewResult_PrefersStderrAndPrefixesTheExitCode()
+    {
+        var result = "Exit code: 1\nstdout:\npartial output\nstderr:\npermission denied\n";
+
+        AgentProgress.PreviewResult(result).ShouldBe("Exit code: 1 permission denied");
+    }
+
+    [Test]
+    public void PreviewResult_FallsBackToStdout_WhenStderrIsEmpty()
+    {
+        var result = "Exit code: 0\nstdout:\nhello world\n";
+
+        AgentProgress.PreviewResult(result).ShouldBe("hello world");
+    }
+
+    [Test]
+    public void PreviewResult_SilentSuccess_HasNoResultPart()
+    {
+        AgentProgress.PreviewResult("Exit code: 0\n").ShouldBeEmpty();
+        AgentProgress.PreviewResult(null).ShouldBeEmpty();
+    }
+
+    [Test]
+    public void PreviewResult_TruncatesThePayloadToTheResultBudget()
+    {
+        var result = $"Exit code: 0\nstdout:\n{new string('z', 900)}\n";
+
+        var preview = AgentProgress.PreviewResult(result);
+
+        preview.Length.ShouldBe(AgentProgress.ResultPreviewLength + 1);
+        preview.ShouldEndWith(AgentProgress.TruncationMarker.ToString());
+    }
+
+    [Test]
+    public void PreviewResult_NonShellResult_IsPassedThrough()
+    {
+        AgentProgress.PreviewResult("File not found: `/work/nope.mp4`.")
+            .ShouldBe("File not found: `/work/nope.mp4`.");
     }
 
     [Test]
@@ -43,7 +84,7 @@ public class AgentProgressTests
         var progress = new AgentProgress(20);
         var call = progress.StartCall("ExecuteCommand", "whois -h whois.radb.net");
 
-        AgentProgress.RenderLine(call!).ShouldBe("ExecuteCommand: whois -h whois.radb.net");
+        AgentProgress.RenderLine(call!).ShouldBe("-# ExecuteCommand: whois -h whois.radb.net");
     }
 
     [Test]
@@ -54,21 +95,21 @@ public class AgentProgressTests
         progress.CompleteCall(call!, "Exit code: 127\nsh: 1: whois: not found", failed: true);
 
         AgentProgress.RenderLine(call!).ShouldBe(
-            "ExecuteCommand: whois -h whois.radb.net // result: Exit code: 127 sh: 1: whois: not found");
+            "-# ExecuteCommand: whois -h whois.radb.net #-> result: Exit code: 127 sh: 1: whois: not found");
     }
 
     [Test]
     public void RenderActivity_ShowsOnlyTheNewestCalls()
     {
         var progress = new AgentProgress(20);
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 8; i++)
             progress.StartCall("ExecuteCommand", $"cmd {i}");
 
         var activity = AgentProgress.RenderActivity(progress.Calls);
 
         activity.Split('\n').Length.ShouldBe(AgentProgress.ActivityLines);
-        activity.ShouldContain("cmd 4");
-        activity.ShouldNotContain("cmd 1");
+        activity.ShouldContain("cmd 7");
+        activity.ShouldNotContain("cmd 2");
     }
 
     [Test]
@@ -96,13 +137,14 @@ public class AgentProgressTests
     }
 
     [Test]
-    public void ShouldShowTranscript_IsTrue_WhenAnyCallFailed()
+    public void ShouldShowTranscript_IsFalse_WhenOnlyAFewCallsFailed()
     {
+        // Failing commands are ordinary; a short run does not dump its transcript for them.
         var progress = new AgentProgress(20);
         var call = progress.StartCall("ExecuteCommand", "cmd");
         progress.CompleteCall(call!, "Exit code: 1", failed: true);
 
-        progress.ShouldShowTranscript(transcriptTurns: 5, verbose: false).ShouldBeTrue();
+        progress.ShouldShowTranscript(transcriptTurns: 5, verbose: false).ShouldBeFalse();
     }
 
     [Test]

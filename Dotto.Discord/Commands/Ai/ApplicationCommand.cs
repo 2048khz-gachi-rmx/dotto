@@ -1,4 +1,4 @@
-using Dotto.Ai.Agents.Base;
+﻿using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Settings;
 using Dotto.Common;
@@ -92,7 +92,7 @@ public class ApplicationCommand(
             .Select(att => att!.ToString())
             .ToList();
 
-        var textResponse = AgentRunMessage.Compose(
+        var composed = AgentRunMessage.Compose(
             response.Response,
             progress,
             verbose,
@@ -108,12 +108,27 @@ public class ApplicationCommand(
             .Select(att => att!)
             .ToList();
 
+        // The answer outgrew the message limit; the full text rides along as a file.
+        if (composed.HasOverflow)
+        {
+            if (attachments.Count >= AgentRunMessage.MaxDiscordAttachments)
+            {
+                // The answer text wins the last slot: media still lives in the sandbox/S3.
+                logger.LogWarning(
+                    "Dropping the last attachment so the full answer can be attached as {File}",
+                    AgentRunMessage.OverflowFileName);
+                attachments.RemoveAt(attachments.Count - 1);
+            }
+
+            attachments.Add(AgentRunMessage.CreateOverflowAttachment(composed));
+        }
+
         RestMessage sentMessage;
         try
         {
             sentMessage = await Context.Interaction.ModifyResponseAsync(options =>
             {
-                options.Content = textResponse;
+                options.Content = composed.Content;
                 options.Attachments = attachments;
             });
         }
@@ -125,7 +140,7 @@ public class ApplicationCommand(
 
             sentMessage = await FollowupAsync(new InteractionMessageProperties
             {
-                Content = textResponse,
+                Content = composed.Content,
                 Attachments = attachments,
             });
         }

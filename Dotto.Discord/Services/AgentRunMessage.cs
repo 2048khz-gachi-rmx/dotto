@@ -1,21 +1,38 @@
 using System.Text;
 using Dotto.Ai.Agents.Base;
+using NetCord.Rest;
 
 namespace Dotto.Discord.Services;
 
 /// <summary>
 /// Composes the final answer for an agent run: the answer text, an optional tool
-/// transcript, attachment links and the run footer. Transcript and body are trimmed
-/// so the message never exceeds Discord's 2000-character limit.
+/// transcript, attachment links and the run footer. When the result would exceed
+/// Discord's message limit, the full text is attached as a file and the message keeps
+/// the prompt line plus a readable excerpt.
 /// </summary>
 public static class AgentRunMessage
 {
     public const int DiscordMessageLimit = 2000;
 
+    /// <summary>Name of the attachment carrying the full answer when the message overflows.</summary>
+    public const string OverflowFileName = "answer.txt";
+
+    /// <summary>Discord's per-message attachment limit.</summary>
+    public const int MaxDiscordAttachments = 10;
+
     /// <summary>Upper bound for the transcript block, before the message limit applies.</summary>
     public const int TranscriptBudget = AgentProgress.TranscriptBudget;
 
-    public static string Compose(
+    /// <summary>
+    /// The message to send, plus the full text when it did not fit (to be attached as
+    /// <see cref="OverflowFileName"/>).
+    /// </summary>
+    public sealed record ComposedRunMessage(string Content, string? OverflowText)
+    {
+        public bool HasOverflow => OverflowText is not null;
+    }
+
+    public static ComposedRunMessage Compose(
         string? answer,
         AgentProgress? progress,
         bool verbose,
@@ -49,36 +66,24 @@ public static class AgentRunMessage
         }
 
         var content = Join(head + body, transcript, linkBlock, footer);
+        if (content.Length <= DiscordMessageLimit)
+            return new ComposedRunMessage(content, null);
 
-        // The transcript absorbs the overflow first, then the answer body.
-        if (content.Length > DiscordMessageLimit && transcript.Length > 0)
-        {
-            var overflow = content.Length - DiscordMessageLimit;
-            transcript = progress!.BuildTranscript(Math.Max(0, transcript.Length - overflow - 24));
-            content = Join(head + body, transcript, linkBlock, footer);
-        }
-
-        if (content.Length > DiscordMessageLimit && body.Length > 0)
-        {
-            var overflow = content.Length - DiscordMessageLimit + 1; // room for the marker
-            body = overflow >= body.Length
-                ? string.Empty
-                : body[..(body.Length - overflow)].TrimEnd() + "…";
-
-            content = Join(head + body, transcript, linkBlock, footer);
-        }
-
-        if (content.Length > DiscordMessageLimit && transcript.Length > 0)
-        {
-            transcript = string.Empty;
-            content = Join(head + body, transcript, linkBlock, footer);
-        }
-
-        if (content.Length > DiscordMessageLimit)
-            content = HardCap(head + body, linkBlock, footer);
-
-        return content;
+        // Too long for one message: attach the whole text and show an excerpt instead.
+        // The prompt line stays in the message so channel history can be reconstructed.
+        // The transcript gets its full budget in the file, since no message room is needed.
+        var fileTranscript = showTranscript ? progress!.BuildTranscript(TranscriptBudget) : string.Empty;
+        var fullText = JoinBody(body, fileTranscript, linkBlock);
+        return new ComposedRunMessage(BuildExcerpt(head, body, footer), fullText);
     }
+
+    /// <summary>
+    /// Builds the attachment carrying the full answer, when the message overflowed.
+    /// </summary>
+    public static AttachmentProperties CreateOverflowAttachment(ComposedRunMessage message) =>
+        new(
+            OverflowFileName,
+            new MemoryStream(Encoding.UTF8.GetBytes(message.OverflowText ?? string.Empty)));
 
     private static string Join(string prefix, string transcript, string linkBlock, string footer)
     {
@@ -96,27 +101,69 @@ public static class AgentRunMessage
         return builder.Append(footer).ToString();
     }
 
-    /// <summary>
-    /// Last resort: cut the answer itself but always keep the footer on the last line.
-    /// </summary>
-    private static string HardCap(string prefix, string linkBlock, string footer)
+    private static string JoinBody(string body, string transcript, string linkBlock)
     {
-        var tail = linkBlock.Length > 0 ? linkBlock + "\n" : string.Empty;
-        var allowed = DiscordMessageLimit - footer.Length - tail.Length - 2;
+        var builder = new StringBuilder(body);
 
-        if (allowed < 0)
-            return footer;
+        if (transcript.Length > 0)
+        {
+            if (builder.Length > 0)
+                builder.Append("\n\n");
 
-        if (prefix.Length > allowed)
-            prefix = prefix[..allowed].TrimEnd() + "…";
+            builder.Append(transcript);
+        }
 
-        var builder = new StringBuilder(prefix);
-        if (builder.Length > 0)
-            builder.Append('\n');
+        if (linkBlock.Length > 0)
+        {
+            if (builder.Length > 0)
+                builder.Append('\n');
 
-        if (tail.Length > 0)
-            builder.Append(tail);
+            builder.Append(linkBlock);
+        }
 
-        return builder.Append(footer).ToString();
+        return builder.ToString();
     }
+
+    /// <summary>
+    /// The message that accompanies the overflow attachment: prompt line, as much of the
+    /// answer as fits, a note naming the attachment, and the footer.
+    /// </summary>
+    private static string BuildExcerpt(string head, string body, string footer)
+    {
+        var notice = $"-# Full answer attached as {OverflowFileName}.";
+        const int separators = 4; // newlines between the four parts
+
+        var prefix = head.TrimEnd();
+        if (prefix.Length > DiscordMessageLimit - notice.Length - footer.Length - separators)
+            prefix = Truncate(prefix, Math.Max(0, DiscordMessageLimit - notice.Length - footer.Length - separators - 1));
+
+        var available = DiscordMessageLimit - prefix.Length - notice.Length - footer.Length - separators;
+        var excerpt = available <= 1 ? string.Empty : Truncate(body, available);
+
+        var parts = new List<string>(4);
+        if (prefix.Length > 0)
+            parts.Add(prefix);
+
+        if (excerpt.Length > 0)
+            parts.Add(excerpt);
+
+        parts.Add(notice);
+        parts.Add(footer);
+
+        var content = string.Join('\n', parts);
+        if (content.Length <= DiscordMessageLimit)
+            return content;
+
+        // Last resort: keep the footer, cut whatever is still too long.
+        var tail = notice + "\n" + footer;
+        var allowed = Math.Max(0, DiscordMessageLimit - tail.Length - 2);
+        var cut = Truncate(string.Join('\n', parts.Take(parts.Count - 2)), allowed);
+
+        return cut.Length > 0 ? cut + "\n" + tail : tail;
+    }
+
+    private static string Truncate(string text, int maxLength) =>
+        text.Length <= maxLength
+            ? text
+            : text[..maxLength].TrimEnd() + "…";
 }

@@ -11,14 +11,17 @@ namespace Dotto.Ai.Agents.Base;
 /// </summary>
 public sealed class AgentProgress(int maxTurns)
 {
-    /// <summary>Characters kept from an argument or result preview.</summary>
-    public const int PreviewLength = 50;
+    /// <summary>Characters kept from a tool argument in the activity line and transcript.</summary>
+    public const int ArgumentPreviewLength = 200;
+
+    /// <summary>Characters kept from a tool result in the activity line and transcript.</summary>
+    public const int ResultPreviewLength = 300;
 
     /// <summary>Appended when a preview had to be cut.</summary>
     public const char TruncationMarker = '…';
 
     /// <summary>How many recent calls the live activity line shows.</summary>
-    public const int ActivityLines = 3;
+    public const int ActivityLines = 5;
 
     /// <summary>Default character budget for the transcript block.</summary>
     public const int TranscriptBudget = 1200;
@@ -62,15 +65,6 @@ public sealed class AgentProgress(int maxTurns)
         {
             lock (_gate)
                 return _calls.Count(call => !call.Executed);
-        }
-    }
-
-    public bool AnyFailed
-    {
-        get
-        {
-            lock (_gate)
-                return _calls.Any(call => call.Failed);
         }
     }
 
@@ -122,7 +116,7 @@ public sealed class AgentProgress(int maxTurns)
         string? warning;
         lock (_gate)
         {
-            call.ResultPreview = Preview(resultText);
+            call.ResultPreview = PreviewResult(resultText);
             call.Failed = failed;
             call.Completed = true;
 
@@ -139,7 +133,7 @@ public sealed class AgentProgress(int maxTurns)
     /// Whether the final answer should carry the tool transcript.
     /// </summary>
     public bool ShouldShowTranscript(int transcriptTurns, bool verbose) =>
-        verbose || Turns >= transcriptTurns || AnyFailed;
+        verbose || Turns >= transcriptTurns;
 
     /// <summary>
     /// Renders the newest calls as the live activity line. Pending calls have no result part.
@@ -147,27 +141,57 @@ public sealed class AgentProgress(int maxTurns)
     public static string RenderActivity(IEnumerable<ToolCall> calls, int maxLines = ActivityLines) =>
         string.Join('\n', calls.TakeLast(Math.Max(1, maxLines)).Select(RenderLine));
 
-    public static string RenderLine(ToolCall call) =>
-        call.Completed && call.ResultPreview != null
-            ? $"{call.ToolName}: {call.ArgumentPreview} // result: {call.ResultPreview}"
-            : $"{call.ToolName}: {call.ArgumentPreview}";
+    /// <summary>An activity line: subtext, so it reads as dimmed chatter above the answer.</summary>
+    public static string RenderLine(ToolCall call) => "-# " + RenderCore(call);
 
     /// <summary>
-    /// Collapses whitespace and truncates to <see cref="PreviewLength"/> characters
+    /// The call without its subtext marker, for lists that already supply their own bullet
+    /// (a <c>-#</c> only renders as subtext at the start of a line).
+    /// </summary>
+    private static string RenderCore(ToolCall call)
+    {
+        var line = $"{call.ToolName}: {call.ArgumentPreview}";
+        return call is { Completed: true, ResultPreview: { Length: > 0 } result }
+            ? $"{line} #-> result: {result}"
+            : line;
+    }
+
+    /// <summary>
+    /// Collapses whitespace and truncates to <paramref name="maxLength"/> characters
     /// (plus a truncation marker) so a preview always stays on one line.
     /// </summary>
-    public static string Preview(string? text)
+    public static string Preview(string? text, int maxLength = ArgumentPreviewLength)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
         var collapsed = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        if (collapsed.Length <= PreviewLength)
+        if (collapsed.Length <= maxLength)
             return collapsed;
 
         return string.Concat(
-            collapsed.AsSpan(0, PreviewLength).TrimEnd(),
+            collapsed.AsSpan(0, maxLength).TrimEnd(),
             TruncationMarker.ToString());
+    }
+
+    /// <summary>
+    /// Builds the result part of an activity line: the exit status when it was non-zero,
+    /// then the most interesting stream (stderr before stdout), capped at
+    /// <see cref="ResultPreviewLength"/>. A silent success yields nothing at all.
+    /// </summary>
+    public static string PreviewResult(string? result)
+    {
+        if (string.IsNullOrWhiteSpace(result))
+            return string.Empty;
+
+        if (!TrySplitShellResult(result, out var exitCode, out var output))
+            return Preview(result, ResultPreviewLength);
+
+        var body = Preview(output, ResultPreviewLength);
+        if (exitCode == 0)
+            return body;
+
+        return body.Length == 0 ? $"Exit code: {exitCode}" : $"Exit code: {exitCode} {body}";
     }
 
     /// <summary>
@@ -199,7 +223,7 @@ public sealed class AgentProgress(int maxTurns)
 
         for (var i = calls.Count - 1; i >= 0; i--)
         {
-            var line = "- " + RenderLine(calls[i]) + (calls[i].Failed ? " (failed)" : "");
+            var line = "- " + RenderCore(calls[i]) + (calls[i].Failed ? " (failed)" : "");
             if (used + line.Length + 1 > maxChars)
             {
                 omitted = i + 1;
@@ -242,6 +266,58 @@ public sealed class AgentProgress(int maxTurns)
             return ApproachingLimitWarning;
 
         return null;
+    }
+
+    /// <summary>
+    /// Splits the sandbox's shell result (<c>Exit code: N</c> followed by optional
+    /// <c>stdout:</c> and <c>stderr:</c> sections) into its status and payload.
+    /// </summary>
+    private static bool TrySplitShellResult(string result, out int exitCode, out string output)
+    {
+        exitCode = 0;
+        output = string.Empty;
+
+        if (TryReadExitCode(result) is not { } code)
+            return false;
+
+        exitCode = code;
+
+        var newline = result.IndexOf('\n');
+        var remainder = newline < 0 ? string.Empty : result[(newline + 1)..];
+
+        var stderr = ReadSection(remainder, "stderr:");
+        var stdout = ReadSection(remainder, "stdout:");
+
+        output = !string.IsNullOrWhiteSpace(stderr)
+            ? stderr
+            : !string.IsNullOrWhiteSpace(stdout)
+                ? stdout
+                : remainder;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Text after the last line equal to <paramref name="header"/> (for <c>stdout:</c>, up
+    /// to the <c>stderr:</c> section when one follows).
+    /// </summary>
+    private static string ReadSection(string text, string header)
+    {
+        var lines = text.Split('\n');
+
+        var start = Array.LastIndexOf(lines, header);
+        if (start < 0)
+            return string.Empty;
+
+        var end = lines.Length;
+        if (header == "stdout:")
+        {
+            var stderr = Array.LastIndexOf(lines, "stderr:");
+            if (stderr > start)
+                end = stderr;
+        }
+
+        return string.Join('\n', lines[(start + 1)..end]);
     }
 
     private static int? TryReadExitCode(string? result)
@@ -298,6 +374,6 @@ public sealed class ToolCall
         ArgumentPreview = argumentPreview,
         Executed = false,
         Completed = true,
-        ResultPreview = AgentProgress.Preview(notice)
+        ResultPreview = AgentProgress.PreviewResult(notice)
     };
 }

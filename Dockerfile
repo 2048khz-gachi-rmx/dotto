@@ -16,7 +16,6 @@ COPY Dotto.Downloader.Contracts/Dotto.Downloader.Contracts.csproj   Dotto.Downlo
 COPY Dotto.Ffmpeg/Dotto.Ffmpeg.csproj                               Dotto.Ffmpeg/
 COPY Dotto.Ffmpeg.Contracts/Dotto.Ffmpeg.Contracts.csproj           Dotto.Ffmpeg.Contracts/
 COPY Dotto.FileUpload/Dotto.FileUpload.csproj                       Dotto.FileUpload/
-COPY Dotto.Tests/Dotto.Tests.csproj                                 Dotto.Tests/
 
 # Restore here, leaving the downloaded packages inside the image layer so they
 # come back with it on a layer-cache hit.

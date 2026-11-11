@@ -96,7 +96,7 @@ public class TextCommand(
             .Select(att => att!.ToString())
             .ToList();
 
-        var textResponse = AgentRunMessage.Compose(
+        var composed = AgentRunMessage.Compose(
             response.Response,
             progress,
             verbose: false,
@@ -111,12 +111,27 @@ public class TextCommand(
             .Select(att => att!)
             .ToList();
 
+        // The answer outgrew the message limit; the full text rides along as a file.
+        if (composed.HasOverflow)
+        {
+            if (attachments.Count >= AgentRunMessage.MaxDiscordAttachments)
+            {
+                // The answer text wins the last slot: media still lives in the sandbox/S3.
+                logger.LogWarning(
+                    "Dropping the last attachment so the full answer can be attached as {File}",
+                    AgentRunMessage.OverflowFileName);
+                attachments.RemoveAt(attachments.Count - 1);
+            }
+
+            attachments.Add(AgentRunMessage.CreateOverflowAttachment(composed));
+        }
+
         RestMessage sentMessage;
         try
         {
             sentMessage = await placeholder.ModifyAsync(options =>
             {
-                options.Content = textResponse;
+                options.Content = composed.Content;
                 options.Attachments = attachments;
             });
         }
@@ -126,7 +141,7 @@ public class TextCommand(
 
             sentMessage = await ReplyAsync(new ReplyMessageProperties
             {
-                Content = textResponse,
+                Content = composed.Content,
                 Attachments = attachments,
             });
         }
