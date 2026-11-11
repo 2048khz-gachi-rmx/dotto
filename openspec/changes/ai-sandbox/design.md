@@ -42,7 +42,7 @@ See `proposal.md` — Why for the full motivation.
 **Chosen:** Python 3 stdlib (`http.server` + `subprocess`)
 **Alternatives considered:** Deno, Go static binary, Rust
 
-**Rationale:** The sandbox container is already isolated by Docker — Deno's security sandbox (`--allow-read`, `--allow-net`) is redundant. Python is familiar to the team, requires no compile step, no additional toolchain, and no pip dependencies (stdlib only). A single `server.py` file is small and easy to audit.
+**Rationale:** The sandbox container is already isolated by Docker — Deno's security sandbox (`--allow-read`, `--allow-net`) is redundant. Python is familiar to the team, requires no compile step, no additional toolchain, and the server itself needs no pip dependencies (stdlib only; the image's pip packages exist for the assistant's use, not the server's). A single `server.py` file is small and easy to audit.
 
 ### Decision 2: HTTP file streaming over a shared bot-visible filesystem
 

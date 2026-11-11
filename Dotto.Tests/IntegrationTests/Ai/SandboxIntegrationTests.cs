@@ -221,6 +221,61 @@ public class SandboxIntegrationTests
     }
 
     [Test]
+    public async Task ExecuteAsync_ChartingLibrariesAreInstalled()
+    {
+        if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
+        if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
+
+        var sandbox = CreateSandbox();
+        var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+
+        try
+        {
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            // Act: render a plot and draw text with Pillow, the two things an assistant reaches
+            // for when asked to "draw a chart" or "annotate an image".
+            const string script = """
+                python3 - <<'PY'
+                import matplotlib
+                matplotlib.use("Agg")
+                import matplotlib.pyplot as plt
+                from PIL import Image, ImageDraw, ImageFont
+
+                fig, ax = plt.subplots(figsize=(4, 2), dpi=90)
+                ax.plot([1, 2, 3], [2, 1, 3])
+                fig.savefig("/work/plot.png")
+                plt.close(fig)
+
+                font = ImageFont.truetype(
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+                image = Image.new("RGB", (120, 40), "white")
+                ImageDraw.Draw(image).text((4, 4), "hi", fill="black", font=font)
+                image.save("/work/text.png")
+                print("rendered")
+                PY
+                """;
+
+            var result = await container.ExecuteAsync(script, "/work", "", CancellationToken.None);
+
+            // Assert
+            result.ExitCode.ShouldBe(0);
+            result.Stdout.ShouldContain("rendered");
+
+            var sizes = await container.ExecuteAsync(
+                "stat -c %s /work/plot.png /work/text.png", "/work", "", CancellationToken.None);
+            sizes.ExitCode.ShouldBe(0);
+            sizes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(long.Parse).ShouldAllBe(size => size > 200);
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+        }
+    }
+
+    [Test]
     public async Task ExecuteAsync_DetachedGrandchildDoesNotHangSession()
     {
         if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }

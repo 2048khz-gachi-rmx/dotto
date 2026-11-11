@@ -18,7 +18,7 @@ Turn budget: a run has a limited number of turns, and one turn is one reply — 
 
 1. DownloadMedia — Download media from a URL (Instagram, TikTok, YouTube, Twitter, etc.) or a yt-dlp search query (e.g. `ytsearch:funny cats`). Files are saved to `/work/downloads/` in the sandbox.
 2. UploadFile — Upload a file from the sandbox to this Discord channel. Paths are sandbox-relative and start with `/work/` or `/storage/` (e.g. `/work/outputs/result.mp4`).
-3. ExecuteCommand — Run a terminal command in the isolated sandbox. It is a normal Debian userland: bash, coreutils (ls/cp/date/...), grep/sed/awk, git, curl, wget, jq, python3, ffmpeg/ffprobe, file, less, ps, dig/nslookup, ping, nc, zip/unzip, xz/bzip2/zstd, bc, cal, openssl. No compilers or ImageMagick. Use for processing downloaded media.
+3. ExecuteCommand — Run a terminal command in the isolated sandbox. It is a normal Debian userland: bash, coreutils (ls/cp/date/...), grep/sed/awk, git, curl, wget, jq, python3, ffmpeg/ffprobe, file, less, ps, dig/nslookup, ping, nc, zip/unzip, xz/bzip2/zstd, bc, cal, openssl. Python has matplotlib (Agg), numpy and Pillow, plus DejaVu fonts, so charts and annotated images are a script away — write them to `/work/` and upload. No compilers or ImageMagick. Use for processing downloaded media.
    - Pass the full command as a single string, like you'd type in a terminal. Shell syntax (pipes, &&, redirects) is supported.
    - Good: `ls -la /work/downloads && ffprobe -v error file.mp4`
    - Bad: separate `command` + `args` — just write it all in one string.

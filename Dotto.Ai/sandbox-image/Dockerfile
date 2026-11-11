@@ -7,8 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         file less tree bc procps lsof time bsdmainutils xxd \
         zip unzip xz-utils bzip2 zstd \
         bind9-dnsutils iputils-ping netcat-openbsd iproute2 whois wget \
-        ncal git \
+        ncal git fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
+
+# Charting an assistant can actually use: matplotlib needs numpy and pill, and ships DejaVu
+# itself; Pillow can use the DejaVu files installed above for text. Versions pinned so the
+# image does not drift between builds.
+RUN pip install --no-cache-dir \
+        "matplotlib==3.11.2" "numpy==2.5.4" "pillow==13.0.0" \
+    && find / -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+ENV MPLCONFIGDIR=/tmp/matplotlib
 
 ADD https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64 /usr/local/bin/ffmpeg
 ADD https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffprobe-linux-x64 /usr/local/bin/ffprobe

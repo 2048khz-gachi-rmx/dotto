@@ -79,6 +79,10 @@ additionally `curl`, `jq`, `wget`, `git`, `file`, `less`, `tree`, `bc`, `ps`/`to
 `lsof`, `time`, `hexdump`/`column`, `xxd`, `zip`/`unzip`/`xz`/`bzip2`/`zstd`, `dig`/`nslookup`/`host`,
 `ping`, `nc`, `ip`/`ss`, `whois`, `cal`/`ncal`, `openssl`, `python3` + `pip`.
 
+For charting and image work, `matplotlib` (Agg), `numpy` and `Pillow` are installed at pinned
+versions, with DejaVu fonts under `/usr/share/fonts/truetype/dejavu/`. `MPLCONFIGDIR` points at
+`/tmp/matplotlib` so font caches work with the read-only root filesystem.
+
 Deliberately absent: compilers and build tools, ImageMagick, media suites beyond ffmpeg, and
 `sudo`. The container runs as an unprivileged user with a read-only root filesystem.
 

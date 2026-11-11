@@ -165,9 +165,20 @@ The sandbox SHALL provide the binaries an assistant expects from a small Linux u
 - **WHEN** the bot sends `POST /execute` with `{"command": "command -v gcc make"}` with a non-zero status expected
 - **THEN** neither is found, keeping the image small and the sandbox free of a build toolchain
 
-### Requirement: No pip or extra dependencies
-The sandbox image SHALL install ffmpeg and ffprobe from a static release tarball, and the remaining utilities via apt (no third-party repositories). No pip packages SHALL be installed. The HTTP server SHALL use only the Python 3 standard library.
+### Requirement: Python charting libraries
+The sandbox SHALL have matplotlib, numpy and Pillow installed at pinned versions, plus DejaVu fonts on disk, so the assistant renders charts and annotates images instead of hand-rolling an encoder. Rendering SHALL work with the container's read-only root filesystem and a writable `/work`.
 
-#### Scenario: Verify no pip packages
-- **WHEN** the sandbox container starts
-- **THEN** the server runs successfully with only Python stdlib modules imported
+#### Scenario: matplotlib renders a chart
+- **WHEN** the bot sends `POST /execute` running a script that plots with the Agg backend and saves a PNG under `/work`
+- **THEN** the command exits 0 and the PNG exists with non-trivial size
+
+#### Scenario: Pillow can draw text with a system font
+- **WHEN** the bot draws text with `ImageFont.truetype` on the installed DejaVu font
+- **THEN** the image is written without error, so no font hunt is needed
+
+### Requirement: Minimal dependencies
+The sandbox image SHALL install ffmpeg and ffprobe from a static release tarball, the shell utilities via apt (no third-party repositories), and only the charting trio via pip. No other pip packages SHALL be installed, and the HTTP server SHALL use only the Python 3 standard library.
+
+#### Scenario: Verify no extra pip packages
+- **WHEN** `pip list` runs in the container
+- **THEN** it shows only matplotlib, numpy, Pillow and their direct dependencies, and the server still starts with only stdlib modules imported
