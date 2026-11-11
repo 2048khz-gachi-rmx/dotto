@@ -116,7 +116,9 @@ networks:
   docker_socket:
     internal: true
   # Pinned bridge name + subnet (default pools are exhausted; a LAN overlap would be routed).
+  # Network name is pinned too: containers join it by name (Ai:Sandbox:NetworkName).
   sandbox:
+    name: sandbox
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-sandbox
