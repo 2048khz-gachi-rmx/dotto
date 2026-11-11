@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Dotto.Ai.Agents;
+using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
@@ -31,6 +32,7 @@ public class AiCommandHandler(
         ulong guildId,
         long discordUploadLimit,
         IList<RestMessage> messages,
+        IReadOnlyList<ContextNote>? notes = null,
         CancellationToken ct = default)
     {
         if (SelfUserId == null)
@@ -52,6 +54,7 @@ public class AiCommandHandler(
             CallerId = callerId,
             CallerName = callerName,
             Messages = aiMessages,
+            Notes = notes?.ToList() ?? [],
         };
 
         ChatAssistantResponse response;

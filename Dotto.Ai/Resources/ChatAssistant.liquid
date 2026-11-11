@@ -28,7 +28,10 @@ File lifecycle:
 - Use UploadFile to share files from either location with the user. The user has no access to the sandbox.{% endif %}
 
 The chat's history is provided to you using XML, but your response should not use XML.
-
+{% if Notes.size > 0 %}
+Additional context for this interaction:
+{% for note in Notes %}- {{ note.Title }}: {{ note.Body }}
+{% endfor %}{% endif %}
 Current time (UTC): {{ UtcTime }}
 User: {{ CallerName }}
 {% comment -%}

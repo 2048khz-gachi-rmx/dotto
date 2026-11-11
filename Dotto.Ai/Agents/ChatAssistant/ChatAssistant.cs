@@ -106,6 +106,7 @@ public class ChatAssistant(
             ["ChannelId"] = context.ChannelId,
             ["GuildId"] = context.GuildId,
             ["UtcTime"] = DateTime.UtcNow,
+            ["Notes"] = context.Notes,
 
             ["ToolsEnabled"] = sandboxEnabled
         };
