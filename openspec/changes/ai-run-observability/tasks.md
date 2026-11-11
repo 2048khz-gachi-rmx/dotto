@@ -4,11 +4,11 @@
 
 - [x] 1.1 Add `AgentProgress` (turn count, `ToolCall` records, warnings, transcript trigger) and its
       preview/format helpers to `Dotto.Ai/Agents/Base/`, and verify with unit tests covering
-      200/300-character truncation, whitespace collapsing, activity rendering, footer text and
+      120/180-character truncation, whitespace collapsing, activity rendering, footer text and
       `ShouldShowTranscript` (`dotnet test Dotto.Tests --filter FullyQualifiedName~AgentProgress`)
-- [x] 1.2 Add `MaxTurns` (default 20) and `TranscriptTurns` (default 5) to
-      `ChatAssistantSettings` with range validation, and verify defaults and validation with a unit
-      test on the options object
+- [x] 1.2 Add `MaxTurns` (default 20) and `TranscriptTurns` (unset by default, falling back to
+      `MaxTurns`) to `ChatAssistantSettings` with range validation, and verify defaults and validation
+      with a unit test on the options object
 
 ## 2. Instrumentation
 

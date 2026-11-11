@@ -46,7 +46,7 @@ public class AgentActivityMessageTests
 
             updates().Count.ShouldBe(1);
             renderer.LastContent.ShouldNotBeNull();
-            renderer.LastContent.ShouldContain("ExecuteCommand: cmd");
+            renderer.LastContent.ShouldContain("ExecuteCommand: `cmd");
         }
     }
 

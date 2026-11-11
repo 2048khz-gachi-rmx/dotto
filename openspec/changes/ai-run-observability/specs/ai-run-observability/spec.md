@@ -36,26 +36,37 @@ update.
 
 ### Requirement: Tool Call Preview
 
-Each recorded tool call SHALL carry the tool name, an argument preview and a result preview.
-Previews SHALL be collapsed to single-line text and truncated with a truncation marker when cut:
-arguments to 200 characters, results to 300 characters. A shell result's preview SHALL start with
-`Exit code: <n> ` when the exit status was non-zero, followed by the stderr output (or stdout when
-stderr is empty); a successful call with no output SHALL have no result part.
+Each recorded tool call SHALL carry the tool name, an argument preview and the tool's result
+object as returned. Results SHALL be typed: a plain text result carries only its model-facing
+`Text`; a sandbox command result also carries `ExitCode`, `Stdout` and `Stderr`, and reports
+failure when the exit status is non-zero. Text and previews SHALL be collapsed to single-line text
+and truncated with a truncation marker when cut: arguments to 120 characters, results to 180.
 
 #### Scenario: Long command is truncated
 
-- **WHEN** a tool is called with an argument longer than 200 characters
-- **THEN** the recorded preview contains at most 200 characters plus a truncation marker
+- **WHEN** a tool is called with an argument longer than 120 characters
+- **THEN** the recorded preview contains at most 120 characters plus a truncation marker
 
-#### Scenario: Result preview prefers stderr and names a failure
+#### Scenario: A command's status and streams are recorded
 
-- **WHEN** a shell command exits non-zero after writing to stderr
-- **THEN** the result preview reads `Exit code: <n> <stderr>`
+- **WHEN** a sandbox command exits non-zero after writing to stderr
+- **THEN** the recorded result carries the exit status and both streams, and reports failure
+
+#### Scenario: The rendered stream matches the outcome
+
+- **WHEN** a command wrote to both streams
+- **THEN** a successful command shows stdout and a failed one shows stderr, falling back to the
+  other stream when the preferred one is empty
+
+#### Scenario: A text result carries no status
+
+- **WHEN** a tool that is not a sandbox command completes
+- **THEN** its recorded result is text-only and NOT marked failed, whatever the text says
 
 #### Scenario: Silent success is not padded
 
 - **WHEN** a shell command exits zero without output
-- **THEN** the recorded call has no result preview
+- **THEN** the rendered call has no result part
 
 #### Scenario: Multiline output is collapsed
 
@@ -66,6 +77,28 @@ stderr is empty); a successful call with no output SHALL have no result part.
 
 - **WHEN** a tool call fails (non-zero exit status, or a tool-reported failure)
 - **THEN** the recorded call is marked as failed
+
+### Requirement: Activity Line Format
+
+A rendered call SHALL be `-# <Tool>: `<args>` **#>** [<exit>] `<output>``. The bracketed exit status
+SHALL appear only when it was non-zero; both previews SHALL be inline code; a backtick inside either
+preview SHALL be replaced so the span stays intact.
+
+#### Scenario: Successful call omits the exit status
+
+- **WHEN** a command exits zero after printing output
+- **THEN** the line names the tool, the command and the output, with no bracketed status
+
+#### Scenario: Failed call names the exit status
+
+- **WHEN** a command exits non-zero
+- **THEN** the line carries `[<n>]` between `**#>**` and the output
+
+#### Scenario: Backticks in the content do not break the formatting
+
+- **WHEN** a command or its output contains a backtick
+- **THEN** the backtick is replaced before the preview is wrapped in a code span, so the span stays
+  intact
 
 ### Requirement: Turn Budget
 
@@ -118,11 +151,10 @@ model will be warned when approaching the limit and on its last turn.
 
 ### Requirement: Run Transcript
 
-The final answer SHALL include the recorded tool calls when the run exceeded a configurable number
-of turns (default 5). The caller SHALL be able to force the transcript for a run regardless of that
-condition. Failed tool calls alone SHALL NOT trigger the transcript: commands fail routinely, and a
-short run does not need its history dumped. The inline transcript SHALL be trimmed so the message
-fits Discord's 2000-character limit; calls that do not fit are summarised as a count.
+The final answer SHALL include the recorded tool calls when the run exceeded the configured
+transcript threshold, or when the caller forces it. The threshold is unset by default, meaning the
+turn limit, and SHALL be overridable through configuration. Failed tool calls alone SHALL NOT
+trigger the transcript.
 
 #### Scenario: Short successful run omits the transcript
 
@@ -132,7 +164,7 @@ fits Discord's 2000-character limit; calls that do not fit are summarised as a c
 
 #### Scenario: Long run includes the transcript
 
-- **WHEN** a run exceeds the transcript turn threshold
+- **WHEN** a run exceeds the transcript turn threshold (the turn limit, unless configured)
 - **THEN** the final answer lists the recorded tool calls
 
 #### Scenario: A failed call alone does not include the transcript
@@ -148,7 +180,8 @@ fits Discord's 2000-character limit; calls that do not fit are summarised as a c
 #### Scenario: Transcript respects the message limit
 
 - **WHEN** the recorded calls would push the final message over Discord's message limit
-- **THEN** the transcript is trimmed and the message remains within the limit
+- **THEN** the transcript is trimmed, older calls are summarised as a count, and the message
+  remains within the limit
 
 ### Requirement: Overflow Answer Attachment
 

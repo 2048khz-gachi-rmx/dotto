@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using Dotto.Ai.Tools;
 
 namespace Dotto.Ai.Agents.Base;
 
@@ -12,10 +13,10 @@ namespace Dotto.Ai.Agents.Base;
 public sealed class AgentProgress(int maxTurns)
 {
     /// <summary>Characters kept from a tool argument in the activity line and transcript.</summary>
-    public const int ArgumentPreviewLength = 200;
+    public const int ArgumentPreviewLength = 120;
 
     /// <summary>Characters kept from a tool result in the activity line and transcript.</summary>
-    public const int ResultPreviewLength = 300;
+    public const int ResultPreviewLength = 180;
 
     /// <summary>Appended when a preview had to be cut.</summary>
     public const char TruncationMarker = '…';
@@ -111,13 +112,12 @@ public sealed class AgentProgress(int maxTurns)
     /// Records the outcome of a call and returns the turn-limit warning that must be
     /// prepended to the tool result (empty when none applies).
     /// </summary>
-    public string CompleteCall(ToolCall call, string? resultText, bool failed)
+    public string CompleteCall(ToolCall call, IToolResult? result)
     {
         string? warning;
         lock (_gate)
         {
-            call.ResultPreview = PreviewResult(resultText);
-            call.Failed = failed;
+            call.Result = result;
             call.Completed = true;
 
             warning = call.Executed ? SelectWarning(call.Index, MaxTurns) : null;
@@ -130,10 +130,11 @@ public sealed class AgentProgress(int maxTurns)
     }
 
     /// <summary>
-    /// Whether the final answer should carry the tool transcript.
+    /// Whether the final answer should carry the tool transcript. Unset means the turn
+    /// limit, so only runs that spent their whole budget dump their history.
     /// </summary>
-    public bool ShouldShowTranscript(int transcriptTurns, bool verbose) =>
-        verbose || Turns >= transcriptTurns;
+    public bool ShouldShowTranscript(int? transcriptTurns, bool verbose) =>
+        verbose || Turns >= (transcriptTurns ?? MaxTurns);
 
     /// <summary>
     /// Renders the newest calls as the live activity line. Pending calls have no result part.
@@ -150,11 +151,38 @@ public sealed class AgentProgress(int maxTurns)
     /// </summary>
     private static string RenderCore(ToolCall call)
     {
-        var line = $"{call.ToolName}: {call.ArgumentPreview}";
-        return call is { Completed: true, ResultPreview: { Length: > 0 } result }
-            ? $"{line} #-> result: {result}"
-            : line;
+        var line = $"{call.ToolName}: {Code(call.ArgumentPreview)}";
+        if (call is not { Completed: true, Result: { } result })
+            return line;
+
+        var rendered = RenderResult(result);
+        return rendered.Length == 0 ? line : $"{line} **#>** {rendered}";
     }
+
+    /// <summary>
+    /// Formats a result for the activity line: the exit status when it was non-zero, then the
+    /// stream worth showing or the tool's own text, both as inline code.
+    /// </summary>
+    private static string RenderResult(IToolResult result)
+    {
+        if (result is CommandToolResult command)
+        {
+            var status = command.ExitCode != 0 ? $"[{command.ExitCode}] " : string.Empty;
+            var output = Preview(command.Output, ResultPreviewLength);
+
+            return status + (output.Length > 0 ? Code(output) : string.Empty);
+        }
+
+        var text = Preview(result.Text, ResultPreviewLength);
+        return text.Length > 0 ? Code(text) : string.Empty;
+    }
+
+    /// <summary>
+    /// Wraps text in an inline code span so tool arguments and output render verbatim.
+    /// Discord neither nests nor escapes backticks inside a span, so a literal backtick is
+    /// swapped for a visually similar grave accent instead of breaking the formatting.
+    /// </summary>
+    public static string Code(string text) => $"`{text.Replace('`', 'ˋ')}`";
 
     /// <summary>
     /// Collapses whitespace and truncates to <paramref name="maxLength"/> characters
@@ -173,34 +201,6 @@ public sealed class AgentProgress(int maxTurns)
             collapsed.AsSpan(0, maxLength).TrimEnd(),
             TruncationMarker.ToString());
     }
-
-    /// <summary>
-    /// Builds the result part of an activity line: the exit status when it was non-zero,
-    /// then the most interesting stream (stderr before stdout), capped at
-    /// <see cref="ResultPreviewLength"/>. A silent success yields nothing at all.
-    /// </summary>
-    public static string PreviewResult(string? result)
-    {
-        if (string.IsNullOrWhiteSpace(result))
-            return string.Empty;
-
-        if (!TrySplitShellResult(result, out var exitCode, out var output))
-            return Preview(result, ResultPreviewLength);
-
-        var body = Preview(output, ResultPreviewLength);
-        if (exitCode == 0)
-            return body;
-
-        return body.Length == 0 ? $"Exit code: {exitCode}" : $"Exit code: {exitCode} {body}";
-    }
-
-    /// <summary>
-    /// Failure detection for shell results: a non-zero exit status. Tools that fail in
-    /// other ways report it by throwing <c>ToolFailureException</c>; result text is never
-    /// pattern-matched, so ordinary output mentioning "error" is not a failure.
-    /// </summary>
-    public static bool HasNonZeroExitCode(string? result) =>
-        TryReadExitCode(result) is { } exitCode && exitCode != 0;
 
     /// <summary>
     /// Renders the newest calls that fit into <paramref name="maxChars"/>, noting how many
@@ -267,77 +267,6 @@ public sealed class AgentProgress(int maxTurns)
 
         return null;
     }
-
-    /// <summary>
-    /// Splits the sandbox's shell result (<c>Exit code: N</c> followed by optional
-    /// <c>stdout:</c> and <c>stderr:</c> sections) into its status and payload.
-    /// </summary>
-    private static bool TrySplitShellResult(string result, out int exitCode, out string output)
-    {
-        exitCode = 0;
-        output = string.Empty;
-
-        if (TryReadExitCode(result) is not { } code)
-            return false;
-
-        exitCode = code;
-
-        var newline = result.IndexOf('\n');
-        var remainder = newline < 0 ? string.Empty : result[(newline + 1)..];
-
-        var stderr = ReadSection(remainder, "stderr:");
-        var stdout = ReadSection(remainder, "stdout:");
-
-        output = !string.IsNullOrWhiteSpace(stderr)
-            ? stderr
-            : !string.IsNullOrWhiteSpace(stdout)
-                ? stdout
-                : remainder;
-
-        return true;
-    }
-
-    /// <summary>
-    /// Text after the last line equal to <paramref name="header"/> (for <c>stdout:</c>, up
-    /// to the <c>stderr:</c> section when one follows).
-    /// </summary>
-    private static string ReadSection(string text, string header)
-    {
-        var lines = text.Split('\n');
-
-        var start = Array.LastIndexOf(lines, header);
-        if (start < 0)
-            return string.Empty;
-
-        var end = lines.Length;
-        if (header == "stdout:")
-        {
-            var stderr = Array.LastIndexOf(lines, "stderr:");
-            if (stderr > start)
-                end = stderr;
-        }
-
-        return string.Join('\n', lines[(start + 1)..end]);
-    }
-
-    private static int? TryReadExitCode(string? result)
-    {
-        const string prefix = "Exit code: ";
-        if (string.IsNullOrEmpty(result) || !result.StartsWith(prefix, StringComparison.Ordinal))
-            return null;
-
-        var digits = result.AsSpan(prefix.Length);
-        var length = 0;
-        while (length < digits.Length && char.IsDigit(digits[length]))
-            length++;
-
-        if (length == 0)
-            return null;
-
-        return int.TryParse(digits[..length], out var code)
-            ? code
-            : null;
-    }
 }
 
 /// <summary>
@@ -357,9 +286,11 @@ public sealed class ToolCall
 
     public bool Completed { get; internal set; }
 
-    public string? ResultPreview { get; internal set; }
+    /// <summary>The tool's outcome, exactly as the tool handed it back; null until completion.</summary>
+    public IToolResult? Result { get; internal set; }
 
-    public bool Failed { get; internal set; }
+    /// <summary>Whether the result reports a failure. Text results never do on their own.</summary>
+    public bool Failed => Result?.Failed ?? false;
 
     internal static ToolCall Pending(string toolName, string argumentPreview, int index) => new()
     {
@@ -374,6 +305,6 @@ public sealed class ToolCall
         ArgumentPreview = argumentPreview,
         Executed = false,
         Completed = true,
-        ResultPreview = AgentProgress.PreviewResult(notice)
+        Result = new TextToolResult(notice)
     };
 }

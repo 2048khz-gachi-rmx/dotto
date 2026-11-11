@@ -124,6 +124,14 @@ public static class DependencyInjection
     }
 
     /// <summary>
+    /// Keeps a tool's return value intact so <see cref="TurnLimitedAIFunction"/> can record a
+    /// typed result (exit status, streams); the wrapper, not the factory, decides what text the
+    /// model reads.
+    /// </summary>
+    private static readonly Func<object?, Type?, CancellationToken, ValueTask<object?>> MarshalIdentity =
+        (value, _, _) => ValueTask.FromResult(value);
+
+    /// <summary>
     /// Builds the agent's tool list; sandbox-backed tools are dropped when disabled.
     /// </summary>
     internal static List<AITool> BuildTools(
@@ -153,7 +161,14 @@ public static class DependencyInjection
                 var function = AIFunctionFactory.Create(
                     method: item.Tool.Method,
                     target: sp.GetRequiredService(item.SourceType),
-                    name: item.Tool.Attribute.Name);
+                    options: new AIFunctionFactoryOptions
+                    {
+                        Name = item.Tool.Attribute.Name,
+                        MarshalResult = MarshalIdentity,
+                        // The declarer return type is a record, but the model-visible result is
+                        // text, so no object schema should be advertised for it.
+                        ExcludeResultSchema = true
+                    });
 
                 // One fallback per built agent: if the caller supplied no progress record
                 // the turn budget still applies, it is just not visible to anyone.

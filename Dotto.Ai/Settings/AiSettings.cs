@@ -63,8 +63,9 @@ public class ChatAssistantSettings
 
     /// <summary>
     /// Runs with at least this many tool calls include the tool transcript in the
-    /// final answer.
+    /// final answer. Leave unset to use <see cref="MaxTurns"/>: the transcript is for runs
+    /// that spent the whole budget, which is also when the footer invites the question.
     /// </summary>
     [Range(1, 100)]
-    public int TranscriptTurns { get; set; } = 5;
+    public int? TranscriptTurns { get; set; }
 }

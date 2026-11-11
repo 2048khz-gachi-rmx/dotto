@@ -15,19 +15,30 @@ public class TurnLimitedAIFunctionTests
     private static AIFunctionArguments Arguments(string command) =>
         new(new Dictionary<string, object?> { ["command"] = command });
 
+    private static readonly AIFunctionFactoryOptions PassthroughResults = new()
+    {
+        MarshalResult = (value, _, _) => ValueTask.FromResult(value),
+        ExcludeResultSchema = true
+    };
+
     private static (TurnLimitedAIFunction Function, AgentProgress Progress, Func<int> Executions) Build(
-        int maxTurns = 20, string result = "Exit code: 0")
+        int maxTurns = 20, IToolResult? result = null)
     {
         var executions = 0;
+        var reply = result ?? new TextToolResult("Exit code: 0");
 
         var inner = AIFunctionFactory.Create(
             (string command) =>
             {
                 executions++;
-                return result;
+                return reply;
             },
-            name: "ExecuteCommand",
-            serializerOptions: JsonSerializerOptions.Default);
+            new AIFunctionFactoryOptions
+            {
+                Name = "ExecuteCommand",
+                MarshalResult = PassthroughResults.MarshalResult,
+                ExcludeResultSchema = true
+            });
 
         var progress = new AgentProgress(maxTurns);
         var function = new TurnLimitedAIFunction(inner, () => progress);
@@ -85,19 +96,28 @@ public class TurnLimitedAIFunctionTests
 
         var call = progress.Calls[14];
         call.ArgumentPreview.ShouldBe("whois 15");
-        call.ResultPreview.ShouldBeEmpty();
+        call.Result.ShouldBeOfType<TextToolResult>().Text.ShouldBe("Exit code: 0");
         call.Completed.ShouldBeTrue();
     }
 
     [Test]
     public async Task Invoke_MarksNonZeroExitAsFailed()
     {
-        var (function, progress, _) = Build(result: "Exit code: 127\nsh: 1: whois: not found");
+        var (function, progress, _) = Build(
+            result: new CommandToolResult(
+                "Exit code: 127\nstderr:\nsh: 1: whois: not found\n",
+                127,
+                string.Empty,
+                "sh: 1: whois: not found"));
 
         await function.InvokeAsync(Arguments("whois -h whois.radb.net"));
 
-        progress.Calls[0].Failed.ShouldBeTrue();
-        progress.Calls[0].ResultPreview.ShouldBe("Exit code: 127 sh: 1: whois: not found");
+        var call = progress.Calls[0];
+        call.Failed.ShouldBeTrue();
+
+        var result = call.Result.ShouldBeOfType<CommandToolResult>();
+        result.ExitCode.ShouldBe(127);
+        result.Output.ShouldBe("sh: 1: whois: not found");
     }
 
     [Test]
@@ -115,13 +135,26 @@ public class TurnLimitedAIFunctionTests
 
         result?.ToString().ShouldBe("File not found: `/work/nope.mp4`.");
         progress.Calls[0].Failed.ShouldBeTrue();
+        progress.Calls[0].Result.ShouldBeOfType<TextToolResult>().Failed.ShouldBeTrue();
         progress.Turns.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task Invoke_TypedResultsNeverReachTheModelAsObjects()
+    {
+        var (function, _, _) = Build(
+            result: new CommandToolResult("Exit code: 0\nstdout:\nhello\n", 0, "hello", string.Empty));
+
+        var result = await function.InvokeAsync(Arguments("echo hello"));
+
+        result.ShouldBeOfType<string>().ShouldBe("Exit code: 0\nstdout:\nhello\n");
     }
 
     [Test]
     public async Task Invoke_DoesNotTreatErrorWordsInASuccessfulResultAsFailure()
     {
-        var (function, progress, _) = Build(result: "stdout: 0 errors, 3 files not found in index");
+        var (function, progress, _) = Build(
+            result: new TextToolResult("stdout: 0 errors, 3 files not found in index"));
 
         await function.InvokeAsync(Arguments("grep -c error log.txt"));
 

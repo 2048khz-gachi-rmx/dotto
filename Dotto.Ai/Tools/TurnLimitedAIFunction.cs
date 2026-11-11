@@ -17,7 +17,7 @@ internal sealed class TurnLimitedAIFunction(
     {
         var progress = progressAccessor();
         if (progress is null)
-            return await base.InvokeCoreAsync(arguments, cancellationToken);
+            return AsModelText(await base.InvokeCoreAsync(arguments, cancellationToken));
 
         var call = progress.StartCall(Name, BuildArgumentPreview(arguments));
         if (call is null)
@@ -32,27 +32,38 @@ internal sealed class TurnLimitedAIFunction(
         {
             // A tool-reported failure is a normal, model-visible outcome: record it and
             // hand the same text back as the result instead of surfacing an exception.
-            var failureWarning = progress.CompleteCall(call, ex.Message, failed: true);
-            return failureWarning.Length == 0 ? ex.Message : $"{failureWarning}\n\n{ex.Message}";
+            var failureWarning = progress.CompleteCall(call, new TextToolResult(ex.Message, Failed: true));
+            return Compose(failureWarning, ex.Message);
         }
-        catch
+        catch (Exception ex)
         {
-            progress.CompleteCall(call, null, failed: true);
+            progress.CompleteCall(call, new TextToolResult(ex.Message, Failed: true));
             throw;
         }
 
-        var text = result as string ?? result?.ToString();
-        var warning = progress.CompleteCall(call, text, AgentProgress.HasNonZeroExitCode(text));
-        if (warning.Length == 0)
-            return result;
+        // Every tool hands back text; a tool with more to say (a command's exit status and
+        // streams) hands back an IToolResult, which the recorder stores as-is.
+        var toolResult = result switch
+        {
+            IToolResult typed => typed,
+            null => new TextToolResult(string.Empty),
+            _ => new TextToolResult(result.ToString() ?? string.Empty)
+        };
+
+        var warning = progress.CompleteCall(call, toolResult);
 
         // Warnings ride along with the result: the model never sees anything else.
-        // Factory-built functions may hand back a JsonElement rather than a string,
-        // so the notice always goes out as text.
-        return result is null
-            ? warning
-            : $"{warning}\n\n{result}";
+        return Compose(warning, toolResult.Text);
     }
+
+    /// <summary>
+    /// The model must receive text, never the typed result the factory was told to pass through.
+    /// </summary>
+    private static object? AsModelText(object? result) =>
+        result is IToolResult toolResult ? toolResult.Text : result;
+
+    private static string Compose(string warning, string text) =>
+        warning.Length == 0 ? text : $"{warning}\n\n{text}";
 
     /// <summary>
     /// The first non-empty argument is what the activity line shows (a command, URL, path);

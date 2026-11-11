@@ -36,7 +36,7 @@ public static class AgentRunMessage
         string? answer,
         AgentProgress? progress,
         bool verbose,
-        int transcriptTurns,
+        int? transcriptTurns,
         TimeSpan duration,
         int fileCount,
         string? promptLine = null,

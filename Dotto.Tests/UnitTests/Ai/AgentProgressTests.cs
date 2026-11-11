@@ -1,4 +1,5 @@
 using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Tools;
 using Shouldly;
 
 namespace Dotto.Tests.UnitTests.Ai;
@@ -32,44 +33,39 @@ public class AgentProgressTests
     }
 
     [Test]
-    public void PreviewResult_PrefersStderrAndPrefixesTheExitCode()
+    public void RenderLine_SilentSuccess_HasNoResultPart()
     {
-        var result = "Exit code: 1\nstdout:\npartial output\nstderr:\npermission denied\n";
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("ExecuteCommand", "true");
+        progress.CompleteCall(call!, new CommandToolResult("Exit code: 0", 0, string.Empty, string.Empty));
 
-        AgentProgress.PreviewResult(result).ShouldBe("Exit code: 1 permission denied");
+        AgentProgress.RenderLine(call!).ShouldBe("-# ExecuteCommand: `true`");
     }
 
     [Test]
-    public void PreviewResult_FallsBackToStdout_WhenStderrIsEmpty()
+    public void RenderLine_TextResult_IsShownWithoutAStatus()
     {
-        var result = "Exit code: 0\nstdout:\nhello world\n";
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("DownloadMedia", "https://example.com/a.mp4");
+        progress.CompleteCall(call!, new TextToolResult("Downloaded to /work/downloads/a.mp4"));
 
-        AgentProgress.PreviewResult(result).ShouldBe("hello world");
+        AgentProgress.RenderLine(call!).ShouldBe(
+            "-# DownloadMedia: `https://example.com/a.mp4` **#>** `Downloaded to /work/downloads/a.mp4`");
     }
 
     [Test]
-    public void PreviewResult_SilentSuccess_HasNoResultPart()
+    public void RenderLine_LongOutput_IsTruncatedToTheResultBudget()
     {
-        AgentProgress.PreviewResult("Exit code: 0\n").ShouldBeEmpty();
-        AgentProgress.PreviewResult(null).ShouldBeEmpty();
-    }
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("ExecuteCommand", "cat big.txt");
+        progress.CompleteCall(
+            call!,
+            new CommandToolResult("Exit code: 0", 0, new string('z', 900), string.Empty));
 
-    [Test]
-    public void PreviewResult_TruncatesThePayloadToTheResultBudget()
-    {
-        var result = $"Exit code: 0\nstdout:\n{new string('z', 900)}\n";
+        var line = AgentProgress.RenderLine(call!);
 
-        var preview = AgentProgress.PreviewResult(result);
-
-        preview.Length.ShouldBe(AgentProgress.ResultPreviewLength + 1);
-        preview.ShouldEndWith(AgentProgress.TruncationMarker.ToString());
-    }
-
-    [Test]
-    public void PreviewResult_NonShellResult_IsPassedThrough()
-    {
-        AgentProgress.PreviewResult("File not found: `/work/nope.mp4`.")
-            .ShouldBe("File not found: `/work/nope.mp4`.");
+        line.ShouldEndWith("…`");
+        line.Length.ShouldBeLessThan(AgentProgress.ResultPreviewLength + 100);
     }
 
     [Test]
@@ -84,7 +80,7 @@ public class AgentProgressTests
         var progress = new AgentProgress(20);
         var call = progress.StartCall("ExecuteCommand", "whois -h whois.radb.net");
 
-        AgentProgress.RenderLine(call!).ShouldBe("-# ExecuteCommand: whois -h whois.radb.net");
+        AgentProgress.RenderLine(call!).ShouldBe("-# ExecuteCommand: `whois -h whois.radb.net`");
     }
 
     [Test]
@@ -92,10 +88,44 @@ public class AgentProgressTests
     {
         var progress = new AgentProgress(20);
         var call = progress.StartCall("ExecuteCommand", "whois -h whois.radb.net");
-        progress.CompleteCall(call!, "Exit code: 127\nsh: 1: whois: not found", failed: true);
+        progress.CompleteCall(
+            call!,
+            new CommandToolResult(
+                "Exit code: 127\nstderr:\nsh: 1: whois: not found\n",
+                127,
+                string.Empty,
+                "sh: 1: whois: not found"));
 
         AgentProgress.RenderLine(call!).ShouldBe(
-            "-# ExecuteCommand: whois -h whois.radb.net #-> result: Exit code: 127 sh: 1: whois: not found");
+            "-# ExecuteCommand: `whois -h whois.radb.net` **#>** [127] `sh: 1: whois: not found`");
+    }
+
+    [Test]
+    public void RenderLine_SuccessfulCall_OmitsTheExitCode()
+    {
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("ExecuteCommand", "echo helloooo");
+        progress.CompleteCall(
+            call!,
+            new CommandToolResult("Exit code: 0\nstdout:\nhelloooo\n", 0, "helloooo", string.Empty));
+
+        AgentProgress.RenderLine(call!).ShouldBe(
+            "-# ExecuteCommand: `echo helloooo` **#>** `helloooo`");
+    }
+
+    [Test]
+    public void RenderLine_BackticksInContent_DoNotBreakTheCodeSpan()
+    {
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("ExecuteCommand", "echo `date`");
+        progress.CompleteCall(
+            call!,
+            new CommandToolResult("Exit code: 0\nstdout:\n`date`\n", 0, "`date`", string.Empty));
+
+        var line = AgentProgress.RenderLine(call!);
+
+        line.Count(c => c == '`').ShouldBe(4);
+        line.ShouldContain("`echo ˋdateˋ`");
     }
 
     [Test]
@@ -136,38 +166,56 @@ public class AgentProgressTests
         progress.ShouldShowTranscript(transcriptTurns: 5, verbose).ShouldBe(expected);
     }
 
+    [TestCase(6, false)]
+    [TestCase(19, false)]
+    [TestCase(20, true)]
+    public void ShouldShowTranscript_UnsetThreshold_UsesTheTurnLimit(int turns, bool expected)
+    {
+        var progress = new AgentProgress(20);
+        for (var i = 0; i < turns; i++)
+            progress.StartCall("ExecuteCommand", "cmd");
+
+        progress.ShouldShowTranscript(transcriptTurns: null, verbose: false).ShouldBe(expected);
+    }
+
     [Test]
     public void ShouldShowTranscript_IsFalse_WhenOnlyAFewCallsFailed()
     {
         // Failing commands are ordinary; a short run does not dump its transcript for them.
         var progress = new AgentProgress(20);
         var call = progress.StartCall("ExecuteCommand", "cmd");
-        progress.CompleteCall(call!, "Exit code: 1", failed: true);
+        progress.CompleteCall(call!, new TextToolResult("Exit code: 1", Failed: true));
 
         progress.ShouldShowTranscript(transcriptTurns: 5, verbose: false).ShouldBeFalse();
     }
 
     [Test]
-    public void HasNonZeroExitCode_TreatsNonZeroExitAsFailure()
+    public void Failed_FollowsTheResult()
     {
-        AgentProgress.HasNonZeroExitCode("Exit code: 127\nsh: 1: whois: not found").ShouldBeTrue();
+        var progress = new AgentProgress(20);
+
+        var success = progress.StartCall("ExecuteCommand", "true");
+        progress.CompleteCall(success!, new CommandToolResult("Exit code: 0", 0, string.Empty, string.Empty));
+
+        var failure = progress.StartCall("ExecuteCommand", "false");
+        progress.CompleteCall(failure!, new CommandToolResult("Exit code: 1", 1, string.Empty, "boom"));
+
+        var toolError = progress.StartCall("ReadFile", "/nope");
+        progress.CompleteCall(toolError!, new TextToolResult("File not found", Failed: true));
+
+        success!.Failed.ShouldBeFalse();
+        failure!.Failed.ShouldBeTrue();
+        toolError!.Failed.ShouldBeTrue();
     }
 
     [Test]
-    public void HasNonZeroExitCode_TreatsZeroExitAsSuccess()
+    public void TextResultsAreNotFailures_JustBecauseTheirTextMentionsErrors()
     {
-        AgentProgress.HasNonZeroExitCode("Exit code: 0\nstdout:\nok").ShouldBeFalse();
-    }
+        var progress = new AgentProgress(20);
+        var call = progress.StartCall("DownloadMedia", "https://example.com/a.mp4");
+        progress.CompleteCall(call!, new TextToolResult("Failed to download media: 0 errors reported"));
 
-    [Test]
-    public void HasNonZeroExitCode_IgnoresErrorMessageText()
-    {
-        // Failure is structural (exception or exit status), never word-matching: a
-        // successful tool whose output happens to mention errors is not a failure.
-        AgentProgress.HasNonZeroExitCode("Failed to download media from the provided URL.").ShouldBeFalse();
-        AgentProgress.HasNonZeroExitCode("File not found: `/work/nope.mp4`.").ShouldBeFalse();
-        AgentProgress.HasNonZeroExitCode(null).ShouldBeFalse();
-        AgentProgress.HasNonZeroExitCode("stdout: 0 errors").ShouldBeFalse();
+        call!.Failed.ShouldBeFalse();
     }
 
     [Test]
@@ -177,7 +225,7 @@ public class AgentProgressTests
         for (var i = 0; i < 10; i++)
         {
             var call = progress.StartCall("ExecuteCommand", $"cmd {i}");
-            progress.CompleteCall(call!, "Exit code: 0", failed: false);
+            progress.CompleteCall(call!, new TextToolResult("Exit code: 0"));
         }
 
         var transcript = progress.BuildTranscript(maxChars: 240);

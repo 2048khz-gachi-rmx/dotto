@@ -15,7 +15,7 @@ public class ChatAssistantSettingsTests
         var settings = new ChatAssistantSettings();
 
         settings.MaxTurns.ShouldBe(20);
-        settings.TranscriptTurns.ShouldBe(5);
+        settings.TranscriptTurns.ShouldBeNull();
     }
 
     [TestCase(nameof(ChatAssistantSettings.MaxTurns), 0)]

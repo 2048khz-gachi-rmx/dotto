@@ -1,4 +1,5 @@
 using Dotto.Ai.Agents.Base;
+using Dotto.Ai.Tools;
 using Dotto.Discord.Services;
 using Shouldly;
 
@@ -12,14 +13,15 @@ public class AgentRunMessageTests
 {
     private static readonly TimeSpan Duration = TimeSpan.FromSeconds(4);
 
-    private static AgentProgress ProgressWithCalls(int count, string result = "Exit code: 0")
+    private static AgentProgress ProgressWithCalls(int count, IToolResult? result = null)
     {
         var progress = new AgentProgress(100);
+        var reply = result ?? new TextToolResult("Exit code: 0");
 
         for (var i = 0; i < count; i++)
         {
             var call = progress.StartCall("ExecuteCommand", $"cmd {i}");
-            progress.CompleteCall(call!, result, AgentProgress.HasNonZeroExitCode(result));
+            progress.CompleteCall(call!, reply);
         }
 
         return progress;
@@ -40,7 +42,41 @@ public class AgentRunMessageTests
     }
 
     [Test]
-    public void Compose_LongRun_AppendsTheTranscript()
+    public void Compose_UnsetTranscriptThreshold_KeepsOrdinaryRunsClean()
+    {
+        // The default threshold is the turn limit: six of twenty turns is not worth dumping.
+        var progress = new AgentProgress(20);
+        for (var i = 0; i < 6; i++)
+            progress.StartCall("ExecuteCommand", $"cmd {i}");
+
+        var composed = AgentRunMessage.Compose(
+            "answer", progress, verbose: false, transcriptTurns: null,
+            Duration, fileCount: 0);
+
+        composed.Content.ShouldNotContain("Tool calls");
+    }
+
+    [Test]
+    public void Compose_ExhaustedBudget_AppendsTheTranscript()
+    {
+        var progress = new AgentProgress(20);
+        for (var i = 0; i < 20; i++)
+        {
+            var call = progress.StartCall("ExecuteCommand", $"cmd {i}");
+            progress.CompleteCall(call!, new TextToolResult("Exit code: 0"));
+        }
+
+        var composed = AgentRunMessage.Compose(
+            "done", progress, verbose: false, transcriptTurns: null,
+            Duration, fileCount: 0);
+
+        composed.Content.ShouldContain("Tool calls (20):");
+        composed.Content.ShouldContain("cmd 19");
+        composed.HasOverflow.ShouldBeFalse();
+    }
+
+    [Test]
+    public void Compose_ExplicitThreshold_StillTriggers()
     {
         var progress = ProgressWithCalls(6);
 
@@ -49,14 +85,14 @@ public class AgentRunMessageTests
             Duration, fileCount: 0);
 
         composed.Content.ShouldContain("Tool calls (6):");
-        composed.Content.ShouldContain("- ExecuteCommand: cmd 5");
+        composed.Content.ShouldContain("- ExecuteCommand: `cmd 5`");
         composed.HasOverflow.ShouldBeFalse();
     }
 
     [Test]
     public void Compose_FailedCallsAlone_DoNotAppendTheTranscript()
     {
-        var progress = ProgressWithCalls(1, "Exit code: 127\nsh: 1: whois: not found");
+        var progress = ProgressWithCalls(1, new TextToolResult("whois: not found", Failed: true));
 
         var composed = AgentRunMessage.Compose(
             "could not run whois", progress, verbose: false, transcriptTurns: 5,
@@ -69,7 +105,7 @@ public class AgentRunMessageTests
     [Test]
     public void Compose_FailedCallInATranscript_IsMarked()
     {
-        var progress = ProgressWithCalls(6, "Exit code: 127\nsh: 1: whois: not found");
+        var progress = ProgressWithCalls(6, new TextToolResult("whois: not found", Failed: true));
 
         var composed = AgentRunMessage.Compose(
             "could not run whois", progress, verbose: false, transcriptTurns: 5,
@@ -123,7 +159,7 @@ public class AgentRunMessageTests
         for (var i = 0; i < 40; i++)
         {
             var call = progress.StartCall("ExecuteCommand", $"{longArgument} {i}");
-            progress.CompleteCall(call!, longResult, failed: false);
+            progress.CompleteCall(call!, new TextToolResult(longResult));
         }
 
         var composed = AgentRunMessage.Compose(

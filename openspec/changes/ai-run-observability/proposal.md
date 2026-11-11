@@ -16,11 +16,13 @@ turns, and surfaced none of it — the user only saw a long silence.
   states that a limit exists, a warning is prepended to the tool result at `MaxTurns - 5`
   ("approaching the limit") and at `MaxTurns - 1` ("last turn — respond now"), and tool calls
   beyond the cap are refused instead of executed.
-- **Bounded previews**: each tool call records a 200-character argument preview and up to 300
-  characters of its result, preferring stderr and naming a non-zero exit status (whitespace
-  collapsed), so activity lines and transcripts stay one line per call.
+- **Bounded previews**: each tool call records a 120-character argument preview and up to 180
+  characters of its result (whitespace collapsed), so activity lines and transcripts stay one line
+  per call. A command's result shows stdout when it succeeded and stderr when it failed, falling
+  back to the other stream when the preferred one is empty.
 - **Run transcript**: the recorded tool calls are appended to the final answer when the run
-  exceeded `TranscriptTurns` (default 5); `/ai` gains a `verbose` option that always includes it.
+  exceeded `TranscriptTurns` (unset by default, meaning the turn limit); `/ai` gains a `verbose`
+  option that always includes it.
   Failed calls are marked in the transcript but do not trigger it.
 - **Run footer**: the final answer ends with `-# <n> turns · <duration> · <n> file(s)`.
 - **Non-goals**: a cancel/stop button, token-by-token streaming of assistant text, server-side

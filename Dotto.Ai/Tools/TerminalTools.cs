@@ -13,7 +13,7 @@ public class TerminalTools(ISandbox sandbox, ILogger<TerminalTools>? logger = nu
                  "Installed: ffmpeg, jq, curl, python3. " +
                  "Supports pipes, redirects, &&, and any shell syntax. " +
                  "Example: \"ls -la /work/downloads && ffprobe -v error -show_entries format=duration file.mp4\"")]
-    public async Task<string> ExecuteCommand(
+    public async Task<CommandToolResult> ExecuteCommand(
         [Description("Full shell command string, e.g. \"ffmpeg -i input.mp4 output.mp4\"")]
         string command,
         [Description("Working directory, defaults to /work")]
@@ -59,6 +59,10 @@ public class TerminalTools(ISandbox sandbox, ILogger<TerminalTools>? logger = nu
         if (!result.Stderr.IsNullOrEmpty())
             output += $"stderr:\n{result.Stderr}\n";
 
-        return $"Exit code: {result.ExitCode}\n{output}".TrimEnd();
+        return new CommandToolResult(
+            $"Exit code: {result.ExitCode}\n{output}".TrimEnd(),
+            result.ExitCode,
+            result.Stdout,
+            result.Stderr);
     }
 }

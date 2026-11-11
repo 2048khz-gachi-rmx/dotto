@@ -78,6 +78,30 @@ renderer is testable without a Discord client and both command types share it.
 *Alternatives:* editing on every change (rate limits, bursty API traffic); a background thread per
 run (leaks if the run throws).
 
+### Activity lines are formatted for skimming, not for copying
+
+Each line is `-# <Tool>: `<args>` **#>** [<exit>] `<output>``: subtext so it reads as chatter under
+the answer, code spans so arguments and output render verbatim (no accidental bold/italics from
+`*`/`_` in shell output), and the exit status bracketed and only present when non-zero. Discord
+neither nests nor escapes backticks inside an inline code span, so a literal backtick in the content
+is replaced with a visually similar grave accent instead of silently terminating the span and
+leaking raw markdown.
+
+### Results are typed; only the renderer knows markdown
+
+`ToolCall` records the tool's result object as-is (`IToolResult`) instead of derived preview fields,
+so nothing mutates the record after the fact: `TextToolResult` carries only the model-facing text,
+`CommandToolResult` adds `ExitCode`/`Stdout`/`Stderr` and derives `Failed` from the status. The exit
+code is never parsed out of text — the tool that has the streams hands them over. Presentation lives
+at the edge, in one `switch` in `RenderCore`, so result types stay free of Discord formatting and a
+second consumer (log line, web view) reads the same data.
+
+`AIFunctionFactory` JSON-serializes a tool's return value by default, which would hand the recorder
+and the model a `JsonElement`. Registration therefore sets `MarshalResult` to identity so the typed
+result reaches `TurnLimitedAIFunction`, which is the only place that decides what text the model
+sees (it always returns `Text`, never the record). `ExcludeResultSchema` drops the object schema
+inferred from the record, since the model-visible return is text.
+
 ### Delivery of the final answer degrades gracefully
 
 The final edit can fail if the interaction token has expired. In that case the answer is sent as a
@@ -86,11 +110,14 @@ normal followup/reply instead, so the user always receives it.
 ### Transcript trigger and budget
 
 The transcript is appended when the run exceeded `TranscriptTurns`, or when the caller passed
-`verbose`. Failed calls do not trigger it — a command failing is ordinary (a missing binary, a
-non-matching `grep`) and a short run's history is noise; the answer already says what went wrong,
-and a failed call inside a long transcript is marked `(failed)`. The transcript is capped (last
-calls, ~1200 characters) so the answer together with attachment notes stays inside 2000 characters;
-omitted calls are summarised as a count.
+`verbose`. `TranscriptTurns` is unset by default and falls back to `MaxTurns` in
+`AgentProgress.ShouldShowTranscript`, so the transcript appears exactly when the run spent its whole
+budget — which is also when the footer's turn count invites the question — and a deployment can
+lower it through `AiSettings.ChatAssistant` without a rebuild. Failed calls do not trigger it — a
+command failing is ordinary (a missing binary, a non-matching `grep`) and a short run's history is
+noise; the answer already says what went wrong, and a failed call inside a long transcript is
+marked `(failed)`. The transcript is capped (last calls, ~1200 characters) so the answer together
+with attachment notes stays inside 2000 characters; omitted calls are summarised as a count.
 
 ### Oversized answers become a file, never a truncation
 
@@ -139,5 +166,6 @@ every tool (would change the model-facing return schema for no extra benefit).
 
 ## Migration Plan
 
-Config additions are optional with defaults (`MaxTurns = 20`, `TranscriptTurns = 5`), so existing
-deployments keep working. No database, schema, or protocol changes; rollback is a code revert.
+Config additions are optional with defaults (`MaxTurns = 20`, `TranscriptTurns` unset → the turn
+limit), so existing deployments keep working. No database, schema, or protocol changes; rollback is
+a code revert.
