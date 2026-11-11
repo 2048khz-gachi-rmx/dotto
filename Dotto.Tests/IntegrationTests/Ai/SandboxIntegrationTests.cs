@@ -425,6 +425,58 @@ public class SandboxIntegrationTests
     }
 
     [Test]
+    public async Task WorkTmpfs_IsWritableAndExecutable()
+    {
+        if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }
+        if (!IsImagePresent()) { Assert.Ignore($"{SandboxImage} image not built"); }
+
+        var sandbox = CreateSandbox();
+        var sessionId = "it-" + Guid.NewGuid().ToString("N")[..8];
+
+        try
+        {
+            await sandbox.InitializeAsync(sessionId, 1, CancellationToken.None);
+            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            // /work is scratch space for the non-root sandbox user: commands must
+            // be able to create directories and files under it.
+            var write = await container.ExecuteAsync(
+                "mkdir -p /work/downloads && echo hi > /work/downloads/a.txt && cat /work/downloads/a.txt",
+                "/work", "", CancellationToken.None);
+            write.ExitCode.ShouldBe(0);
+            write.Stdout.ShouldContain("hi");
+
+            // DownloadMedia streams every downloaded file into /work/downloads.
+            var payload = new byte[] { 1, 2, 3, 4, 5 };
+            await using var source = new MemoryStream(payload);
+            var path = await container.PutFileAsync(
+                "/work/downloads/roundtrip.bin", source, payload.Length, true, CancellationToken.None);
+
+            path.ShouldBe("/work/downloads/roundtrip.bin");
+
+            var file = await container.GetFileAsync(path, CancellationToken.None);
+            file.Length.ShouldBe(payload.Length);
+
+            using var sink = new MemoryStream();
+            await file.Stream.CopyToAsync(sink, CancellationToken.None);
+            await file.Stream.DisposeAsync();
+            sink.ToArray().ShouldBe(payload);
+
+            // A script written into /work must be directly executable, not only
+            // runnable through an interpreter (tmpfs is noexec by default).
+            var script = await container.ExecuteAsync(
+                "printf '#!/bin/sh\\necho ran\\n' > /work/t.sh && chmod +x /work/t.sh && /work/t.sh",
+                "/work", "", CancellationToken.None);
+            script.ExitCode.ShouldBe(0);
+            script.Stdout.ShouldContain("ran");
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+        }
+    }
+
+    [Test]
     public async Task GetFileAsync_RejectsSymlinkEscape()
     {
         if (!IsRuntimeAvailable()) { Assert.Ignore("Container runtime not available"); }

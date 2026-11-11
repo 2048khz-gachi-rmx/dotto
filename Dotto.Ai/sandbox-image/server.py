@@ -325,12 +325,16 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(507, {"error": "storage quota exceeded"})
             return
 
-        os.makedirs(os.path.dirname(full), exist_ok=True)
-
-        target = _unique_path(full) if dedupe else full
-        temporary = f"{target}.part"
-
+        temporary = None
         try:
+            # Inside the try: a failing makedirs used to escape the handler and
+            # drop the connection without a response, which the bot sees as a
+            # transport error rather than a tool result.
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+
+            target = _unique_path(full) if dedupe else full
+            temporary = f"{target}.part"
+
             remaining = length
             with open(temporary, "wb") as sink:
                 while remaining > 0:
@@ -349,10 +353,11 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
 
             os.replace(temporary, target)
         except OSError as error:
-            try:
-                os.unlink(temporary)
-            except OSError:
-                pass
+            if temporary is not None:
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
             self._send_json(500, {"error": str(error)})
             return
 

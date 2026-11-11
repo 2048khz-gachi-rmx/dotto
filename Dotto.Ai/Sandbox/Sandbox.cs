@@ -133,9 +133,12 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                     $"{meta.HostStorageDir}:/storage"
                 ],
 
+                // Docker copies the image directory's owner/mode onto the tmpfs root and
+                // mounts tmpfs noexec by default. Without explicit options, `WORKDIR /work`
+                // (root:root, 2755) leaves /work unwritable for the non-root sandbox user.
                 Tmpfs = new Dictionary<string, string>
                 {
-                    ["/work"] = $"size={_options.WorkTmpfsMb}M",
+                    ["/work"] = $"size={_options.WorkTmpfsMb}M,mode=1777,exec",
                     ["/tmp"] = "size=64M"
                 },
 
