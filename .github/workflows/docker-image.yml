@@ -115,7 +115,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .docker
-          file: sandbox-egress/Dockerfile
+          file: .docker/sandbox-egress/Dockerfile
           push: true
           tags: ghcr.io/2048khz-gachi-rmx/dotto-sandbox-firewall:latest
           cache-from: type=gha
@@ -126,7 +126,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .docker
-          file: socket-protector/Dockerfile
+          file: .docker/socket-protector/Dockerfile
           push: true
           tags: ghcr.io/2048khz-gachi-rmx/dotto-socket-protector:latest
           cache-from: type=gha
