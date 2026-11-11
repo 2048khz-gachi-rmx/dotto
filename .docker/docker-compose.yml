@@ -11,13 +11,13 @@ services:
     volumes:
        - postgres:/data/postgres
     ports:
-      - "${POSTGRES_PUBLIC_PORT}:5999"
+      # Loopback only: sandboxes must not reach postgres via a published port.
+      - "127.0.0.1:${POSTGRES_PUBLIC_PORT}:5999"
     networks:
       - postgres
     restart: unless-stopped
 
-  # Builds the sandbox image locally so the bot can spin up ephemeral containers.
-  # No ports needed — it exits immediately after build; the image stays cached.
+  # Builds dotto-sandbox:latest locally.
   sandbox-image:
     container_name: dotto_sandbox_build
     image: dotto-sandbox:latest
@@ -25,10 +25,7 @@ services:
       context: ../Dotto.Ai/sandbox-image
       dockerfile: Dockerfile
 
-  # Filtering proxy in front of the Docker daemon. Only the container lifecycle
-  # endpoints the bot needs (create/start/stop/remove/inspect/list) are allowed.
-  # In dev, the bot runs from the host — set DOCKER_HOST=tcp://localhost:2375
-  # before starting the bot to route Docker API calls through this proxy.
+  # Docker API proxy; dev: set DOCKER_HOST=tcp://localhost:2375.
   socket-protector:
     container_name: dotto_socket_protector
     image: ghcr.io/knrdl/docker-socket-protector:latest

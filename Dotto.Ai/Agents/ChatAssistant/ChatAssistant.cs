@@ -31,9 +31,7 @@ public class ChatAssistant(
             "Session {SessionId} started (caller: {CallerId}, channel: {ChannelId}, guild: {GuildId})",
             context.SessionId, context.CallerId, context.ChannelId, context.GuildId);
 
-        // Provision per-caller persistent storage up front via the scoped sandbox
-        // entity. The container itself starts lazily on first container use (by
-        // any tool); the bot never resolves sandbox paths on the host filesystem.
+        // Storage eagerly, container lazily.
         if (options.Enabled)
         {
             await sandbox.InitializeAsync(context.SessionId, context.CallerId, cancellationToken);
@@ -42,7 +40,7 @@ public class ChatAssistant(
 
         try
         {
-            var systemPrompt = await BuildSystemPromptAsync(context, cancellationToken);
+            var systemPrompt = await BuildSystemPromptAsync(context, options.Enabled, cancellationToken);
             if (systemPrompt != null)
                 context.Messages.Insert(0, new ChatMessage(ChatRole.System, systemPrompt));
 
@@ -66,41 +64,40 @@ public class ChatAssistant(
         }
         catch
         {
-            // Clean up attachment streams (if any) only if we errored and won't
-            // pass them upwards, then let the finally below stop the container.
+            // Only on failure: the invoker owns the container.
             context.Attachments.ForEach(att => att.Stream.Dispose());
             context.Attachments.Clear();
             throw;
         }
         finally
         {
-            // If attachments were returned, the command handler owns teardown:
-            // their bytes still have to be streamed out of the container. With no
-            // attachments there is nothing left to wait for, so stop it now.
-            // Dispose is idempotent and DI scope disposal may also call it.
-            if (context.Attachments.Count == 0)
-                await sandbox.DisposeAsync();
-
             var totalDuration = DateTime.UtcNow - startTime;
             logger.LogInformation(
-                "Session {SessionId} torn down after {Duration}s",
+                "Session {SessionId} finished in {Duration}s",
                 context.SessionId, totalDuration.TotalSeconds);
         }
     }
 
+    /// <summary>
+    /// Timestamp has one-second resolution; the counter keeps IDs unique within a second.
+    /// </summary>
+    private static int _sessionCounter;
+
     private static string GenerateSessionId(ChatAssistantContext context)
     {
-        return $"{context.CallerId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+        var sequence = Interlocked.Increment(ref _sessionCounter);
+        return $"{context.CallerId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{sequence}";
     }
 
     private async Task<string?> BuildSystemPromptAsync(
-        ChatAssistantContext context, CancellationToken ct)
+        ChatAssistantContext context, bool sandboxEnabled, CancellationToken ct)
     {
-        var renderContext = BuildTemplateContext(context);
+        var renderContext = BuildTemplateContext(context, sandboxEnabled);
         return await promptProvider.RenderAsync(DependencyInjection.ChatAssistantPromptKey, renderContext, ct);
     }
 
-    private static Dictionary<string, object> BuildTemplateContext(ChatAssistantContext context)
+    internal static Dictionary<string, object> BuildTemplateContext(
+        ChatAssistantContext context, bool sandboxEnabled)
     {
         return new()
         {
@@ -108,7 +105,9 @@ public class ChatAssistant(
             ["CallerId"] = context.CallerId,
             ["ChannelId"] = context.ChannelId,
             ["GuildId"] = context.GuildId,
-            ["UtcTime"] = DateTime.UtcNow
+            ["UtcTime"] = DateTime.UtcNow,
+
+            ["ToolsEnabled"] = sandboxEnabled
         };
     }
 }

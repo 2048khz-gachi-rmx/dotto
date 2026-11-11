@@ -48,4 +48,10 @@
       <ProjectReference Include="..\Dotto.Downloader\Dotto.Downloader.csproj" />
     </ItemGroup>
 
+    <!-- The sandbox server script is the other half of the response-size
+         contract, so the unit tests read/execute the real file. -->
+    <ItemGroup>
+      <None Include="..\Dotto.Ai\sandbox-image\server.py" Link="sandbox-server.py" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

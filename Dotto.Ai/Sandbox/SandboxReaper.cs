@@ -19,6 +19,13 @@ internal sealed class SandboxReaper(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Enabled)
+        {
+            logger.LogInformation(
+                "SandboxReaper not started: the AI sandbox is disabled (Ai:Sandbox:Enabled=false)");
+            return;
+        }
+
         logger.LogInformation(
             "SandboxReaper started (interval: 30s, wall-clock timeout: {Timeout})",
             _options.WallClockTimeout);
@@ -73,9 +80,6 @@ internal sealed class SandboxReaper(
 
             try
             {
-                // AutoRemove handles removal; persistent storage is never
-                // touched here. Orphaned storage is reclaimed by the owner via
-                // whatever policy we settle on separately.
                 await client.Containers.StopContainerAsync(
                     container.ID,
                     new ContainerStopParameters
@@ -83,6 +87,15 @@ internal sealed class SandboxReaper(
                         WaitBeforeKillSeconds = 10
                     },
                     ct);
+
+                await client.Containers.RemoveContainerAsync(
+                    container.ID,
+                    new ContainerRemoveParameters { Force = true },
+                    ct);
+            }
+            catch (DockerContainerNotFoundException)
+            {
+                // AutoRemove won the race.
             }
             catch (Exception ex)
             {

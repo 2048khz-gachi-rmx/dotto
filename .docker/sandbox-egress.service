@@ -1,0 +1,16 @@
+[Unit]
+Description=Dotto AI sandbox egress containment (iptables)
+Documentation=https://github.com/2048khz-gachi-rmx/dotto
+# Optional alternative to the compose sidecar; rules are keyed by bridge name, so early start is fine.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Adjust this path to the checkout that contains .docker/sandbox-egress.sh.
+ExecStart=/srv/code/dotto/.docker/sandbox-egress.sh --apply
+ExecStop=/srv/code/dotto/.docker/sandbox-egress.sh --remove
+
+[Install]
+WantedBy=multi-user.target

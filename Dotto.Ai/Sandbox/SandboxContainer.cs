@@ -14,9 +14,8 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
 {
     private const int ExecuteTimeoutSeconds = 310; // slightly above the "long" (300s) timeout tier
     private const int FileTimeoutSeconds = 900;
-    // The sandbox server caps tool output at 32k chars; JSON escaping can
-    // inflate that, so allow up to 64k on the buffered (execute/ping) client.
-    private const long MaxBufferedResponseBytes = 64 * 1024;
+    // 128 KiB covers MAX_OUTPUT_CHARS at 12 bytes/char worst-case escaping (SandboxOutputLimitTests pins this).
+    internal const long MaxBufferedResponseBytes = 128 * 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -31,8 +30,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
         var client = new HttpClient(
             new SocketsHttpHandler
             {
-                // The sandbox must never be able to bounce the bot (and the token
-                // header) somewhere else.
+                // Never let the sandbox redirect the bot (and its token header) elsewhere.
                 AllowAutoRedirect = false,
                 UseCookies = false,
             })
@@ -70,7 +68,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
     {
         var payload = new SandboxExecuteRequest { Command = command, Cwd = cwd, Timeout = timeout };
 
-        // python stdlib HTTP server is being a cunt about Transfer-Encoding: chunked which is used by PostAsJson
+        // PostAsJson sends chunked bodies, which the stdlib server cannot read.
         using var content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
 
         using var request = CreateRequest(HttpMethod.Post, "/execute", content);
@@ -90,9 +88,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
     }
 
     /// <summary>
-    /// Streams a file out of the sandbox. The HTTP response (and therefore the
-    /// underlying connection) is kept alive until the returned stream is
-    /// disposed, so the caller must finish reading before the container stops.
+    /// Streams a file out; the stream must be consumed before the container stops.
     /// </summary>
     public async Task<SandboxFile> GetFileAsync(string sandboxPath, CancellationToken ct)
     {
@@ -117,9 +113,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
     }
 
     /// <summary>
-    /// Streams a file into the sandbox. The server enforces an explicit
-    /// Content-Length (its request reader is not chunked-capable) and owns path
-    /// resolution within the sandbox namespace.
+    /// Streams a file in; the server owns path resolution and dedupe.
     /// </summary>
     public async Task<string> PutFileAsync(
         string sandboxPath,
@@ -132,8 +126,6 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
         using var request = CreateRequest(HttpMethod.Put, path);
 
         var streamContent = new StreamContent(content);
-        // Content-Length must be explicit: the python server rejects chunked
-        // bodies, and non-seekable downloader streams cannot compute it.
         streamContent.Headers.ContentLength = length;
         request.Content = streamContent;
 
@@ -159,8 +151,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
 }
 
 /// <summary>
-/// Wraps a response body stream so disposing it also disposes the owning HTTP
-/// response, releasing the connection.
+/// Disposing the stream also disposes the response, releasing the connection.
 /// </summary>
 internal sealed class ResponseStream(Stream inner, HttpResponseMessage response) : Stream
 {

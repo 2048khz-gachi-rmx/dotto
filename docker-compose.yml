@@ -11,6 +11,8 @@ services:
         condition: service_started
       sandbox-image:
         condition: service_completed_successfully
+      sandbox-firewall:
+        condition: service_healthy
     networks:
       - dotto
       - docker_socket
@@ -19,11 +21,7 @@ services:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
       # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
       - ./dotto_resources:/app/resources
-      # Persistent per-caller sandbox storage. Mounted at the *same absolute
-      # path* on the host and in the bot container: sandbox containers are
-      # created by the host daemon, so the bind source the bot passes must be a
-      # host path. All file traffic crosses the sandbox HTTP API, never this
-      # mount.
+      # Same host path in and out of the bot: the daemon resolves the bind source host-side.
       - /var/lib/dotto-sandbox:/var/lib/dotto-sandbox
     environment:
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
@@ -38,19 +36,10 @@ services:
       Ai__Sandbox__ImageTag: "ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest"
       # Base directory for per-caller persistent storage (/storage inside the sandbox).
       Ai__Sandbox__StorageBasePath: "/var/lib/dotto-sandbox"
-      # Attach sandbox containers to the dedicated 'sandbox' network so the bot
-      # can reach them by container name. Keeps sandboxes off the 'dotto' network
-      # (where postgres lives) for defense in depth. Inter-container communication
-      # stays enabled here: Docker's enable_icc=false would also block the bot's
-      # calls to the sandbox API. The sandbox has no Docker route either way —
-      # the socket-protector lives on a separate network.
+      # Sandboxes join the dedicated 'sandbox' network; egress rules below.
       Ai__Sandbox__NetworkName: "sandbox"
 
-  # One-shot service that ensures the sandbox image is present on the host.
-  # The socket-protector does NOT whitelist `POST /images/create` (pull), so the
-  # image must be pulled out-of-band before the bot tries to create containers.
-  # `docker compose pull` pulls it; `docker compose up` runs it once (echo + exit 0),
-  # and the bot service waits for that via `depends_on: service_completed_successfully`.
+  # Pre-pulls the sandbox image (pulls are not whitelisted by the protector).
   sandbox-image:
     image: ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest
     container_name: dotto_sandbox_image
@@ -59,10 +48,32 @@ services:
     networks:
       - sandbox
 
-  # Filtering proxy in front of the Docker daemon. See: specs/sandbox-security/spec.md
+  # Owns the sandbox bridge egress rules; see .docker/sandbox-egress/.
+  sandbox-firewall:
+    container_name: dotto_sandbox_firewall
+    # Published by CI (.github/workflows/docker-image.yml) so a deployment only
+    # needs this compose file and its .env.
+    image: ghcr.io/2048khz-gachi-rmx/dotto-sandbox-firewall:latest
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SANDBOX_BRIDGE: "br-sandbox"
+    restart: unless-stopped
+
+  # Filtering proxy in front of the Docker daemon; the whitelist profile is
+  # baked into the published image.
   socket-protector:
     container_name: dotto_socket_protector
-    image: ghcr.io/knrdl/docker-socket-protector:latest
+    image: ghcr.io/2048khz-gachi-rmx/dotto-socket-protector:latest
     hostname: socket-protector
     read_only: true
     cap_drop:
@@ -72,7 +83,6 @@ services:
       PROFILE: "dotto"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./.docker/socket-protector-dotto:/profiles/dotto:ro
     networks:
       - docker_socket
     mem_limit: 32mb
@@ -90,7 +100,8 @@ services:
     volumes:
        - postgres:/data/postgres
     ports:
-      - "${POSTGRES_PUBLIC_PORT}:5999"
+      # Loopback only: sandboxes must reach postgres only through published host ports.
+      - "127.0.0.1:${POSTGRES_PUBLIC_PORT}:5999"
     networks:
       - dotto
     restart: unless-stopped
@@ -104,11 +115,15 @@ networks:
   dotto:
   docker_socket:
     internal: true
-  # Dedicated network for bot ↔ sandbox communication. Sandbox containers are
-  # attached here by the bot at creation time. Not 'internal' because sandboxes
-  # need outbound internet (curl downloads). Kept separate from 'dotto' so
-  # sandboxes cannot reach postgres or other backend services.
+  # Pinned bridge name + subnet (default pools are exhausted; a LAN overlap would be routed).
   sandbox:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-sandbox
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: ${SANDBOX_SUBNET:-10.213.0.0/24}
 
 volumes:
     postgres:

@@ -2,6 +2,7 @@ import hmac
 import http.server
 import json
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -12,13 +13,9 @@ from urllib.parse import urlparse, parse_qs
 
 PORT = int(os.environ.get("PORT", "8080"))
 
-# Per-container random token, injected by the bot at container creation.
-# Without it every request is rejected — an unauthenticated sandbox API is a
-# remote code execution endpoint for anyone who can reach the port.
+# Per-container API token; unset means every request is refused.
 TOKEN = os.environ.get("SANDBOX_TOKEN", "")
 
-# Persistent per-user storage quota. /work is a tmpfs with a hard kernel limit,
-# so only /storage needs accounting.
 STORAGE_QUOTA_BYTES = int(os.environ.get("SANDBOX_STORAGE_QUOTA_MB", "200")) * 1024 * 1024
 
 WORK_PREFIX = "/work"
@@ -30,11 +27,22 @@ TIMEOUTS = {
     "long": 300,
 }
 DEFAULT_TIMEOUT = 20
-# Tool output is fed straight back to the model. Cap it so a chatty command
-# cannot make the bot buffer an unbounded JSON response.
-MAX_OUTPUT_CHARS = 32_000
+# The only output cap; see sandbox-execution "Bounded Response Size".
+MAX_OUTPUT_CHARS = 10_000
+# 4 bytes/char: guarantees MAX_OUTPUT_CHARS survive decoding, flat memory.
+MAX_OUTPUT_BYTES = 4 * MAX_OUTPUT_CHARS
+
+# How long to wait for the pipe readers once the child has exited. Bounds the
+# request when a background grandchild keeps the inherited pipes open.
+DRAIN_TIMEOUT = 5
 
 CHUNK_SIZE = 64 * 1024
+
+# Minimum per-file quota charge, so tiny files are not free.
+MIN_FILE_CHARGE_BYTES = 256 * 1024
+
+# Longest accepted path (also bounds the echoed path in responses).
+MAX_PATH_CHARS = 4096
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -49,19 +57,77 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _cap_output(stdout, stderr):
-    """Keep the tail of stdout/stderr, capped so the JSON response stays small."""
+    """Keep the tail of both streams inside one shared MAX_OUTPUT_CHARS budget."""
     out, err = stdout or "", stderr or ""
     if len(out) + len(err) <= MAX_OUTPUT_CHARS:
         return out, err
-    if not err:
-        return _truncate(out, MAX_OUTPUT_CHARS), err
-    if not out:
-        return out, _truncate(err, MAX_OUTPUT_CHARS)
 
-    half = MAX_OUTPUT_CHARS // 2
-    out = _truncate(out, half)
-    err = _truncate(err, MAX_OUTPUT_CHARS - len(out))
-    return out, err
+    stderr_cap = min(len(err), max(MAX_OUTPUT_CHARS // 2, MAX_OUTPUT_CHARS - len(out)))
+    stdout_cap = min(len(out), MAX_OUTPUT_CHARS - stderr_cap)
+    return _truncate(out, stdout_cap), _truncate(err, stderr_cap)
+
+
+class _TailBuffer:
+    """Retains the last `limit` bytes plus a dropped-byte count, so memory stays flat."""
+
+    __slots__ = ("limit", "_data", "dropped")
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self._data = bytearray()
+        self.dropped = 0
+
+    def write(self, chunk: bytes) -> None:
+        if not chunk:
+            return
+        self._data += chunk
+        overflow = len(self._data) - self.limit
+        if overflow > 0:
+            del self._data[:overflow]
+            self.dropped += overflow
+
+    def text(self, limit: int) -> str:
+        # Decode once, at the end, replacing invalid sequences: arbitrary child
+        # output must never fail the request.
+        text = bytes(self._data).decode("utf-8", errors="replace")
+        if not self.dropped:
+            return _truncate(text, limit)
+        # The marker reports dropped *bytes* (that is what this buffer
+        # counts) and its own length counts against `limit`, so the result
+        # never exceeds the cap.
+        marker = f"[... {self.dropped} bytes truncated]\n"
+        room = max(0, limit - len(marker))
+        return (marker + (text[-room:] if room else ""))[:limit]
+
+
+def _pump_and_close(stream, tail: _TailBuffer, stop: threading.Event) -> None:
+    """Drain one pipe into `tail`, noticing `stop` even while a grandchild holds the pipe."""
+    try:
+        fd = stream.fileno()
+        while not stop.is_set():
+            try:
+                ready, _, _ = select.select([fd], [], [], 0.2)
+            except (OSError, ValueError):
+                return
+            if not ready:
+                continue
+            try:
+                chunk = os.read(fd, CHUNK_SIZE)
+            except OSError:
+                # Pipe torn down by a watchdog/timeout kill.
+                return
+            if not chunk:
+                return
+            tail.write(chunk)
+    finally:
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
+def _json_body(payload: dict) -> bytes:
+    return json.dumps(payload).encode("utf-8")
 
 
 def _storage_usage() -> int:
@@ -69,9 +135,10 @@ def _storage_usage() -> int:
     for root, _dirs, files in os.walk(STORAGE_PREFIX, onerror=lambda _e: None):
         for name in files:
             try:
-                total += os.stat(os.path.join(root, name), follow_symlinks=False).st_size
+                size = os.stat(os.path.join(root, name), follow_symlinks=False).st_size
             except OSError:
-                pass
+                continue
+            total += max(size, MIN_FILE_CHARGE_BYTES)
     return total
 
 
@@ -80,13 +147,11 @@ def _path_allowed(full: str) -> bool:
 
 
 def _resolve_path(raw: str, for_write: bool):
-    """Resolve a client-supplied path, refusing anything outside /work and /storage.
-
-    Paths are resolved with realpath, so symlinks cannot be used to escape the
-    allowed roots. For writes the parent is resolved (the file itself may not
-    exist yet).
-    """
-    if not raw or not raw.startswith("/") or "\x00" in raw:
+    """Resolve a path inside /work or /storage; writes resolve the parent (for_write)."""
+    # Bound the echo size too: the response repeats the path, and an
+    # unbounded caller-supplied string must not be able to grow a payload
+    # past the response-size invariant.
+    if not raw or not raw.startswith("/") or "\x00" in raw or len(raw) > MAX_PATH_CHARS:
         return None
 
     parts = [part for part in raw.split("/") if part not in ("", ".")]
@@ -115,26 +180,28 @@ def _unique_path(full: str) -> str:
 class SandboxHandler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
-    # -- plumbing ---------------------------------------------------------
-
     def log_message(self, format, *args):
         sys.stderr.write(f"[sandbox] {self.address_string()} {args[0]}\n")
 
-    def _send_json(self, status: int, body: dict):
-        data = json.dumps(body).encode("utf-8")
+    def _send_json(self, status: int, body: dict, close: bool = False):
+        data = _json_body(body)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        if close:
+            self.send_header("Connection", "close")
+            self.close_connection = True
         self.end_headers()
         self.wfile.write(data)
 
     def _authorized(self) -> bool:
+        # Reject without reading the body: on a keep-alive socket it would be parsed as the next request.
         if not TOKEN:
-            self._send_json(503, {"error": "sandbox token is not configured"})
+            self._send_json(503, {"error": "sandbox token is not configured"}, close=True)
             return False
         supplied = self.headers.get("X-Sandbox-Token", "")
         if not hmac.compare_digest(supplied.encode(), TOKEN.encode()):
-            self._send_json(401, {"error": "unauthorized"})
+            self._send_json(401, {"error": "unauthorized"}, close=True)
             return False
         return True
 
@@ -144,8 +211,6 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
             return {}
         raw = self.rfile.read(length)
         return json.loads(raw)
-
-    # -- routes -----------------------------------------------------------
 
     def do_GET(self):
         if not self._authorized():
@@ -208,8 +273,6 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
 
         self._send_json(*self._execute(command, resolved_cwd, timeout, initial_usage))
 
-    # -- file transfer ----------------------------------------------------
-
     def _get_file(self, query: dict):
         raw_path = (query.get("path") or [""])[0]
         full = _resolve_path(raw_path, for_write=False)
@@ -256,8 +319,9 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(411, {"error": "Content-Length is required"})
             return
 
-        # Enforce the persistent-storage quota before accepting the bytes.
-        if full.startswith(STORAGE_PREFIX + os.sep) and _storage_usage() + length > STORAGE_QUOTA_BYTES:
+        if full.startswith(STORAGE_PREFIX + os.sep) and (
+            _storage_usage() + max(length, MIN_FILE_CHARGE_BYTES) > STORAGE_QUOTA_BYTES
+        ):
             self._send_json(507, {"error": "storage quota exceeded"})
             return
 
@@ -294,9 +358,14 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
 
         self._send_json(200, {"path": target})
 
-    # -- execution --------------------------------------------------------
-
     def _execute(self, command: str, cwd: str, timeout: int, initial_usage: int):
+        if not os.path.isdir(cwd):
+            return 200, {
+                "exitCode": -1,
+                "stdout": "",
+                "stderr": f"Working directory does not exist: {cwd}",
+            }
+
         try:
             process = subprocess.Popen(
                 command,
@@ -304,19 +373,21 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
+                # Binary pipes: children emit arbitrary bytes (`cat /bin/ls`).
+                # Decoding happens once after the drain, with errors="replace".
                 start_new_session=True,
             )
-        except FileNotFoundError:
-            return 200, {"exitCode": -1, "stdout": "", "stderr": f"Command not found: {command}"}
+        except FileNotFoundError as error:
+            # The shell itself is missing (the command is not on PATH): report the
+            # message the OS gave us, without a traceback, so the model can act.
+            return 200, {"exitCode": -1, "stdout": "", "stderr": str(error)}
         except OSError as error:
             return 200, {"exitCode": -1, "stdout": "", "stderr": str(error)}
 
         breached = [False]
 
         def watchdog():
-            # Kill the whole process group if this command pushes /storage over
-            # quota. Commands that *reduce* usage (cleanup) are left alone.
+            # Kill the process group on a quota breach; cleanup-only commands are left alone.
             while process.poll() is None:
                 time.sleep(1)
                 if process.poll() is not None:
@@ -330,32 +401,64 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
                         pass
                     return
 
+        # Drain both pipes from the start so a full pipe cannot block the child.
+        stdout_tail = _TailBuffer(MAX_OUTPUT_BYTES)
+        stderr_tail = _TailBuffer(MAX_OUTPUT_BYTES)
+        stop = threading.Event()
+        readers = [
+            threading.Thread(
+                target=_pump_and_close,
+                args=(process.stdout, stdout_tail, stop),
+                daemon=True,
+            ),
+            threading.Thread(
+                target=_pump_and_close,
+                args=(process.stderr, stderr_tail, stop),
+                daemon=True,
+            ),
+        ]
+        for reader in readers:
+            reader.start()
+
         watcher = threading.Thread(target=watchdog, daemon=True)
         watcher.start()
 
+        timed_out = False
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            returncode = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
+            timed_out = True
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except OSError:
                 pass
-            stdout, stderr = process.communicate()
-            stdout, stderr = _cap_output(
-                stdout, (stderr or "") + f"\nCommand timed out after {timeout}s"
-            )
-            return 200, {
-                "exitCode": -1,
-                "stdout": stdout,
-                "stderr": stderr,
-            }
+            try:
+                returncode = process.wait(timeout=DRAIN_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                returncode = -1
 
-        if breached[0]:
-            stderr = (stderr or "") + "\nStorage quota exceeded; process killed."
+        # One shared deadline for both readers, then stop them so threads/fds do not outlive the request.
+        deadline = time.monotonic() + DRAIN_TIMEOUT
+        for reader in readers:
+            reader.join(timeout=max(0.0, deadline - time.monotonic()))
+        stop.set()
+        for reader in readers:
+            reader.join(timeout=0.5)
+
+        stdout = stdout_tail.text(MAX_OUTPUT_CHARS)
+        stderr = stderr_tail.text(MAX_OUTPUT_CHARS)
+
+        if timed_out:
+            stderr = stderr + f"\nCommand timed out after {timeout}s"
+            returncode = -1
+        elif breached[0]:
+            # A deliberate server-side kill, not the command's own exit status.
+            stderr = stderr + "\nStorage quota exceeded; process killed."
+            returncode = -1
 
         stdout, stderr = _cap_output(stdout, stderr)
         return 200, {
-            "exitCode": process.returncode,
+            "exitCode": returncode,
             "stdout": stdout,
             "stderr": stderr,
         }

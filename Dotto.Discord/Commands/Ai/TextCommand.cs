@@ -28,8 +28,7 @@ public class TextCommand(
         var channelId = Context.Message.ChannelId;
         var guildId = Context.Message.GuildId.Value;
         
-        // Fetch messages before the invoking message; skip the user's own message so the
-        // query (passed separately as userRequest) isn't duplicated in history.
+        // Skip the invoking message so the query isn't duplicated in history.
         var messageHistory = await client.GetMessagesAsync(channelId, new()
             {
                 BatchSize = Math.Min(_settings.ChatAssistant.HistoryContextSize, 100),
@@ -75,10 +74,12 @@ public class TextCommand(
         if (!s3Atts.IsNullOrEmpty())
             textResponse += "\n" + string.Join("\n", s3Atts.Select(url => "-# " + url));
 
-        await ReplyAsync(new ReplyMessageProperties
+        var sentMessage = await ReplyAsync(new ReplyMessageProperties
         {
             Content = textResponse,
             Attachments = response.Attachments.Select(att => att.DiscordAttachment).Where(att => att != null)!
         });
+
+        await _aiHandler.LogUploadedMedia(sentMessage, response, Context.User.Id);
     }
 }

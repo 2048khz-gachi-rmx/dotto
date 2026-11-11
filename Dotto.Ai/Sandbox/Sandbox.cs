@@ -10,10 +10,7 @@ using Microsoft.Extensions.Options;
 namespace Dotto.Ai.Sandbox;
 
 /// <summary>
-/// The single scoped sandbox entity. Encapsulates the whole lifecycle of one session's container:
-/// eager storage provisioning (<see cref="InitializeAsync"/>), lazy container start with health
-/// polling (<see cref="EnsureStartedAsync"/>), and dispose-driven teardown (stop/remove container).
-/// Persistent storage is never touched by the bot.
+/// Scoped sandbox for one invocation: storage provisioning, lazy container start, dispose-driven teardown.
 /// </summary>
 internal sealed class Sandbox(IOptions<SandboxOptions> options,
     ILogger<Sandbox> logger,
@@ -24,8 +21,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     private const string ContainerLabelValue = "true";
 
     /// <summary>
-    /// Serializes storage provisioning for a given caller. Two sessions for the
-    /// same user must not race on creating their shared storage directory.
+    /// Serializes storage-directory creation per caller across concurrent sessions.
     /// </summary>
     private static readonly ConcurrentDictionary<ulong, SemaphoreSlim> CallerGates = new();
 
@@ -34,15 +30,31 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
     private SandboxMetadata? _metadata;
     private string? _token;
+    private string? _containerId;
     private bool _disposed;
 
-    public SandboxMetadata Metadata =>
-        _metadata ?? throw new InvalidOperationException("Sandbox is not initialized. Call InitializeAsync first.");
+    /// <summary>
+    /// Test seam for the readiness probe; production uses <see cref="SandboxContainer"/>.
+    /// </summary>
+    internal Func<Uri, string, string, ISandboxContainer> ContainerFactory { get; init; }
+        = static (apiUrl, containerId, token) => new SandboxContainer(apiUrl, containerId, token);
+
+    public SandboxMetadata Metadata
+    {
+        get
+        {
+            ThrowIfDisabled();
+            return _metadata
+                ?? throw new InvalidOperationException("Sandbox is not initialized. Call InitializeAsync first.");
+        }
+    }
 
     public ISandboxContainer? Container { get; private set; }
 
     public async Task<SandboxMetadata> InitializeAsync(string sessionId, ulong callerId, CancellationToken ct)
     {
+        ThrowIfDisabled();
+
         await using var _ = await _lifecycleGate.CaptureWaitAsync(ct);
         ThrowIfDisposed();
 
@@ -56,9 +68,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             var storageDir = Path.Combine(_options.StorageBasePath, callerId.ToString());
             Directory.CreateDirectory(storageDir);
 
-            // Bot runs as root in its container; sandbox runs as a non-root user.
-            // Widen perms so the sandbox can create its own files. The parent
-            // stays default (root 755). No-op on Windows (dev).
+            // Bot is root, sandbox is non-root: widen perms so the sandbox can write here.
             if (!OperatingSystem.IsWindows())
             {
                 File.SetUnixFileMode(storageDir,
@@ -82,6 +92,8 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
     public async Task<ISandboxContainer> EnsureStartedAsync(CancellationToken ct)
     {
+        ThrowIfDisabled();
+
         await using var _ = await _lifecycleGate.CaptureWaitAsync(ct);
         ThrowIfDisposed();
 
@@ -90,9 +102,6 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         var meta = Metadata;
 
-        // Random suffix avoids collisions with a container from a previous
-        // session with the same second-resolution ID, and a fresh token per
-        // container makes the API useless to anything that can merely reach it.
         var containerName = $"sandbox-{meta.SessionId}-{RandomHex(4)}";
         _token = RandomHex(32);
 
@@ -104,8 +113,6 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             Name = containerName,
             HostConfig = new HostConfig
             {
-                // Resource limits. tmpfs pages count against the memory cgroup,
-                // so MemoryMb must exceed WorkTmpfsMb.
                 NanoCPUs = (long)(_options.CpuCount * 1_000_000_000),
                 Memory = _options.MemoryMb * 1024 * 1024,
                 MemorySwap = _options.MemoryMb * 1024 * 1024, // same as memory (no swap)
@@ -116,31 +123,23 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 CapDrop = new List<string> { "ALL" },
                 SecurityOpt = new List<string> { "no-new-privileges:true" },
 
+                DNS = _options.DnsServers,
+
                 AutoRemove = true,
 
-                // Persistent per-user storage. This is the only host path the
-                // sandbox sees, and it is a directory the bot never reads or
-                // writes — only the sandbox HTTP API moves bytes through it.
+                // The only host path the sandbox sees; the bot never opens files in it.
                 Binds =
                 [
                     $"{meta.HostStorageDir}:/storage"
                 ],
 
-                // /work is scratch space: ephemeral and capped by the kernel.
                 Tmpfs = new Dictionary<string, string>
                 {
                     ["/work"] = $"size={_options.WorkTmpfsMb}M",
                     ["/tmp"] = "size=64M"
                 },
 
-                // When a Docker network is configured (production: bot runs in a
-                // container), connect the sandbox to it. The bot reaches the
-                // sandbox by its container name on the shared network — no host
-                // port publishing needed.
-                //
-                // When no network is configured (dev: bot runs on host), publish
-                // 8080 to a random loopback port so the bot reaches it via
-                // 127.0.0.1. Never bind the sandbox API to all interfaces.
+                // Production joins the shared network; dev publishes 8080 to loopback only.
                 NetworkMode = _options.NetworkName.IsNullOrWhitespace()
                     ? "default"
                     : _options.NetworkName!,
@@ -150,9 +149,6 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 [ContainerLabelKey] = ContainerLabelValue,
                 ["dotto-session-id"] = meta.SessionId
             },
-            // No secrets (or anything else) leak into the sandbox: the token is
-            // the only environment entry, and it is not a secret for anyone who
-            // cannot already reach the container network.
             Env = new List<string>
             {
                 $"SANDBOX_TOKEN={_token}",
@@ -165,9 +161,6 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             },
         };
 
-        // Dev mode only (no shared network): publish 8080 to a random loopback
-        // port. In production, the sandbox is reachable by container name on
-        // the shared network — no host port needed.
         if (_options.NetworkName.IsNullOrWhitespace())
         {
             createParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>
@@ -182,31 +175,43 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         var createResponse = await client.Containers.CreateContainerAsync(createParams, ct);
 
+        // Recorded before start/URL/readiness so disposal can stop a half-made container.
+        _containerId = createResponse.ID;
+
         logger.LogInformation(
             "Created sandbox container {ContainerId} for session {SessionId}",
             createResponse.ID, meta.SessionId);
 
-        await client.Containers.StartContainerAsync(
-            createResponse.ID,
-            new ContainerStartParameters(),
-            ct);
+        try
+        {
+            await client.Containers.StartContainerAsync(
+                createResponse.ID,
+                new ContainerStartParameters(),
+                ct);
 
-        logger.LogInformation(
-            "Started sandbox container {ContainerId}", createResponse.ID);
+            logger.LogInformation(
+                "Started sandbox container {ContainerId}", createResponse.ID);
 
-        // Inspect to find the sandbox API URL (network-resolved name or host port)
-        var apiUrl = await ResolveApiUrlAsync(createResponse.ID, containerName, ct);
+            // Inspect to find the sandbox API URL (network-resolved name or host port)
+            var apiUrl = await ResolveApiUrlAsync(createResponse.ID, containerName, ct);
 
-        var container = new SandboxContainer(apiUrl, createResponse.ID, _token);
-        await WaitForReadyAsync(container, _options.ContainerStartTimeout, ct);
+            var container = ContainerFactory(apiUrl, createResponse.ID, _token);
+            await WaitForReadyAsync(container, _options.ContainerStartTimeout, ct);
 
-        Container = container;
+            Container = container;
 
-        logger.LogInformation(
-            "Sandbox ready for session {SessionId} at {ApiUrl} (container: {ContainerId})",
-            meta.SessionId, apiUrl, createResponse.ID);
+            logger.LogInformation(
+                "Sandbox ready for session {SessionId} at {ApiUrl} (container: {ContainerId})",
+                meta.SessionId, apiUrl, createResponse.ID);
 
-        return container;
+            return container;
+        }
+        catch
+        {
+            // Stop the container here: this path throws, so dispose may never run.
+            await TryStopContainerAsync(createResponse.ID);
+            throw;
+        }
     }
 
     /// <summary>
@@ -222,28 +227,49 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         _disposed = true;
 
-        if (Container == null)
+        var containerId = Container?.ContainerId ?? _containerId;
+        if (containerId == null)
             return;
 
         try
         {
-            await StopAndRemoveContainerAsync(Container.ContainerId, CancellationToken.None);
+            await StopAndRemoveContainerAsync(containerId, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to stop sandbox container {ContainerId}", Container.ContainerId);
+            logger.LogError(ex, "Failed to stop sandbox container {ContainerId}", containerId);
         }
     }
 
     /// <summary>
-    /// Synchronous fallback for DI scopes that are disposed synchronously. The
-    /// async path is preferred; this blocks only while an existing stop call
-    /// completes.
+    /// Blocking fallback for synchronously-disposed scopes.
     /// </summary>
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private void ThrowIfDisposed()
         => ObjectDisposedException.ThrowIf(_disposed, typeof(Sandbox));
+
+    private void ThrowIfDisabled()
+    {
+        if (!_options.Enabled)
+            throw new SandboxDisabledException();
+    }
+
+    /// <summary>
+    /// Never throws: the original failure is already propagating.
+    /// </summary>
+    private async Task TryStopContainerAsync(string containerId)
+    {
+        try
+        {
+            // Not the caller's ct: cleanup must run even when that ct is what failed.
+            await StopAndRemoveContainerAsync(containerId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to clean up unusable sandbox container {ContainerId}", containerId);
+        }
+    }
 
     private async Task StopAndRemoveContainerAsync(string containerId, CancellationToken ct)
     {
@@ -264,9 +290,14 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         {
             logger.LogWarning("Sandbox container {ContainerId} already removed", containerId);
         }
+        catch (Exception ex)
+        {
+            // Already-gone containers are logged, not surfaced.
+            logger.LogWarning(ex, "Failed to stop sandbox container {ContainerId}", containerId);
+        }
     }
 
-    private async Task WaitForReadyAsync(SandboxContainer container, TimeSpan timeout, CancellationToken ct)
+    private async Task WaitForReadyAsync(ISandboxContainer container, TimeSpan timeout, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeout);
@@ -301,14 +332,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     }
 
     /// <summary>
-    /// Resolves the URL the bot uses to reach the sandbox HTTP server.
-    ///
-    /// If a Docker network is configured (production: bot and sandbox are on
-    /// the same network), the URL is <c>http://&lt;container-name&gt;:8080</c> —
-    /// Docker's embedded DNS resolves the container name.
-    ///
-    /// Otherwise (dev: bot runs on the host), inspects the container for the
-    /// randomly assigned host port and returns <c>http://127.0.0.1:&lt;port&gt;</c>.
+    /// Container name on the shared network, or the published loopback port in dev.
     /// </summary>
     private async Task<Uri> ResolveApiUrlAsync(string containerId, string containerName, CancellationToken ct)
     {
@@ -333,7 +357,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             return new Uri($"http://127.0.0.1:{hostPort}");
         }
 
-        // Fallback: shouldn't happen since we always publish, but handle gracefully
+        // Unreachable in practice: 8080 is always published in dev.
         logger.LogWarning(
             "Could not find host port mapping for container {ContainerId}, using loopback fallback",
             containerId);

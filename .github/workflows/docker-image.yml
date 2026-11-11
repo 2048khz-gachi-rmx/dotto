@@ -108,3 +108,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
+
+      # The two sidecars the deployment compose uses. Published so a deployment
+      # needs only docker-compose.yml, not a checkout.
+      - name: Build and push sandbox egress firewall
+        uses: docker/build-push-action@v7
+        with:
+          context: .docker
+          file: sandbox-egress/Dockerfile
+          push: true
+          tags: ghcr.io/2048khz-gachi-rmx/dotto-sandbox-firewall:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Build and push socket protector
+        uses: docker/build-push-action@v7
+        with:
+          context: .docker
+          file: socket-protector/Dockerfile
+          push: true
+          tags: ghcr.io/2048khz-gachi-rmx/dotto-socket-protector:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false

@@ -2,10 +2,11 @@
 using System.Net.Http;
 using Dotto.Ai.Sandbox;
 using Dotto.Common;
+using Microsoft.Extensions.Logging;
 
 namespace Dotto.Ai.Tools;
 
-public class TerminalTools(ISandbox sandbox)
+public class TerminalTools(ISandbox sandbox, ILogger<TerminalTools>? logger = null)
 {
     [Tool(ToolAttribute.ToolTypeFlag.UserAssistant)]
     [Description("Run a terminal command in the isolated sandbox. " +
@@ -21,21 +22,34 @@ public class TerminalTools(ISandbox sandbox)
         string? timeout = null)
     {
         SandboxExecuteResult result;
+        ISandboxContainer container;
         try
         {
-            var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+            container = await sandbox.EnsureStartedAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger?.LogError(ex, "Sandbox failed to start for ExecuteCommand");
+            return SandboxToolMessages.StartFailed;
+        }
+
+        try
+        {
             result = await container.ExecuteAsync(command, cwd ?? "", timeout ?? "", CancellationToken.None);
         }
         catch (SandboxHttpException ex)
         {
+            logger?.LogWarning(ex, "Sandbox rejected command execution");
             return ex.Message;
         }
         catch (TimeoutException ex)
         {
+            logger?.LogWarning(ex, "Sandbox HTTP request timed out");
             return $"Sandbox timeout error: {ex.Message}";
         }
         catch (HttpRequestException ex)
         {
+            logger?.LogWarning(ex, "Sandbox communication failed");
             return $"Sandbox communication error: {ex.Message}";
         }
 

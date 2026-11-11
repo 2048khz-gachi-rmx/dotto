@@ -1,17 +1,24 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
 using Dotto.Application.Abstractions.Factories;
+using Dotto.Application.Abstractions.MediaProcessing;
+using Dotto.Application.Models;
 using Dotto.Infrastructure.Downloader.Contracts.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Dotto.Ai.Tools;
 
 public class DiscordTools(
     ContextAccessor accessor,
     IDownloaderServiceFactory downloaderFactory,
-    ISandbox sandbox)
+    IMediaDownloader mediaDownloader,
+    ISandbox sandbox,
+    ILogger<DiscordTools>? logger = null)
 {
+    private const long MaxDownloadBytes = 100L * 1024 * 1024;
+
     private readonly ChatAssistantContext _context = accessor.Get<ChatAssistantContext>();
 
     [Tool(ToolAttribute.ToolTypeFlag.UserAssistant)]
@@ -23,32 +30,77 @@ public class DiscordTools(
         bool audioOnly = false,
         CancellationToken ct = default)
     {
-        var downloaders = downloaderFactory.CreateDownloaderService(query);
-        IList<DownloadedMedia> downloaded = [];
+        var options = new DownloadOptions
+        {
+            AudioOnly = audioOnly,
+            MaxFilesize = MaxDownloadBytes
+        };
 
-        foreach (var downloader in downloaders)
+        IList<DownloadedMedia> downloaded = [];
+        var fatalErrors = new List<string>();
+
+        if (Uri.TryCreate(query, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
         {
             try
             {
-                var results = await downloader.Download(query, new DownloadOptions
+                var result = await mediaDownloader.DownloadMediaFromUrl(uri, options, ct);
+                downloaded = result.Media;
+                fatalErrors.AddRange(result.Errors
+                    .Where(e => e.ErrorCode == MediaErrorCode.DownloaderError)
+                    .Select(e => e.Message));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Anything the downloader lets escape must not abort the agent run.
+                logger?.LogWarning(ex, "Media download failed for {Url}", uri);
+                fatalErrors.Add(ex.Message);
+            }
+        }
+        else
+        {
+            foreach (var downloader in downloaderFactory.CreateDownloaderService(query))
+            {
+                try
                 {
-                    AudioOnly = audioOnly,
-                    MaxFilesize = 100L * 1024 * 1024
-                }, ct);
+                    var results = await downloader.Download(query, options, ct);
 
-                if (results.Count > 0)
+                    if (results.Count > 0)
+                    {
+                        downloaded = results;
+                        break;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    downloaded = results;
-                    break;
+                    logger?.LogWarning(ex,
+                        "Downloader {Downloader} failed for query {Query}",
+                        downloader.GetType().Name, query);
+                    fatalErrors.Add(ex.Message);
                 }
             }
-            catch { }
         }
 
         if (downloaded.Count == 0)
-            return "Failed to download media from the provided URL.";
+        {
+            const string failure = "Failed to download media from the provided URL.";
+            if (fatalErrors.Count == 0)
+                return failure;
 
-        var container = await sandbox.EnsureStartedAsync(ct);
+            return $"{failure}\n{string.Join("\n", fatalErrors.Distinct().Select(e => $"- {e}"))}";
+        }
+
+        ISandboxContainer container;
+        try
+        {
+            container = await sandbox.EnsureStartedAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await DisposeAllAsync(downloaded);
+            logger?.LogError(ex, "Sandbox failed to start for DownloadMedia");
+            return SandboxToolMessages.StartFailed;
+        }
 
         var sandboxPaths = new List<string>();
         try
@@ -67,8 +119,6 @@ public class DiscordTools(
                     : media.FileSize ?? throw new InvalidOperationException(
                         "Non-seekable media was returned without a known file size.");
 
-                // The server owns path resolution and collision handling. The
-                // bytes are the only thing that crosses the boundary.
                 var sandboxPath = await container.PutFileAsync(
                     $"/work/downloads/{fileName}",
                     media.Video,
@@ -79,10 +129,14 @@ public class DiscordTools(
                 sandboxPaths.Add(sandboxPath);
             }
         }
+        catch (SandboxHttpException ex)
+        {
+            logger?.LogWarning(ex, "Sandbox rejected a downloaded file");
+            return $"Failed to write the downloaded media into the sandbox: {ex.Message}";
+        }
         finally
         {
-            foreach (var media in downloaded)
-                await media.DisposeAsync();
+            await DisposeAllAsync(downloaded);
         }
 
         if (sandboxPaths.Count == 1)
@@ -106,7 +160,16 @@ public class DiscordTools(
             return "Invalid file path: path must be a sandbox-relative /work/... or /storage/... path and must not contain '..'.";
         }
 
-        var container = await sandbox.EnsureStartedAsync(ct);
+        ISandboxContainer container;
+        try
+        {
+            container = await sandbox.EnsureStartedAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger?.LogError(ex, "Sandbox failed to start for UploadFile");
+            return SandboxToolMessages.StartFailed;
+        }
 
         SandboxFile file;
         try
@@ -117,9 +180,23 @@ public class DiscordTools(
         {
             return $"File not found: `{sandboxPath}`. Check the path and try again.";
         }
+        catch (SandboxHttpException ex)
+        {
+            logger?.LogWarning(ex, "Sandbox rejected an upload request for {Path}", sandboxPath);
+            return $"Failed to read `{sandboxPath}` from the sandbox: {ex.Message}";
+        }
 
         var fileName = Path.GetFileName(sandboxPath);
-        _context.Attachments.Add(new AgentAttachment(file.Stream, fileName, file.Length));
+        _context.Attachments.Add(new AgentAttachment(file.Stream, fileName, file.Length)
+        {
+            SourcePath = sandboxPath
+        });
         return $"Enqueued `{fileName}` for upload.";
+    }
+
+    private static async Task DisposeAllAsync(IEnumerable<DownloadedMedia> media)
+    {
+        foreach (var item in media)
+            await item.DisposeAsync();
     }
 }

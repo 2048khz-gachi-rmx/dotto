@@ -1,9 +1,7 @@
 namespace Dotto.Ai.Sandbox;
 
 /// <summary>
-/// The subset of the sandbox HTTP API the bot uses: execution, health checks,
-/// and streaming file transfer. Every request carries the per-container random
-/// token injected at creation time.
+/// Execution, health check, and file streaming over the sandbox HTTP API.
 /// </summary>
 public interface ISandboxContainer
 {

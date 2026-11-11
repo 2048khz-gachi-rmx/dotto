@@ -47,7 +47,7 @@ public class ApplicationCommand(IServiceProvider serviceProvider, IDateTimeProvi
             uploadLimit,
             messageHistory);
 
-        // Workaround: you can't get past interactions' options, so we embed the prompt to keep history
+        // Workaround: interactions can't expose options to history, so embed the prompt.
         var textResponse = $"-# prompt: {userRequest.Replace("\n", "")}\n"
                            + response.Response;
         var s3Atts = response.Attachments
@@ -58,11 +58,13 @@ public class ApplicationCommand(IServiceProvider serviceProvider, IDateTimeProvi
         if (!s3Atts.IsNullOrEmpty())
             textResponse += "\n" + string.Join("\n", s3Atts.Select(url => "-# " + url));
 
-        await FollowupAsync(new()
+        var sentMessage = await FollowupAsync(new()
         {
             Content = textResponse,
             Attachments = response.Attachments.Select(att => att.DiscordAttachment).Where(att => att != null)!
         });
+
+        await _aiHandler.LogUploadedMedia(sentMessage, response, Context.User.Id);
     }
 
     [SlashCommand("ai", "Chat with the AI assistant",

@@ -48,6 +48,21 @@ The file endpoints stream in 64 KiB chunks. `PUT` requires an explicit
 `Content-Length` because Python's `http.server` mishandles `Transfer-Encoding:
 chunked`.
 
+## Limits
+
+- **Output budget:** stdout and stderr share one 10,000-character budget. stderr
+  keeps at least half of it; stdout gets whatever stderr does not need. A stream
+  that exceeds its share keeps its tail and gains a `[... N bytes truncated]`
+  marker, and the response body is always small enough for the bot's 128 KiB
+  buffer.
+- **Storage quota:** usage charges every file `max(256 KiB, size)`, so many tiny
+  files cannot make the quota meaningless. A `PUT` that would exceed it returns
+  `507`; a command that pushes usage over it is killed.
+- **Auth failures close the connection** (`Connection: close`): the request body
+  is not read, so keeping the socket alive would desync the next request.
+- **Errors are model-facing:** a missing `cwd` returns `exitCode: -1` naming the
+  path, and an unexecutable command returns the OS message — never a traceback.
+
 ## Timeout Tiers
 
 | Value | Hard timeout | Use case |

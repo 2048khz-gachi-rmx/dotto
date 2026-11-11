@@ -5,12 +5,11 @@ namespace Dotto.Ai.Agents.Base;
 public record AgentAttachment(Stream Stream, string FileName, long Length)
 {
     /// <summary>
-    /// Set by the handler after uploading to Discord directly.
+    /// Sandbox source path, recorded with the delivered media.
     /// </summary>
+    public string? SourcePath { get; init; }
+
     public AttachmentProperties? DiscordAttachment { get; set; }
 
-    /// <summary>
-    /// Set by the handler after uploading to S3 when the file is too large.
-    /// </summary>
     public Uri? S3AttachmentUrl { get; set; }
 }

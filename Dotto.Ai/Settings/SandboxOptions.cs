@@ -11,18 +11,12 @@ public class SandboxOptions
     public string ImageTag { get; set; } = "dotto-sandbox:latest";
 
     /// <summary>
-    /// Docker network to attach sandbox containers to. When set, the bot reaches
-    /// the sandbox via the container's name on this network (production: bot runs
-    /// in a container). When null/empty, the sandbox publishes port 8080 to a
-    /// random loopback port and the bot connects via 127.0.0.1 (dev: bot runs on
-    /// the host).
+    /// Network to attach sandboxes to; unset = publish 8080 on loopback (dev).
     /// </summary>
     public string? NetworkName { get; set; }
 
     /// <summary>
-    /// Base directory for per-caller persistent storage (<c>/storage</c> in the
-    /// sandbox). The bot only creates the directory and bind-mounts it; it never
-    /// reads or writes its contents.
+    /// Host directory per caller, bind-mounted as /storage.
     /// </summary>
     [Required(AllowEmptyStrings = false)]
     public string StorageBasePath { get; set; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -30,17 +24,13 @@ public class SandboxOptions
         : "/var/lib/dotto-sandbox";
 
     /// <summary>
-    /// Per-caller persistent storage quota in megabytes. Enforced by the sandbox
-    /// server before writes and by the execution watchdog.
+    /// Per-caller /storage quota in MB (enforced inside the sandbox).
     /// </summary>
     [Range(16, 10240)]
     public long StorageQuotaMb { get; set; } = 200;
 
     /// <summary>
-    /// Size of the ephemeral <c>/work</c> tmpfs in megabytes. Kernels cannot
-    /// quota tmpfs per directory, but a sized tmpfs is a hard limit. tmpfs pages
-    /// count against the container memory cgroup, so <see cref="MemoryMb"/> must
-    /// exceed this value.
+    /// /work tmpfs size; its pages count against MemoryMb, which must be larger.
     /// </summary>
     [Range(64, 16384)]
     public long WorkTmpfsMb { get; set; } = 1024;
@@ -58,4 +48,9 @@ public class SandboxOptions
     public long MemoryMb { get; set; } = 1536;
 
     public bool UseGVisorRuntime { get; set; } = false;
+
+    /// <summary>
+    /// Sandbox resolvers; private ones are unreachable through the egress filter.
+    /// </summary>
+    public List<string> DnsServers { get; set; } = ["1.1.1.1", "8.8.8.8"];
 }
