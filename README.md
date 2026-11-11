@@ -13,49 +13,10 @@ what, you don't know what botto is?
   - **Recompression**: should the bot scan messages for attachments, then recompress and repost them via ffmpeg?
 
 ## Getting started
-1. Create a `docker-compose.yml` file with the following contents:
-```yaml
-services:
-  dotto:
-    container_name: dotto
-    image: "ghcr.io/2048khz-gachi-rmx/dotto:latest"
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - dotto
-    environment:
-      ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
-
-  postgres:
-    container_name: dotto_postgres
-    image: postgres:17
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: 'dotto'
-      PGDATA: /data/postgres
-      PGPORT: 5999
-    volumes:
-       - postgres:/data/postgres
-    ports:
-      - "${POSTGRES_PUBLIC_PORT}:5999"
-    networks:
-      - dotto
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-networks:
-  dotto:
-
-volumes:
-    postgres:
+1. Download the deployment compose and the env template (no checkout needed):
+```sh
+curl -O https://raw.githubusercontent.com/2048khz-gachi-rmx/dotto/master/docker-compose.yml
+curl -O https://raw.githubusercontent.com/2048khz-gachi-rmx/dotto/master/.env.example
 ```
 
 2. Copy the `.env.example` file to a `.env` file:
@@ -65,11 +26,25 @@ volumes:
 
 4. `docker compose up -d`
 
+`docker-compose.yml` is the deployment compose: the bot and Postgres, plus the AI
+sandbox plumbing (sandbox image pre-pull, Docker API proxy, sandbox network and
+egress firewall).
+
+## AI sandbox
+
+`/ai` runs LLM-generated commands (downloads, ffmpeg, uploads) in short-lived
+Docker containers, which the deployment compose above is already wired for,
+including the host path used for per-user storage (`/var/lib/dotto-sandbox`).
+How the sandbox works and is hardened is documented in
+`openspec/changes/ai-sandbox/`.
+
 ## Developing
 Want to set up the project locally?
 You'll find a Docker Compose file with auxilary services (PostgreSQL) ready to go in the `.docker/` folder.  
 You'll probably also want to set up user secrets:
 ```sh
+cd Dotto.Bot # need to be in the project to set user secrets
+
 dotnet user-secrets set "Discord:Token" "YOURTOKENHERE"
 
 # Optionally, set up MinIO credentials if you have an S3 server:
@@ -82,4 +57,22 @@ dotnet user-secrets set "Minio:SecretKey" "YOUR_SECRET_KEY"
 # Optionally, set up Cobalt credentials to use for certain URLs (currently: only instagram)
 dotnet user-secrets set "Downloader:Cobalt:BaseUrl" "YOUR_COBALT_URL"
 dotnet user-secrets set "Downloader:Cobalt:ApiKey" "YOUR_COBALT_KEY"
+
+# AI settings — model, API key, base URL
+dotnet user-secrets set "Ai:BaseUrl" "https://openrouter.ai/api/v1"
+dotnet user-secrets set "Ai:ApiKey" "YOUR_API_KEY"
+dotnet user-secrets set "Ai:AssistantModel" "deepseek/deepseek-v4-flash-0731" # You're absolutely right—
+
+# Optional per-assistant overrides (falls back to top-level Ai values)
+# dotnet user-secrets set "Ai:ChatAssistant:BaseUrl" "https://api.neuralwatt.com/v1"
+# dotnet user-secrets set "Ai:ChatAssistant:ApiKey" "YOUR_OTHER_API_KEY"
+# dotnet user-secrets set "Ai:ChatAssistant:Model" "mechaepstein"
+# dotnet user-secrets set "Ai:ChatAssistant:HistoryContextSize" "50"
+
+# AI sandbox settings (optional — sandbox containers for LLM tool execution)
+# Host directory for per-user persistent storage (/storage in the sandbox). The
+# Docker daemon resolves it on the host, so mount the same absolute path into the
+# bot container. Defaults: /var/lib/dotto-sandbox (Linux),
+# %TEMP%\dotto-sandbox-storage (Windows).
+dotnet user-secrets set "Ai:Sandbox:StorageBasePath" "%TEMP%\dotto-sandbox-storage"
 ```

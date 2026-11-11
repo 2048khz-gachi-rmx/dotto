@@ -1,0 +1,3 @@
+# Build context for the sidecar images (sandbox-egress, socket-protector).
+# Keep compose secrets out of the context.
+.env

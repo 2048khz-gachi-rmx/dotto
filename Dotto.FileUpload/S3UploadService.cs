@@ -14,22 +14,29 @@ public class S3UploadService(IAmazonS3 s3Client, IOptions<S3Settings> s3Settings
 
     public async Task<Uri> UploadFile(Stream stream, long fileSize, string? filename, string? contentType, CancellationToken token)
     {
-        filename ??= Guid.NewGuid().ToString("N");
-
+        // Objects are keyed by a random file id, not the original filename:
+        // filenames are attacker-influenced and the bucket is public-read, so a
+        // repeat name could overwrite an unrelated object. The original name is
+        // preserved as the download filename instead.
+        var key = Guid.NewGuid().ToString("N");
         var request = new PutObjectRequest()
         {
             BucketName = s3Settings.Value.BucketName,
-            Key = filename,
+            Key = key,
             ContentType = contentType,
             AutoCloseStream = false,
             InputStream = stream
         };
-        
+
+        if (filename is not null)
+            request.Headers.ContentDisposition =
+                $"attachment; filename*=UTF-8''{Uri.EscapeDataString(filename)}";
+
         await s3Client.PutObjectAsync(request, token);
         
         var publicLink = new Uri(
             new Uri(s3Client.Config.ServiceURL, UriKind.Absolute),
-            $"{S3Settings.BucketName}/{WebUtility.UrlEncode(filename)}");
+            $"{S3Settings.BucketName}/{WebUtility.UrlEncode(key)}");
         
         return publicLink;
     }

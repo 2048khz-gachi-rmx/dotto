@@ -1,0 +1,9 @@
+# Dotto bot: container lifecycle endpoints only.
+
+# Method Path
+POST /(v\d+\.\d+/)?containers/create(\?.*)?
+POST /(v\d+\.\d+/)?containers/[0-9a-fA-F]+/start(\?.*)?
+GET /(v\d+\.\d+/)?containers/[0-9a-fA-F]+/json(\?.*)?
+GET /(v\d+\.\d+/)?containers/json(\?.*)?
+DELETE /(v\d+\.\d+/)?containers/[0-9a-fA-F]+(\?.*)?
+POST /(v\d+\.\d+/)?containers/[0-9a-fA-F]+/stop(\?.*)?

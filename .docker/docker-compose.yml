@@ -11,9 +11,37 @@ services:
     volumes:
        - postgres:/data/postgres
     ports:
-      - "${POSTGRES_PUBLIC_PORT}:5999"
+      # Loopback only: sandboxes must not reach postgres via a published port.
+      - "127.0.0.1:${POSTGRES_PUBLIC_PORT}:5999"
     networks:
       - postgres
+    restart: unless-stopped
+
+  # Builds dotto-sandbox:latest locally.
+  sandbox-image:
+    container_name: dotto_sandbox_build
+    image: dotto-sandbox:latest
+    build:
+      context: ../Dotto.Ai/sandbox-image
+      dockerfile: Dockerfile
+
+  # Docker API proxy; dev: set DOCKER_HOST=tcp://localhost:2375.
+  socket-protector:
+    container_name: dotto_socket_protector
+    image: ghcr.io/knrdl/docker-socket-protector:latest
+    hostname: socket-protector
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      LOG_REQUESTS: "true"
+      PROFILE: "dotto"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./socket-protector-dotto:/profiles/dotto:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+    mem_limit: 32mb
     restart: unless-stopped
 
 networks:

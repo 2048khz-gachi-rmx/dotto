@@ -7,17 +7,86 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      socket-protector:
+        condition: service_started
+      sandbox-image:
+        condition: service_completed_successfully
+      sandbox-firewall:
+        condition: service_healthy
     networks:
       - dotto
+      - docker_socket
+      - sandbox
     volumes:
       # Optional: place your Netscape-format cookies file at ./dotto_resources/ytdlp-cookies.txt
       # NOTE: read-write (no :ro) because yt-dlp writes refreshed session cookies back into the file.
       - ./dotto_resources:/app/resources
+      # Same host path in and out of the bot: the daemon resolves the bind source host-side.
+      - /var/lib/dotto-sandbox:/var/lib/dotto-sandbox
     environment:
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
       # next to this file; mounted read-write so yt-dlp can update cookies. If the file is absent, the bot runs without cookies.
       Downloader__CookieFile: "/app/resources/ytdlp-cookies.txt"
+      # Route all Docker API calls through the socket-protector sidecar, which
+      # whitelists only the container lifecycle endpoints the sandbox needs.
+      DOCKER_HOST: "tcp://socket-protector:2375"
+      # Sandbox image from the registry. The socket-protector does NOT whitelist
+      # image pulls, so the image is pre-pulled by the sandbox-image service below.
+      Ai__Sandbox__ImageTag: "ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest"
+      # Base directory for per-caller persistent storage (/storage inside the sandbox).
+      Ai__Sandbox__StorageBasePath: "/var/lib/dotto-sandbox"
+      # Sandboxes join the dedicated 'sandbox' network; egress rules below.
+      Ai__Sandbox__NetworkName: "sandbox"
+
+  # Pre-pulls the sandbox image (pulls are not whitelisted by the protector).
+  sandbox-image:
+    image: ghcr.io/2048khz-gachi-rmx/dotto-sandbox:latest
+    container_name: dotto_sandbox_image
+    entrypoint: ["echo", "sandbox image present"]
+    restart: "no"
+    networks:
+      - sandbox
+
+  # Owns the sandbox bridge egress rules; see .docker/sandbox-egress/.
+  sandbox-firewall:
+    container_name: dotto_sandbox_firewall
+    # Published by CI (.github/workflows/docker-image.yml) so a deployment only
+    # needs this compose file and its .env.
+    image: ghcr.io/2048khz-gachi-rmx/dotto-sandbox-firewall:latest
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SANDBOX_BRIDGE: "br-sandbox"
+    restart: unless-stopped
+
+  # Filtering proxy in front of the Docker daemon; the whitelist profile is
+  # baked into the published image.
+  socket-protector:
+    container_name: dotto_socket_protector
+    image: ghcr.io/2048khz-gachi-rmx/dotto-socket-protector:latest
+    hostname: socket-protector
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      LOG_REQUESTS: "false"
+      PROFILE: "dotto"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - docker_socket
+    mem_limit: 32mb
+    restart: unless-stopped
 
   postgres:
     container_name: dotto_postgres
@@ -31,7 +100,8 @@ services:
     volumes:
        - postgres:/data/postgres
     ports:
-      - "${POSTGRES_PUBLIC_PORT}:5999"
+      # Loopback only: sandboxes must reach postgres only through published host ports.
+      - "127.0.0.1:${POSTGRES_PUBLIC_PORT}:5999"
     networks:
       - dotto
     restart: unless-stopped
@@ -43,6 +113,17 @@ services:
 
 networks:
   dotto:
+  docker_socket:
+    internal: true
+  # Pinned bridge name + subnet (default pools are exhausted; a LAN overlap would be routed).
+  sandbox:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-sandbox
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: ${SANDBOX_SUBNET:-10.213.0.0/24}
 
 volumes:
     postgres:
