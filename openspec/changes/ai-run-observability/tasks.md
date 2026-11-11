@@ -17,8 +17,15 @@
       building the solution and running the existing `AiCommandHandler*` tests unchanged
 - [x] 2.2 Wrap registered tools in a `DelegatingAIFunction` decorator that records calls, applies the
       approaching-last-turn warnings and refuses calls past the limit, and verify with unit tests
-      driving a fake `AIFunction` through 21 calls (warnings on turns 15 and 19, refusal on 21, no
-      warning at 14, failure flag for a non-zero exit result)
+      driving a fake `AIFunction` turn by turn (warnings in turns 15 and 19, refusal in turn 21, no
+      warning at 14, several calls in one turn all allowed and warned once, failure flag for a
+      non-zero exit result)
+- [x] 2.2a Count turns in `TurnTrackerChatClient` (a `DelegatingChatClient` calling
+      `AgentProgress.BeginTurn()` per model request) so a batched response costs one turn, not one
+      per call; verify with a stub chat client and by the turn-based limit tests
+- [x] 2.2b Mark `UploadFile` exempt from the turn limit via the `[Tool]` attribute so a file the
+      model already produced still reaches the user; verify an exempt tool executes past the limit
+      while a normal tool in the same turn is refused
 - [x] 2.3 Add the turn-limit disclosure to `Dotto.Ai/Resources/ChatAssistant.liquid` and verify with
       a prompt test asserting the rendered system prompt mentions the turn limit and warnings
 

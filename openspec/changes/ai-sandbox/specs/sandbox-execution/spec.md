@@ -1,6 +1,6 @@
 ## Purpose
 
-Provides an isolated, token-authenticated HTTP API for executing terminal commands (ffmpeg, curl, jq) and moving files in and out of a per-session Docker container, with configurable timeout tiers and bounded output.
+Provides an isolated, token-authenticated HTTP API for executing terminal commands (ffmpeg, curl, jq, python3 and a standard Debian userland) and moving files in and out of a per-session Docker container, with configurable timeout tiers and bounded output.
 
 ## ADDED Requirements
 
@@ -147,7 +147,7 @@ The quota is best-effort: it is enforced by polling, not by the filesystem, so a
 - **THEN** the watchdog kills the process group, reports `exitCode: -1` (a server-side kill, not the command's own status), and names the quota breach in stderr
 
 ### Requirement: Available Binaries
-The sandbox container SHALL have the following binaries installed and available on PATH: ffmpeg, ffprobe, curl, jq, python3.
+The sandbox SHALL provide the binaries an assistant expects from a small Linux userland, not only media tools: ffmpeg, ffprobe, curl, wget, jq, python3, git, openssl, common file, process, archive, time and network-diagnostic utilities. Compilers and heavy media suites SHALL NOT be installed.
 
 #### Scenario: ffmpeg is available
 - **WHEN** the bot sends `POST /execute` with `{"command": "ffmpeg -version"}`
@@ -157,8 +157,16 @@ The sandbox container SHALL have the following binaries installed and available 
 - **WHEN** the bot sends `POST /execute` with `{"command": "jq --version"}`
 - **THEN** the sandbox responds with `exitCode: 0` and stdout containing a version string
 
+#### Scenario: basic userland tools are available
+- **WHEN** the bot sends `POST /execute` with `{"command": "dig -v; git --version; file --version; ps --version"}`
+- **THEN** the sandbox responds with `exitCode: 0`, so an assistant reaching for DNS, git, `file` or `ps` is not failed by a missing binary
+
+#### Scenario: no compilers
+- **WHEN** the bot sends `POST /execute` with `{"command": "command -v gcc make"}` with a non-zero status expected
+- **THEN** neither is found, keeping the image small and the sandbox free of a build toolchain
+
 ### Requirement: No pip or extra dependencies
-The sandbox image SHALL install ffmpeg and ffprobe from a static release tarball, and curl and jq via apt. No pip packages SHALL be installed. The HTTP server SHALL use only the Python 3 standard library.
+The sandbox image SHALL install ffmpeg and ffprobe from a static release tarball, and the remaining utilities via apt (no third-party repositories). No pip packages SHALL be installed. The HTTP server SHALL use only the Python 3 standard library.
 
 #### Scenario: Verify no pip packages
 - **WHEN** the sandbox container starts

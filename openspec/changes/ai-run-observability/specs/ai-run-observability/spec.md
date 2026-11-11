@@ -102,37 +102,52 @@ preview SHALL be replaced so the span stays intact.
 
 ### Requirement: Turn Budget
 
-A run SHALL be limited to a configurable number of tool calls (default 20). Once the limit is
-reached, further tool calls requested by the model SHALL NOT be executed, and the model SHALL
-receive a result explaining that the limit was reached and that it must answer with the
-information it has.
+A run SHALL be limited to a configurable number of turns (default 20), where a turn is one model
+response and may request any number of tool calls. Once the limit is reached, tool calls requested
+in later turns SHALL NOT be executed, and the model SHALL receive a result explaining that the
+limit was reached and that it must answer with the information it has.
 
 #### Scenario: Call beyond the limit is refused
 
-- **WHEN** the model requests a tool call after the turn limit has been reached
+- **WHEN** the model requests a tool call in a turn past the limit
 - **THEN** the tool does not execute and the model receives a turn-limit notice
+
+#### Scenario: Several calls in one turn are all allowed
+
+- **WHEN** the model requests several tool calls in the same response, within the limit
+- **THEN** every one of them executes, and they all count towards the same turn
+
+#### Scenario: A delivery tool still runs past the limit
+
+- **WHEN** the model uploads a file in a turn past the limit
+- **THEN** the upload executes so the file reaches the user, while other tool calls in that turn are still refused
 
 #### Scenario: Configured limit is honoured
 
 - **WHEN** the turn limit is configured to a value other than the default
-- **THEN** the run allows exactly that many tool calls before refusing further ones
+- **THEN** the run allows exactly that many turns of tool calls before refusing further ones
 
 ### Requirement: Turn Limit Warnings
 
-The run SHALL warn the model before the limit is reached: a warning at five calls before the
-limit saying it is approaching, and a warning on the final permitted call saying it is the last
-turn and it must respond. Warnings SHALL be delivered with the tool result so the model sees them
-in its own turn.
+The run SHALL warn the model before the limit is reached: a warning five turns before the limit
+saying it is approaching, and a warning on the turn before the last saying it is the last turn and
+the model must respond. Warnings SHALL be delivered with the tool result so the model sees them in
+its own turn, and SHALL be delivered once per turn however many calls that turn contains.
 
 #### Scenario: Approaching warning
 
-- **WHEN** the tool call numbered `limit - 5` completes
+- **WHEN** a tool call in the turn numbered `limit - 5` completes
 - **THEN** its result carries a warning that the limit is approaching
 
 #### Scenario: Last-turn warning
 
-- **WHEN** the tool call numbered `limit - 1` completes
+- **WHEN** a tool call in the turn numbered `limit - 1` completes
 - **THEN** its result carries a warning that it is the last turn and the model must respond
+
+#### Scenario: Warning appears once per turn
+
+- **WHEN** several tool calls complete in a warning turn
+- **THEN** only the first of their results carries the warning
 
 #### Scenario: No warning before the threshold
 
@@ -141,8 +156,9 @@ in its own turn.
 
 ### Requirement: Turn Limit Disclosure
 
-The agent's system prompt SHALL state that the number of tool calls is limited, and that the
-model will be warned when approaching the limit and on its last turn.
+The agent's system prompt SHALL state that the number of turns is limited, that a turn may
+contain several tool calls, and that the model will be warned when approaching the limit and on
+its last turn.
 
 #### Scenario: Prompt mentions the limit
 

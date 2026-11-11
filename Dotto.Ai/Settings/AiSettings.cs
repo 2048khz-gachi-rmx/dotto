@@ -55,14 +55,15 @@ public class ChatAssistantSettings
     public int MaxAttachments { get; set; } = 10;
 
     /// <summary>
-    /// Maximum number of tool calls a single run may execute. Calls past the limit
-    /// are refused and the model is told to answer with what it has.
+    /// Maximum number of turns (model responses that may call tools) a single run may use.
+    /// A turn may request any number of tool calls; calls in later turns are refused and the
+    /// model is told to answer with what it has.
     /// </summary>
     [Range(1, 100)]
     public int MaxTurns { get; set; } = 20;
 
     /// <summary>
-    /// Runs with at least this many tool calls include the tool transcript in the
+    /// Runs that used at least this many turns include the tool transcript in the
     /// final answer. Leave unset to use <see cref="MaxTurns"/>: the transcript is for runs
     /// that spent the whole budget, which is also when the footer invites the question.
     /// </summary>

@@ -146,8 +146,12 @@ public class AgentProgressTests
     public void Footer_ReportsTurnsDurationAndFiles()
     {
         var progress = new AgentProgress(20);
+
+        progress.BeginTurn();
         progress.StartCall("ExecuteCommand", "one");
         progress.StartCall("ExecuteCommand", "two");
+        progress.BeginTurn();
+        progress.StartCall("ExecuteCommand", "three");
 
         progress.BuildFooter(TimeSpan.FromSeconds(12.6), fileCount: 1)
             .ShouldBe("-# 2 turns · 13s · 1 file(s)");
@@ -161,7 +165,10 @@ public class AgentProgressTests
     {
         var progress = new AgentProgress(20);
         for (var i = 0; i < turns; i++)
+        {
+            progress.BeginTurn();
             progress.StartCall("ExecuteCommand", "cmd");
+        }
 
         progress.ShouldShowTranscript(transcriptTurns: 5, verbose).ShouldBe(expected);
     }
@@ -173,7 +180,10 @@ public class AgentProgressTests
     {
         var progress = new AgentProgress(20);
         for (var i = 0; i < turns; i++)
+        {
+            progress.BeginTurn();
             progress.StartCall("ExecuteCommand", "cmd");
+        }
 
         progress.ShouldShowTranscript(transcriptTurns: null, verbose: false).ShouldBe(expected);
     }

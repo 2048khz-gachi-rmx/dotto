@@ -70,3 +70,15 @@ chunked`.
 | `"short"` | 5s | Quick probes, `jq`, `ls`, `stat` |
 | `"long"` | 300s | ffmpeg transcodes, large curl downloads |
 | unset / any other | 20s | Default |
+
+## What's inside
+
+python:3.13-slim plus `ffmpeg`/`ffprobe` (static builds) and a Debian userland an assistant
+reasonably expects: `bash`, coreutils, `grep`/`sed`/`awk`, `find`/`xargs`, `tar`/`gzip`, and
+additionally `curl`, `jq`, `wget`, `git`, `file`, `less`, `tree`, `bc`, `ps`/`top`/`free`/`pkill`,
+`lsof`, `time`, `hexdump`/`column`, `xxd`, `zip`/`unzip`/`xz`/`bzip2`/`zstd`, `dig`/`nslookup`/`host`,
+`ping`, `nc`, `ip`/`ss`, `whois`, `cal`/`ncal`, `openssl`, `python3` + `pip`.
+
+Deliberately absent: compilers and build tools, ImageMagick, media suites beyond ffmpeg, and
+`sudo`. The container runs as an unprivileged user with a read-only root filesystem.
+

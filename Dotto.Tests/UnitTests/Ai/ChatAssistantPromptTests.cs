@@ -67,7 +67,8 @@ public class ChatAssistantPromptTests
     {
         var prompt = await RenderAsync(CreateContext(), sandboxEnabled: true);
 
-        prompt.ShouldContain("limited number of tool calls");
+        prompt.ShouldContain("limited number of turns");
+        prompt.ShouldContain("several tools in the same turn");
         prompt.ShouldContain("approaching the limit");
         prompt.ShouldContain("last turn");
     }

@@ -42,21 +42,37 @@ public sealed class AgentProgress(int maxTurns)
     private readonly object _gate = new();
     private readonly List<ToolCall> _calls = [];
     private readonly List<string> _warnings = [];
+    private int _turn;
 
-    /// <summary>Maximum number of tool calls this run may execute.</summary>
+    /// <summary>Maximum number of turns (model responses) this run may use to call tools.</summary>
     public int MaxTurns { get; } = Math.Max(1, maxTurns);
 
     /// <summary>Raised whenever a call starts, completes or is refused.</summary>
     public event Action? Changed;
 
-    /// <summary>Executed tool calls (refused attempts are not turns).</summary>
+    /// <summary>
+    /// The model response currently being produced. Tools run inside the turn that asked for
+    /// them, so every call the model requested in one response shares a turn number. A run
+    /// without a tracking chat client (unit tests, direct invocation) counts as turn one.
+    /// </summary>
     public int Turns
     {
         get
         {
             lock (_gate)
-                return _calls.Count(call => call.Executed);
+                return _turn == 0 ? 1 : _turn;
         }
+    }
+
+    /// <summary>Called by the chat client before each model request; returns the new turn.</summary>
+    public int BeginTurn()
+    {
+        int turn;
+        lock (_gate)
+            turn = ++_turn;
+
+        Changed?.Invoke();
+        return turn;
     }
 
     /// <summary>Tool calls the run was asked to make after the budget was exhausted.</summary>
@@ -66,6 +82,16 @@ public sealed class AgentProgress(int maxTurns)
         {
             lock (_gate)
                 return _calls.Count(call => !call.Executed);
+        }
+    }
+
+    /// <summary>Executed tool calls (a turn may contain several).</summary>
+    public int CallCount
+    {
+        get
+        {
+            lock (_gate)
+                return _calls.Count(call => call.Executed);
         }
     }
 
@@ -89,17 +115,20 @@ public sealed class AgentProgress(int maxTurns)
 
     /// <summary>
     /// Records a call as started. Returns <c>null</c> when the turn budget is exhausted,
-    /// in which case the caller must refuse the call instead of executing it.
+    /// in which case the caller must refuse the call instead of executing it. Every call in a
+    /// turn is allowed, however many the model asks for, until the turn itself is past the limit.
+    /// A call that is <paramref name="exemptFromTurnLimit"/> always executes: delivery tools must
+    /// not lose a file the model already produced.
     /// </summary>
-    public ToolCall? StartCall(string toolName, string argumentPreview)
+    public ToolCall? StartCall(string toolName, string argumentPreview, bool exemptFromTurnLimit = false)
     {
         ToolCall call;
         lock (_gate)
         {
-            var executed = _calls.Count(c => c.Executed);
-            call = executed >= MaxTurns
+            var turn = _turn == 0 ? 1 : _turn;
+            call = turn > MaxTurns && !exemptFromTurnLimit
                 ? ToolCall.Refused(toolName, argumentPreview, TurnLimitNotice)
-                : ToolCall.Pending(toolName, argumentPreview, executed + 1);
+                : ToolCall.Pending(toolName, argumentPreview, turn);
 
             _calls.Add(call);
         }
@@ -110,7 +139,8 @@ public sealed class AgentProgress(int maxTurns)
 
     /// <summary>
     /// Records the outcome of a call and returns the turn-limit warning that must be
-    /// prepended to the tool result (empty when none applies).
+    /// prepended to the tool result (empty when none applies). The warning is emitted once per
+    /// turn, on the first call to complete in it.
     /// </summary>
     public string CompleteCall(ToolCall call, IToolResult? result)
     {
@@ -120,8 +150,10 @@ public sealed class AgentProgress(int maxTurns)
             call.Result = result;
             call.Completed = true;
 
-            warning = call.Executed ? SelectWarning(call.Index, MaxTurns) : null;
-            if (warning != null)
+            warning = call.Executed ? SelectWarning(call.Turn, MaxTurns) : null;
+            if (warning != null && _warnings.Contains(warning))
+                warning = null;
+            else if (warning != null)
                 _warnings.Add(warning);
         }
 
@@ -257,12 +289,12 @@ public sealed class AgentProgress(int maxTurns)
     public string BuildFooter(TimeSpan duration, int fileCount) =>
         FormatFooter(Turns, duration, fileCount);
 
-    private static string? SelectWarning(int callNumber, int maxTurns)
+    private static string? SelectWarning(int turn, int maxTurns)
     {
-        if (maxTurns >= 2 && callNumber == maxTurns - 1)
+        if (maxTurns >= 2 && turn == maxTurns - 1)
             return LastTurnWarning;
 
-        if (maxTurns > 5 && callNumber == maxTurns - 5)
+        if (maxTurns > 5 && turn == maxTurns - 5)
             return ApproachingLimitWarning;
 
         return null;
@@ -278,8 +310,8 @@ public sealed class ToolCall
 
     public required string ArgumentPreview { get; init; }
 
-    /// <summary>1-based executed call number; 0 for a refused call.</summary>
-    public int Index { get; init; }
+    /// <summary>The turn this call ran in; 0 for a refused call.</summary>
+    public int Turn { get; init; }
 
     /// <summary>False when the call was refused because the turn budget was exhausted.</summary>
     public bool Executed { get; init; } = true;
@@ -292,11 +324,11 @@ public sealed class ToolCall
     /// <summary>Whether the result reports a failure. Text results never do on their own.</summary>
     public bool Failed => Result?.Failed ?? false;
 
-    internal static ToolCall Pending(string toolName, string argumentPreview, int index) => new()
+    internal static ToolCall Pending(string toolName, string argumentPreview, int turn) => new()
     {
         ToolName = toolName,
         ArgumentPreview = argumentPreview,
-        Index = index
+        Turn = turn
     };
 
     internal static ToolCall Refused(string toolName, string argumentPreview, string notice) => new()

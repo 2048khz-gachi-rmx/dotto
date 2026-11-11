@@ -20,6 +20,7 @@ public class AgentRunMessageTests
 
         for (var i = 0; i < count; i++)
         {
+            progress.BeginTurn();
             var call = progress.StartCall("ExecuteCommand", $"cmd {i}");
             progress.CompleteCall(call!, reply);
         }
@@ -47,7 +48,10 @@ public class AgentRunMessageTests
         // The default threshold is the turn limit: six of twenty turns is not worth dumping.
         var progress = new AgentProgress(20);
         for (var i = 0; i < 6; i++)
+        {
+            progress.BeginTurn();
             progress.StartCall("ExecuteCommand", $"cmd {i}");
+        }
 
         var composed = AgentRunMessage.Compose(
             "answer", progress, verbose: false, transcriptTurns: null,
@@ -62,6 +66,7 @@ public class AgentRunMessageTests
         var progress = new AgentProgress(20);
         for (var i = 0; i < 20; i++)
         {
+            progress.BeginTurn();
             var call = progress.StartCall("ExecuteCommand", $"cmd {i}");
             progress.CompleteCall(call!, new TextToolResult("Exit code: 0"));
         }
@@ -158,6 +163,7 @@ public class AgentRunMessageTests
 
         for (var i = 0; i < 40; i++)
         {
+            progress.BeginTurn();
             var call = progress.StartCall("ExecuteCommand", $"{longArgument} {i}");
             progress.CompleteCall(call!, new TextToolResult(longResult));
         }

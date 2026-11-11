@@ -22,7 +22,7 @@ public class TurnLimitedAIFunctionTests
     };
 
     private static (TurnLimitedAIFunction Function, AgentProgress Progress, Func<int> Executions) Build(
-        int maxTurns = 20, IToolResult? result = null)
+        int maxTurns = 20, IToolResult? result = null, bool exemptFromTurnLimit = false)
     {
         var executions = 0;
         var reply = result ?? new TextToolResult("Exit code: 0");
@@ -41,7 +41,7 @@ public class TurnLimitedAIFunctionTests
             });
 
         var progress = new AgentProgress(maxTurns);
-        var function = new TurnLimitedAIFunction(inner, () => progress);
+        var function = new TurnLimitedAIFunction(inner, () => progress, exemptFromTurnLimit);
 
         return (function, progress, () => executions);
     }
@@ -52,22 +52,92 @@ public class TurnLimitedAIFunctionTests
         var (function, progress, executions) = Build(maxTurns: 20);
         var results = new List<string>();
 
-        for (var i = 1; i <= 20; i++)
-            results.Add((await function.InvokeAsync(Arguments($"whois {i}")))?.ToString() ?? "null");
+        for (var turn = 1; turn <= 20; turn++)
+        {
+            progress.BeginTurn();
+            results.Add((await function.InvokeAsync(Arguments($"whois {turn}")))?.ToString() ?? "null");
+        }
 
-        // 1-based turns: index 13 is turn 14, 14 is turn 15, 18 is turn 19.
+        // A warning is read by the next request, so it belongs to the turn before the last one.
         results[13].ShouldNotContain(AgentProgress.ApproachingLimitWarning);
         results[14].ShouldContain(AgentProgress.ApproachingLimitWarning);
         results[18].ShouldContain(AgentProgress.LastTurnWarning);
         results.ShouldAllBe(result => result.Contains("Exit code: 0"));
 
+        progress.BeginTurn();
         var refused = (await function.InvokeAsync(Arguments("whois 21")))?.ToString();
 
         refused.ShouldBe(AgentProgress.TurnLimitNotice);
         executions().ShouldBe(20);
-        progress.Turns.ShouldBe(20);
+        progress.Turns.ShouldBe(21);
+        progress.CallCount.ShouldBe(20);
         progress.RefusedCalls.ShouldBe(1);
         progress.Warnings.Count.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task Invoke_AllowsEveryCallTheModelAsksForInOneTurn()
+    {
+        var (function, progress, executions) = Build(maxTurns: 2);
+
+        progress.BeginTurn();
+        for (var i = 0; i < 5; i++)
+            await function.InvokeAsync(Arguments($"cmd {i}"));
+
+        executions().ShouldBe(5);
+        progress.Turns.ShouldBe(1);
+        progress.CallCount.ShouldBe(5);
+        progress.RefusedCalls.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task Invoke_ExemptToolStillRunsPastTheLimit()
+    {
+        var (function, progress, executions) = Build(maxTurns: 1, exemptFromTurnLimit: true);
+
+        progress.BeginTurn();
+        var delivery = (await function.InvokeAsync(Arguments("/storage/tmp/wacky3.mp4")))?.ToString();
+
+        progress.BeginTurn(); // past the limit
+        var lateDelivery = (await function.InvokeAsync(Arguments("/storage/tmp/wacky3.mp4")))?.ToString();
+
+        delivery.ShouldBe("Exit code: 0");
+        lateDelivery.ShouldBe("Exit code: 0");
+        executions().ShouldBe(2);
+        progress.RefusedCalls.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task Invoke_NonExemptToolIsRefusedInTheSameTurn()
+    {
+        var (exempt, exemptProgress, _) = Build(maxTurns: 1, exemptFromTurnLimit: true);
+        var (limited, limitedProgress, _) = Build(maxTurns: 1);
+
+        exemptProgress.BeginTurn();
+        await exempt.InvokeAsync(Arguments("late upload"));
+        limitedProgress.BeginTurn();
+        await limited.InvokeAsync(Arguments("early"));
+        limitedProgress.BeginTurn();
+        var refused = (await limited.InvokeAsync(Arguments("late")))?.ToString();
+
+        refused.ShouldBe(AgentProgress.TurnLimitNotice);
+        exemptProgress.RefusedCalls.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task Invoke_WarnsOncePerTurn_HoweverManyCallsItHad()
+    {
+        var (function, progress, _) = Build(maxTurns: 20);
+
+        for (var turn = 0; turn < 19; turn++) // turn 19 of 20: the last turn is next
+            progress.BeginTurn();
+
+        var first = (await function.InvokeAsync(Arguments("one")))?.ToString() ?? "null";
+        var second = (await function.InvokeAsync(Arguments("two")))?.ToString() ?? "null";
+
+        first.ShouldContain(AgentProgress.LastTurnWarning);
+        second.ShouldNotContain(AgentProgress.LastTurnWarning);
+        progress.Warnings.Count.ShouldBe(1);
     }
 
     [Test]
@@ -76,13 +146,17 @@ public class TurnLimitedAIFunctionTests
         var (function, progress, executions) = Build(maxTurns: 3);
 
         for (var i = 0; i < 3; i++)
+        {
+            progress.BeginTurn();
             await function.InvokeAsync(Arguments($"cmd {i}"));
+        }
 
+        progress.BeginTurn();
         var refused = (await function.InvokeAsync(Arguments("cmd 4")))?.ToString();
 
         refused.ShouldBe(AgentProgress.TurnLimitNotice);
         executions().ShouldBe(3);
-        progress.Turns.ShouldBe(3);
+        progress.Turns.ShouldBe(4);
         progress.RefusedCalls.ShouldBe(1);
     }
 

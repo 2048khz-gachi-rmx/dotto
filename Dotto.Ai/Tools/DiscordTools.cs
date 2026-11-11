@@ -149,7 +149,7 @@ public class DiscordTools(
         return $"Downloaded {sandboxPaths.Count} files:\n{pathsList}\nYou can now process them with terminal commands or upload them to Discord.";
     }
 
-    [Tool(ToolAttribute.ToolTypeFlag.UserAssistant)]
+    [Tool(ToolAttribute.ToolTypeFlag.UserAssistant, exemptFromTurnLimit: true)]
     [Description("Upload a file from the sandbox to Discord as an attachment. The path is sandbox-relative and starts with /work or /storage (e.g. \"/work/outputs/result.mp4\").")]
     public async Task<string> UploadFile(string sandboxPath, CancellationToken ct = default)
     {

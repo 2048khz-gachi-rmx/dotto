@@ -6,11 +6,13 @@ namespace Dotto.Ai.Tools;
 
 /// <summary>
 /// Wraps a registered tool so the run can observe calls and enforce the turn budget,
-/// without any tool knowing about it. One tool call is one turn.
+/// without any tool knowing about it. Delivery tools (see
+/// <see cref="ToolAttribute.ExemptFromTurnLimit"/>) keep running past the limit.
 /// </summary>
 internal sealed class TurnLimitedAIFunction(
     AIFunction innerFunction,
-    Func<AgentProgress?> progressAccessor) : DelegatingAIFunction(innerFunction)
+    Func<AgentProgress?> progressAccessor,
+    bool exemptFromTurnLimit = false) : DelegatingAIFunction(innerFunction)
 {
     protected override async ValueTask<object?> InvokeCoreAsync(
         AIFunctionArguments arguments, CancellationToken cancellationToken)
@@ -19,7 +21,7 @@ internal sealed class TurnLimitedAIFunction(
         if (progress is null)
             return AsModelText(await base.InvokeCoreAsync(arguments, cancellationToken));
 
-        var call = progress.StartCall(Name, BuildArgumentPreview(arguments));
+        var call = progress.StartCall(Name, BuildArgumentPreview(arguments), exemptFromTurnLimit);
         if (call is null)
             return AgentProgress.TurnLimitNotice;
 

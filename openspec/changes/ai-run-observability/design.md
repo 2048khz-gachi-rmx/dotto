@@ -39,21 +39,30 @@ the caller reach the same instance without touching tool constructors.
 *Alternatives:* scoped singleton injected into every tool (touches every tool and every test);
 ambient static (breaks concurrent runs).
 
-### Turn counting and limits are enforced by an `AIFunction` decorator
+### Turns are counted by the chat client, limits enforced by an `AIFunction` decorator
 
-`DelegatingAIFunction` wraps each tool at registration time. It counts the call, records the
-previews, applies warnings, and refuses calls past the limit. This keeps the framework's loop
-intact and works for any future tool added to the `[Tool]` set.
+A turn is one model response, and a response may ask for several tools at once, so counting tool
+calls would let a model that batches calls spend a different budget than one that serialises them.
+`TurnTrackerChatClient` (a thin `DelegatingChatClient`) therefore counts requests and calls
+`AgentProgress.BeginTurn()` before passing the request on; the `DelegatingAIFunction` wrapper then
+records the call, applies warnings, and refuses calls in turns past the limit. Everything the
+framework's loop does stays intact, and any future tool added to the `[Tool]` set is covered.
 
-*Alternatives:* replacing `ChatClientAgent.RunAsync` with a hand-written loop or a custom
-`DelegatingChatClient` (far more code, duplicates the framework's tool handling); wrapping each
-tool method by hand (duplication, easy to miss).
+Delivery tools are the exception: `UploadFile` is marked `ExemptFromTurnLimit` on the `[Tool]`
+attribute, because refusing an upload would silently drop a file the model already produced — the
+observed failure mode that motivated this whole counter (a third of three rendered videos never
+reached the user). Everything else, including downloads and commands, is still refused.
+
+*Alternatives:* counting tool calls instead of turns (what we had first: a run of 21 calls — 18 of
+them one batch — "hit the limit" while delivering two of three requested files); replacing
+`ChatClientAgent.RunAsync` with a hand-written loop (far more code, duplicates the framework's tool
+handling); wrapping each tool method by hand (duplication, easy to miss).
 
 ### Warnings are appended to tool results
 
 The model only sees tool results, so the "approaching limit" and "last turn" notices are prepended
-to the result string of the threshold calls. No framework support is needed and the warning arrives
-in the same turn the limit applies.
+to the result string of the first call to complete in the threshold turn. No framework support is
+needed and the warning arrives in the turn the limit applies.
 
 *Alternatives:* injecting a synthetic user message mid-loop (not possible with `RunAsync`);
 counting turns in the prompt (the model cannot count reliably).

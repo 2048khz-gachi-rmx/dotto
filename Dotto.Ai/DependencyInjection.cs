@@ -113,9 +113,12 @@ public static class DependencyInjection
         {
             var sandboxEnabled = sp.GetRequiredService<IOptions<SandboxOptions>>().Value.Enabled;
             var tools = BuildTools(sp, userAssistantTools, sandboxEnabled);
+            var accessor = sp.GetService<ContextAccessor>();
 
             return new ChatClientAgent(
-                chatClient: sp.GetRequiredKeyedService<IChatClient>(key),
+                chatClient: new TurnTrackerChatClient(
+                    sp.GetRequiredKeyedService<IChatClient>(key),
+                    () => accessor?.Current?.Progress),
                 tools: tools
             );
         });
@@ -172,7 +175,8 @@ public static class DependencyInjection
 
                 // One fallback per built agent: if the caller supplied no progress record
                 // the turn budget still applies, it is just not visible to anyone.
-                return (AITool)new TurnLimitedAIFunction(function, ResolveProgress);
+                return (AITool)new TurnLimitedAIFunction(
+                    function, ResolveProgress, item.Tool.Attribute.ExemptFromTurnLimit);
             })
             .ToList();
     }

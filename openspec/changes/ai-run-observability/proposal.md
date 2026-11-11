@@ -12,10 +12,11 @@ turns, and surfaced none of it — the user only saw a long silence.
 - **Live run activity**: while tools execute, the interaction response is edited in place with the
   most recent tool calls (`ExecuteCommand: whois -h whois.radb.net … // result: Exit code: 127
   sh: 1: whois: not found`), coalesced to stay under Discord's edit rate limit.
-- **Turn budget**: runs are capped at `MaxTurns` (default 20, configurable). The system prompt
-  states that a limit exists, a warning is prepended to the tool result at `MaxTurns - 5`
-  ("approaching the limit") and at `MaxTurns - 1` ("last turn — respond now"), and tool calls
-  beyond the cap are refused instead of executed.
+- **Turn budget**: runs are capped at `MaxTurns` turns (default 20, configurable), where a turn is
+  one model response and may contain any number of tool calls. The system prompt states that a limit
+  exists, a warning is prepended to the tool result at `MaxTurns - 5` ("approaching the limit") and
+  at `MaxTurns - 1` ("last turn — respond now"), and tool calls in turns beyond the cap are refused
+  instead of executed.
 - **Bounded previews**: each tool call records a 120-character argument preview and up to 180
   characters of its result (whitespace collapsed), so activity lines and transcripts stay one line
   per call. A command's result shows stdout when it succeeded and stderr when it failed, falling
