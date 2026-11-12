@@ -127,6 +127,34 @@ limit was reached and that it must answer with the information it has.
 - **WHEN** the turn limit is configured to a value other than the default
 - **THEN** the run allows exactly that many turns of tool calls before refusing further ones
 
+### Requirement: The session shape is fixed at start
+
+The tool list and the system prompt SHALL be decided once, when the run starts, and every request
+the model sees during that run SHALL carry them unchanged. The turn limit SHALL be enforced by
+denying tool calls, never by removing tools, emptying the tool list or changing the tool mode.
+
+#### Scenario: The tool list never shrinks
+
+- **WHEN** a run reaches its turn limit and further calls are denied
+- **THEN** the following requests still advertise the same tools to the model
+
+#### Scenario: The system prompt is stable
+
+- **WHEN** a run uses several turns
+- **THEN** every request carries the same system prompt in the same position
+
+#### Scenario: The framework's own iteration cap never bites first
+
+- **WHEN** a run uses more turns than the framework's default iteration cap
+- **THEN** the tool list is still advertised on every request, because this change sets that cap
+  from the turn budget instead of leaving it at the framework default
+
+#### Scenario: A run never ends on an unanswered call
+
+- **WHEN** a run somehow ends with a tool call instead of an answer
+- **THEN** the user receives a short notice that the run ran out of turns, never an empty message
+  and never the raw tool call
+
 ### Requirement: Turn Limit Warnings
 
 The run SHALL warn the model before the limit is reached: a warning five turns before the limit

@@ -26,6 +26,13 @@
 - [x] 2.2b Mark `UploadFile` exempt from the turn limit via the `[Tool]` attribute so a file the
       model already produced still reaches the user; verify an exempt tool executes past the limit
       while a normal tool in the same turn is refused
+- [x] 2.2c Keep the session shape fixed: never remove tools, empty the tool list or switch
+      `ToolMode` as the budget runs out; verify with an agent driven through a scripted chat client
+      that every request carries the same tools and the same system prompt, even after refusals
+- [x] 2.2d Set `FunctionInvokingChatClient.MaximumIterationsPerRequest` from the turn budget
+      (`MaxTurns + 5`) via `UseProvidedChatClientAsIs`, so the framework's default 40-iteration cap
+      cannot strip the tool list mid-run; verify with a 50-turn scripted run that every request
+      keeps its tools, and replace an empty final answer with an out-of-turns notice
 - [x] 2.3 Add the turn-limit disclosure to `Dotto.Ai/Resources/ChatAssistant.liquid` and verify with
       a prompt test asserting the rendered system prompt mentions the turn limit and warnings
 

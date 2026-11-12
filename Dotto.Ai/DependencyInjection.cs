@@ -112,18 +112,54 @@ public static class DependencyInjection
         services.AddKeyedTransient<AIAgent>(AssistantKey, (sp, key) =>
         {
             var sandboxEnabled = sp.GetRequiredService<IOptions<SandboxOptions>>().Value.Enabled;
+            var maxTurns = sp.GetService<IOptions<AiSettings>>()?.Value.ChatAssistant.MaxTurns ?? 20;
             var tools = BuildTools(sp, userAssistantTools, sandboxEnabled);
             var accessor = sp.GetService<ContextAccessor>();
 
-            return new ChatClientAgent(
-                chatClient: new TurnTrackerChatClient(
-                    sp.GetRequiredKeyedService<IChatClient>(key),
-                    () => accessor?.Current?.Progress),
-                tools: tools
-            );
+            return BuildAgent(
+                sp.GetRequiredKeyedService<IChatClient>(key),
+                tools,
+                () => accessor?.Current?.Progress,
+                maxTurns);
         });
 
         services.AddScoped<ChatAssistant>();
+    }
+
+    /// <summary>
+    /// How many requests beyond the turn limit the framework's loop may still make. The model
+    /// needs one to see the refusal and one or two to answer; the rest is slack for a model that
+    /// argues with the notice. Must stay positive: on its final iteration the framework stops
+    /// advertising tools and hands the unanswered call back, which would end up in the answer.
+    /// </summary>
+    private const int IterationHeadroom = 5;
+
+    /// <summary>
+    /// Builds the agent with our own function-invoking client, so the iteration cap belongs to us
+    /// and never bites before the turn limit. The tool list is fixed here and never touched again;
+    /// the loop is stopped by refusing calls, not by taking tools away.
+    /// </summary>
+    internal static AIAgent BuildAgent(
+        IChatClient chatClient,
+        IList<AITool> tools,
+        Func<AgentProgress?> progressAccessor,
+        int maxTurns)
+    {
+        var invocationClient = new FunctionInvokingChatClient(
+            new TurnTrackerChatClient(chatClient, progressAccessor))
+        {
+            MaximumIterationsPerRequest = maxTurns + IterationHeadroom
+        };
+
+        return new ChatClientAgent(
+            invocationClient,
+            new ChatClientAgentOptions
+            {
+                // Without this the agent inserts its own function-invoking client (with the
+                // default 40-iteration cap) on top of ours.
+                UseProvidedChatClientAsIs = true,
+                ChatOptions = new ChatOptions { Tools = tools }
+            });
     }
 
     /// <summary>

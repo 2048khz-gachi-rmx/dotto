@@ -58,6 +58,28 @@ them one batch — "hit the limit" while delivering two of three requested files
 `ChatClientAgent.RunAsync` with a hand-written loop (far more code, duplicates the framework's tool
 handling); wrapping each tool method by hand (duplication, easy to miss).
 
+### The limit denies calls; it never edits the session
+
+The tool list, the tool mode and the system prompt are set once when the agent is built and are
+never touched afterwards: the decorator only decides whether a call runs, and the denied call still
+returns a normal tool result. Pruning tools as the budget runs out looks like a cheaper way to say
+"no more calls", but a model that no longer sees its tools tends to write the call into its answer
+instead — which is how a raw tool call ended up in a user-visible reply. With the tool list intact,
+a denied call is a plain result the model can react to.
+
+The framework has its own stop condition — `FunctionInvokingChatClient.MaximumIterationsPerRequest`,
+40 by default — and on its final iteration it stops advertising tools and returns the response with
+the unanswered call in it. That is the same leak from the other side, so the agent is built with our
+own function-invoking client (`UseProvidedChatClientAsIs`) whose cap is the turn budget plus a few
+requests of headroom: the model needs one request to be refused, one to answer, and the rest covers
+a model that argues with the notice. If the cap is ever reached anyway, the caller replaces the
+empty answer with a notice that the run ran out of turns.
+
+*Alternatives:* dropping tools on the last turn (caused the leaked call); switching
+`ToolMode` to `None` (same failure, and it also breaks providers that reject a tool-call history
+without tools); changing the system prompt mid-run (invalidates the prompt cache and the model's
+own plan).
+
 ### Warnings are appended to tool results
 
 The model only sees tool results, so the "approaching limit" and "last turn" notices are prepended

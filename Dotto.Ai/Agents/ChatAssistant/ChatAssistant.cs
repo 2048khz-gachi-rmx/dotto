@@ -18,6 +18,9 @@ public class ChatAssistant(
     ISandbox sandbox,
     IServiceProvider serviceProvider)
 {
+    private const string NoAnswerText =
+        "The run stopped before producing an answer — it ran out of turns. Try a narrower request.";
+
     public async Task<ChatAssistantResponse> Invoke(ChatAssistantContext context, CancellationToken cancellationToken)
     {
         context.SessionId = GenerateSessionId(context);
@@ -49,9 +52,24 @@ public class ChatAssistant(
                 context.Messages,
                 cancellationToken: cancellationToken);
 
+            var finalMessage = response.Messages.Last();
+            var text = finalMessage.Text;
+
+            // A run can only end this way if the framework stopped invoking tools mid-call (its
+            // iteration cap) or a provider returned a call without content. Say so instead of
+            // handing the user an empty message or a leaked tool call.
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                logger.LogWarning(
+                    "Session {SessionId} ended without answer text (final contents: {Contents})",
+                    context.SessionId,
+                    string.Join(", ", finalMessage.Contents.Select(content => content.GetType().Name)));
+                text = NoAnswerText;
+            }
+
             var assistantResponse = new ChatAssistantResponse()
             {
-                Response = response.Messages.Last().Text,
+                Response = text,
                 Attachments = context.Attachments
             };
 
