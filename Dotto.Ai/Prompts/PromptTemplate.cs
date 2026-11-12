@@ -12,6 +12,10 @@ internal class PromptTemplate(PromptSource source)
 
     public async Task<string> GetAsync(CancellationToken cancellationToken = default)
     {
+        // Inline text: the source is the content, so there is nothing to look up or stat.
+        if (source.Type == PromptType.Text)
+            return _cachedContent ??= source.Path;
+
         if (_cachedContent != null && source.Type != PromptType.File)
             return _cachedContent;
 

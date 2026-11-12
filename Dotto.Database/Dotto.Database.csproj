@@ -8,8 +8,19 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <!-- Design-time only (`dotnet ef`). Skipped for the release image build so the restore
+           graph does not drag in the Roslyn workspace packages. -->
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" Condition="'$(EfTools)' != 'false'">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(EfTools)' == 'false'">
+      <!-- Design-time only; the factory references Microsoft.EntityFrameworkCore.Design. -->
+      <Compile Remove="DottoDbContextDesignTimeFactory.cs" />
     </ItemGroup>
 
     <ItemGroup>

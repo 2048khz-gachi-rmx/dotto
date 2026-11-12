@@ -1,3 +1,4 @@
+using Dotto.Common.Configuration;
 using Dotto.Ffmpeg.Contracts;
 using Dotto.Ffmpeg.Services;
 using Dotto.Ffmpeg.Settings;
@@ -13,6 +14,9 @@ public static class FfmpegDependencyInjection
         services.AddOptions<CompressionSettings>()
             .BindConfiguration("Compress")
             .ValidateOnStart();
+
+        services.AddSingleton<IConfigurationOptionSchema>(
+            new ConfigurationOptionSchema("Compress", typeof(CompressionSettings)));
 
         services.AddSingleton<FfmpegRunner>();
         services.AddHostedService<FfmpegTempCleanupService>();

@@ -17,7 +17,7 @@ namespace Dotto.Infrastructure.Database.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -40,6 +40,51 @@ namespace Dotto.Infrastructure.Database.Migrations
                     b.HasIndex("UpdatedOn");
 
                     b.ToTable("ChannelFlags");
+                });
+
+            modelBuilder.Entity("Dotto.Domain.Entities.ConfigurationOverride", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InstanceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TargetId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceName", "Scope", "TargetId");
+
+                    b.HasIndex("InstanceName", "Scope", "TargetId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ConfigurationOverrides", (string)null);
                 });
 
             modelBuilder.Entity("Dotto.Domain.Entities.DownloadedMediaRecord", b =>

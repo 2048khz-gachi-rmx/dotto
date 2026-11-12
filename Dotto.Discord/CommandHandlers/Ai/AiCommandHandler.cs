@@ -5,12 +5,12 @@ using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Configuration;
 using Dotto.Common;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Domain.Entities;
 using Dotto.Infrastructure.Database;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
 using NetCord.Gateway;
 using NetCord.Rest;
 
@@ -20,7 +20,7 @@ public class AiCommandHandler(
     ChatAssistant chatAssistant,
     ISandbox sandbox,
     GatewayClient gateway,
-    IOptions<AiSettings> aiSettings,
+    IInteractionConfiguration interactionConfiguration,
     DottoDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     IUploadService? uploadService = null)
@@ -48,6 +48,12 @@ public class AiCommandHandler(
         queryXml.Name = "prompt";
         aiMessages.Add(new ChatMessage(ChatRole.User, queryXml.ToString()));
 
+        // Defensive: command modules set the scope before calling in, so this normally no-ops.
+        interactionConfiguration.SetScope(
+            new InteractionScope(guildId == 0 ? null : guildId, channelId, callerId));
+
+        var settings = await interactionConfiguration.GetCurrentAsync<AiSettings>(ct);
+
         var context = new ChatAssistantContext
         {
             ChannelId = channelId,
@@ -56,7 +62,7 @@ public class AiCommandHandler(
             CallerName = callerName,
             Messages = aiMessages,
             Notes = notes?.ToList() ?? [],
-            Progress = progress ?? new AgentProgress(aiSettings.Value.ChatAssistant.MaxTurns),
+            Progress = progress ?? new AgentProgress(settings.ChatAssistant.MaxTurns),
         };
 
         ChatAssistantResponse response;
@@ -66,7 +72,8 @@ public class AiCommandHandler(
         {
             response = await InvokeAssistant(context, ct);
 
-            var materialization = await MaterializeAttachmentsAsync(response, discordUploadLimit, ct);
+            var materialization = await MaterializeAttachmentsAsync(
+                response, settings.ChatAssistant.MaxAttachments, discordUploadLimit, ct);
             ApplyAttachmentNotes(response, materialization);
         }
         finally
@@ -93,9 +100,9 @@ public class AiCommandHandler(
     /// Enforces MaxAttachments, then uploads to Discord or S3.
     /// </summary>
     internal async Task<AttachmentMaterializationResult> MaterializeAttachmentsAsync(
-        ChatAssistantResponse response, long discordUploadLimit, CancellationToken ct)
+        ChatAssistantResponse response, int configuredMaxAttachments, long discordUploadLimit, CancellationToken ct)
     {
-        var maxAttachments = Math.Max(0, aiSettings.Value.ChatAssistant.MaxAttachments);
+        var maxAttachments = Math.Max(0, configuredMaxAttachments);
         var maxUploadSize = Math.Max(discordUploadLimit, uploadService?.MaxFileSizeBytes ?? 0);
         var omittedCount = 0;
         var oversizedCount = 0;

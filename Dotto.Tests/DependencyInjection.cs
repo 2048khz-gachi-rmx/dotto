@@ -2,6 +2,7 @@
 using Dotto.Common.DateTimeProvider;
 using Dotto.Tests.Builders;
 using Dotto.Tests.Mocks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dotto.Tests;
@@ -12,6 +13,8 @@ public static class DependencyInjection
     {
         services.AddSingleton<TestDateTimeProvider>();
         services.AddSingleton<IDateTimeProvider, TestDateTimeProvider>();
+
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         
         services.AddTransient<ChannelFlagBuilder>();
 

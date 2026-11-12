@@ -46,6 +46,8 @@
       <ProjectReference Include="..\Dotto.Database\Dotto.Database.csproj" />
       <ProjectReference Include="..\Dotto.Domain\Dotto.Domain.csproj" />
       <ProjectReference Include="..\Dotto.Downloader\Dotto.Downloader.csproj" />
+      <ProjectReference Include="..\Dotto.Ffmpeg\Dotto.Ffmpeg.csproj" />
+      <ProjectReference Include="..\Dotto.FileUpload\Dotto.FileUpload.csproj" />
     </ItemGroup>
 
     <!-- The sandbox server script is the other half of the response-size

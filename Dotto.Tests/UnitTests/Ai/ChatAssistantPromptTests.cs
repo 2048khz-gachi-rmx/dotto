@@ -2,7 +2,8 @@ using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Prompts;
 using Dotto.Ai.Settings;
-using Microsoft.Extensions.Options;
+using Dotto.Application.Configuration;
+using Dotto.Tests.Mocks;
 using Shouldly;
 
 namespace Dotto.Tests.UnitTests.Ai;
@@ -36,7 +37,10 @@ public class ChatAssistantPromptTests
             },
         };
 
-        var provider = new PromptProvider(Options.Create(settings));
+        var configuration = new StubInteractionConfiguration().With(settings);
+        configuration.SetScope(new InteractionScope(null, 2, 1));
+
+        var provider = new PromptProvider(configuration, new PromptTemplateCache());
         var renderContext = ChatAssistant.BuildTemplateContext(context, sandboxEnabled);
 
         var prompt = await provider.RenderAsync("ChatAssistant", renderContext);

@@ -1,6 +1,9 @@
+using Dotto.Common.Configuration;
+
 ﻿using Dotto.Application.Abstractions.Factories;
 using Dotto.Application.Abstractions.MediaProcessing;
 using Dotto.Application.Abstractions.VideoProcessing;
+using Dotto.Application.Configuration;
 using Dotto.Application.Factories;
 using Dotto.Application.InternalServices;
 using Dotto.Application.InternalServices.MediaProcessing;
@@ -18,11 +21,28 @@ public static class DependencyInjection
             .BindConfiguration("UrlCorrection")
             .ValidateOnStart();
 
+        services.AddOptions<BotSettings>()
+            .BindConfiguration("Bot")
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        ConfigureConfiguration(services);
         ConfigureFactories(services);
         ConfigureInternalServices(services);
 
 
         return services;
+    }
+
+    private static void ConfigureConfiguration(IServiceCollection services)
+    {
+        services.AddSingleton<IConfigurationOptionSchema>(
+            new ConfigurationOptionSchema("UrlCorrection", typeof(UrlCorrectionSettings)));
+
+        services.AddSingleton<ConfigurationSchemaRegistry>();
+        services.AddSingleton<IConfigurationValueValidator, ConfigurationValueValidator>();
+        services.AddScoped<IConfigurationOverrideStore, ConfigurationOverrideStore>();
+        services.AddScoped<IInteractionConfiguration, InteractionConfiguration>();
     }
 
     private static void ConfigureInternalServices(IServiceCollection services)

@@ -1,4 +1,4 @@
-services:
+﻿services:
   dotto:
     container_name: dotto
     image: "ghcr.io/2048khz-gachi-rmx/dotto:latest"
@@ -24,6 +24,11 @@ services:
       # Same host path in and out of the bot: the daemon resolves the bind source host-side.
       - /var/lib/dotto-sandbox:/var/lib/dotto-sandbox
     environment:
+      # Partitions configuration overrides when several bot instances share one database.
+      # Bot__InstanceName: "dotto"
+      # Comma-separated Discord user IDs allowed to manage configuration. When empty,
+      # the bot falls back to the Discord application owner (teams must set this).
+      # Bot__OwnerIds__0: "YOUR_USER_ID"
       ConnectionString: "User ID=${POSTGRES_USER}; Password=${POSTGRES_PASSWORD}; Host=postgres; Port=5999; Database=dotto"
       # Optional Netscape-format cookies file for yt-dlp. Drop it into ./dotto_resources/ytdlp-cookies.txt
       # next to this file; mounted read-write so yt-dlp can update cookies. If the file is absent, the bot runs without cookies.

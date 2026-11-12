@@ -1,4 +1,5 @@
-﻿using Dotto.Common;
+﻿using Dotto.Common.Configuration;
+using Dotto.Common;
 using Dotto.Infrastructure.Downloader.CobaltDownloader;
 using Dotto.Infrastructure.Downloader.Contracts.Abstractions;
 using Dotto.Infrastructure.Downloader.Contracts.Enum;
@@ -19,6 +20,9 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .Validate<ILogger<DownloaderSettings>>(ValidateYtdlpCookies)
             .ValidateOnStart();
+
+        services.AddSingleton<IConfigurationOptionSchema>(
+            new ConfigurationOptionSchema("Downloader", typeof(DownloaderSettings)));
         
         services.AddSingleton(s => s.GetRequiredService<IOptions<DownloaderSettings>>().Value);
         

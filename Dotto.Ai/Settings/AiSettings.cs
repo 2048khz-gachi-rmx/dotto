@@ -1,8 +1,15 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Dotto.Ai.Prompts;
+using Dotto.Common.Configuration;
 
 namespace Dotto.Ai.Settings;
 
+/// <summary>
+/// Resolved per interaction, so every key below may be overridden at guild, channel, or user
+/// scope. <c>Ai:Sandbox</c> is its own section and stays startup-bound (infrastructure and
+/// egress settings must not vary by requester).
+/// </summary>
+[ConfigurationScopeSupport(ConfigurationScopeSupport.Any)]
 public class AiSettings
 {
     public required Uri BaseUrl { get; set; }
