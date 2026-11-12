@@ -1,11 +1,12 @@
-using System.Text;
+﻿using System.Text;
 using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Configuration;
 using Dotto.Discord.CommandHandlers.Ai;
-using Microsoft.Extensions.Options;
+using Dotto.Tests.Mocks;
 using NetCord;
 using NetCord.Gateway;
 using NSubstitute;
@@ -22,13 +23,13 @@ public class AiCommandHandlerAttachmentTests
     private static readonly GatewayClient Gateway =
         new(new BotToken("ODAzMzc3MjcwODc4MTA5NzI2.tHis.IS.not.A.ReAl.tOkeN"));
 
-    private static IOptions<AiSettings> BuildSettings(int maxAttachments) => Options.Create(new AiSettings
+    private static AiSettings BuildSettings(int maxAttachments) => new()
     {
         BaseUrl = new Uri("http://localhost:1234"),
         ApiKey = "test-key",
         AssistantModel = "test-model",
         ChatAssistant = new ChatAssistantSettings { MaxAttachments = maxAttachments }
-    });
+    };
 
     private static AiCommandHandler BuildHandler(
         int maxAttachments,
@@ -38,7 +39,7 @@ public class AiCommandHandlerAttachmentTests
             chatAssistant: null!,
             sandbox: sandbox ?? new RecordingSandbox(),
             gateway: Gateway,
-            aiSettings: BuildSettings(maxAttachments),
+            interactionConfiguration: Substitute.For<IInteractionConfiguration>(),
             dbContext: null!,
             dateTimeProvider: null!,
             uploadService: uploadService);
@@ -68,7 +69,7 @@ public class AiCommandHandlerAttachmentTests
         };
 
         // Act
-        var result = await handler.MaterializeAttachmentsAsync(response, DiscordLimit, CancellationToken.None);
+        var result = await handler.MaterializeAttachmentsAsync(response, 2, DiscordLimit, CancellationToken.None);
 
         // Assert
         result.OmittedCount.ShouldBe(2);
@@ -97,7 +98,7 @@ public class AiCommandHandlerAttachmentTests
         };
 
         // Act
-        var result = await handler.MaterializeAttachmentsAsync(response, DiscordLimit, CancellationToken.None);
+        var result = await handler.MaterializeAttachmentsAsync(response, 1, DiscordLimit, CancellationToken.None);
         AiCommandHandler.ApplyAttachmentNotes(response, result);
 
         // Assert
@@ -121,7 +122,7 @@ public class AiCommandHandlerAttachmentTests
         var response = new ChatAssistantResponse { Attachments = [attachment] };
 
         // Act
-        var result = await handler.MaterializeAttachmentsAsync(response, DiscordLimit, CancellationToken.None);
+        var result = await handler.MaterializeAttachmentsAsync(response, 5, DiscordLimit, CancellationToken.None);
 
         // Assert
         result.OversizedCount.ShouldBe(0);
@@ -151,7 +152,7 @@ public class AiCommandHandlerAttachmentTests
         };
 
         // Act
-        var result = await handler.MaterializeAttachmentsAsync(response, DiscordLimit, CancellationToken.None);
+        var result = await handler.MaterializeAttachmentsAsync(response, 5, DiscordLimit, CancellationToken.None);
         AiCommandHandler.ApplyAttachmentNotes(response, result);
 
         // Assert
@@ -177,7 +178,7 @@ public class AiCommandHandlerAttachmentTests
         var response = new ChatAssistantResponse { Attachments = [attachment] };
 
         // Act
-        var result = await handler.MaterializeAttachmentsAsync(response, DiscordLimit, CancellationToken.None);
+        var result = await handler.MaterializeAttachmentsAsync(response, 5, DiscordLimit, CancellationToken.None);
 
         // Assert
         result.OversizedCount.ShouldBe(1);
@@ -264,7 +265,7 @@ public class AiCommandHandlerAttachmentTests
             chatAssistant: null!,
             sandbox: sandbox,
             gateway: Gateway,
-            aiSettings: BuildSettings(maxAttachments),
+            interactionConfiguration: FixedSettings(maxAttachments),
             dbContext: null!,
             dateTimeProvider: null!)
     {
@@ -273,5 +274,11 @@ public class AiCommandHandlerAttachmentTests
         internal override Task<ChatAssistantResponse> InvokeAssistant(
             ChatAssistantContext context, CancellationToken ct)
             => invoke(context, ct);
+
+        private static IInteractionConfiguration FixedSettings(int maxAttachments)
+        {
+            // The handler binds the scope itself from the arguments it was called with.
+            return new StubInteractionConfiguration().With(BuildSettings(maxAttachments));
+        }
     }
 }

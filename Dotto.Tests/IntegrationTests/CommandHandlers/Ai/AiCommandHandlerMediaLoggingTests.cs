@@ -2,9 +2,9 @@ using Dotto.Ai.Agents.Base;
 using Dotto.Ai.Agents.ChatAssistant;
 using Dotto.Ai.Settings;
 using Dotto.Application.Abstractions.Upload;
+using Dotto.Application.Configuration;
 using Dotto.Discord.CommandHandlers.Ai;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using NetCord.Gateway;
 using NetCord.JsonModels;
 using NetCord.Rest;
@@ -26,19 +26,11 @@ public class AiCommandHandlerMediaLoggingTests : TestDatabaseFixtureBase
     [SetUp]
     public new void Setup()
     {
-        var settings = Options.Create(new AiSettings
-        {
-            BaseUrl = new Uri("http://localhost:1234"),
-            ApiKey = "test-key",
-            AssistantModel = "test-model",
-            ChatAssistant = new ChatAssistantSettings { MaxAttachments = 10 }
-        });
-
         _sut = new AiCommandHandler(
             chatAssistant: null!,
             sandbox: null!,
             gateway: NetCordClient,
-            aiSettings: settings,
+            interactionConfiguration: Substitute.For<IInteractionConfiguration>(),
             dbContext: DbContext,
             dateTimeProvider: TestDateTimeProvider,
             uploadService: _mockUploadService);

@@ -65,7 +65,7 @@ public class AgentSessionShapeTests
             });
 
         var client = new ScriptedChatClient(toolCallingTurns);
-        var agent = Dotto.Ai.DependencyInjection.BuildAgent(
+        var agent = Dotto.Ai.Agents.AiAgentFactory.BuildAgent(
             client,
             [new TurnLimitedAIFunction(tool, () => progress)],
             () => progress,

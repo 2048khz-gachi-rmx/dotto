@@ -1,6 +1,7 @@
 ﻿using Amazon.Runtime;
 using Amazon.S3;
 using Dotto.Application.Abstractions.Upload;
+using Dotto.Common.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,9 @@ public static class DependencyInjection
             .BindConfiguration("Minio") // womp
             .ValidateDataAnnotations()
             .ValidateOnStart();
+
+        services.AddSingleton<IConfigurationOptionSchema>(
+            new ConfigurationOptionSchema("Minio", typeof(S3Settings)));
         
         // build a service provider just for resolving the s3 settings. feels like a giant hack
         // but the alternative is accepting the IConfiguration from the caller, which is even more meh

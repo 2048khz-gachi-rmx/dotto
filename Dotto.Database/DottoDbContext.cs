@@ -8,6 +8,7 @@ public class DottoDbContext : DbContext
 {
     public DbSet<ChannelFlags> ChannelFlags { get; init; }
     public DbSet<DownloadedMediaRecord> DownloadedMedia { get; init; }
+    public DbSet<ConfigurationOverride> ConfigurationOverrides { get; init; }
 
     public DottoDbContext(DbContextOptions options) : base(options)
     {

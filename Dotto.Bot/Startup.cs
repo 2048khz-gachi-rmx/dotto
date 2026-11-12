@@ -1,5 +1,7 @@
 ﻿using Dotto.Ai;
 using Dotto.Application;
+using Dotto.Application.Configuration;
+using Dotto.Application.Settings;
 using Dotto.Bot.HostedServices;
 using Dotto.Common.DateTimeProvider;
 using Dotto.Discord;
@@ -13,6 +15,8 @@ using Dotto.Infrastructure.FileUpload;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 using NetCord.Hosting.Services;
@@ -71,6 +75,14 @@ builder.Services
 var host = builder.Build();
 
 await host.MigrateDatabase();
+
+var loadedGlobalOverrides = await host.Services.LoadGlobalOverridesAsync(builder.Configuration);
+var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Dotto.Startup");
+var instanceName = host.Services.GetRequiredService<IOptions<BotSettings>>().Value.InstanceName;
+startupLogger.LogInformation(
+    "Instance '{InstanceName}' loaded {OverrideCount} global configuration override(s)",
+    instanceName,
+    loadedGlobalOverrides);
 
 host.AddModules(typeof(CommandAssemblyMarker).Assembly);
 _ = host.InitializeS3Uploader(); // don't care about waiting for bucket creation lololo

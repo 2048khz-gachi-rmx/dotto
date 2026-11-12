@@ -1,5 +1,7 @@
-﻿using Dotto.Discord.CommandHandlers.Ai;
+﻿using Dotto.Common.Configuration;
+using Dotto.Discord.CommandHandlers.Ai;
 using Dotto.Discord.CommandHandlers.Compress;
+using Dotto.Discord.CommandHandlers.Config;
 using Dotto.Discord.CommandHandlers.Download;
 using Dotto.Discord.CommandHandlers.Flags;
 using Dotto.Discord.Commands.Compress;
@@ -21,9 +23,16 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddSingleton<IConfigurationOptionSchema>(
+            new ConfigurationOptionSchema("Discord:AutoDownload", typeof(AutoDownloadSettings)));
+
         services.AddSingleton(s => s.GetRequiredService<IOptions<AutoDownloadSettings>>().Value);
 
         services.AddSingleton<ReactionManager>();
+
+        services.AddSingleton<IApplicationOwnerProvider, DiscordApplicationOwnerProvider>();
+        services.AddSingleton<IBotOwnerService, BotOwnerService>();
+        services.AddTransient<IConfigReplySender, ConfigReplySender>();
 
         AddMessageListeners(services);
         AddCommandHandlers(services);
@@ -46,5 +55,6 @@ public static class DependencyInjection
         services.AddTransient<IFlagCommandHandler, FlagCommandHandler>();
         services.AddTransient<CompressCommandHandler>();
         services.AddTransient<AiCommandHandler>();
+        services.AddTransient<ConfigCommandHandler>();
     }
 }

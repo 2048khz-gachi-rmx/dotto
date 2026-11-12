@@ -1,11 +1,14 @@
 ﻿using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai;
+using Dotto.Ai.Agents;
 using Dotto.Ai.Prompts;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
 using Dotto.Application.Abstractions.Factories;
 using Dotto.Application.Abstractions.MediaProcessing;
+using Dotto.Application.Configuration;
+using Dotto.Tests.Mocks;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -54,7 +57,10 @@ public class SandboxDisabledTests
         // factory and the tools: no Docker daemon, no downloader services. The
         // chat client is swapped for one that records the ChatOptions it is
         // called with, so the test observes exactly what the model would see.
-        services.AddKeyedSingleton<IChatClient>(Dotto.Ai.DependencyInjection.AssistantKey, chatClient);
+        services.AddScoped<IAiAgentFactory>(sp => new AiAgentFactory(
+            sp,
+            sp.GetRequiredService<IOptions<SandboxOptions>>(),
+            _ => chatClient));
         services.AddSingleton(Substitute.For<IDockerClient>());
         services.AddSingleton(Substitute.For<IDownloaderServiceFactory>());
         services.AddSingleton(Substitute.For<IMediaDownloader>());
@@ -80,8 +86,8 @@ public class SandboxDisabledTests
         var (provider, storageBase, chatClient) = BuildProvider(sandboxEnabled: false);
         try
         {
-            var agent = provider.GetRequiredKeyedService<AIAgent>(
-                Dotto.Ai.DependencyInjection.AssistantKey);
+            var agent = provider.GetRequiredService<IAiAgentFactory>()
+                .CreateAgent(provider.GetRequiredService<IOptions<AiSettings>>().Value);
 
             await agent.RunAsync([new ChatMessage(ChatRole.User, "hello")]);
 
@@ -113,8 +119,8 @@ public class SandboxDisabledTests
                     GuildId = 3
                 });
 
-            var agent = provider.GetRequiredKeyedService<AIAgent>(
-                Dotto.Ai.DependencyInjection.AssistantKey);
+            var agent = provider.GetRequiredService<IAiAgentFactory>()
+                .CreateAgent(provider.GetRequiredService<IOptions<AiSettings>>().Value);
 
             await agent.RunAsync([new ChatMessage(ChatRole.User, "hello")]);
 
@@ -226,7 +232,7 @@ public class SandboxDisabledTests
     [Test]
     public async Task Prompt_OmitsToolInstructions_WhenToolsDisabled()
     {
-        var provider = new PromptProvider(Options.Create(new AiSettings
+        var configuration = new StubInteractionConfiguration().With(new AiSettings
         {
             BaseUrl = new Uri("http://127.0.0.1:1"),
             ApiKey = "not-a-real-api-key",
@@ -240,7 +246,10 @@ public class SandboxDisabledTests
                     Path = "Resources/ChatAssistant.liquid"
                 }
             }
-        }));
+        });
+        configuration.SetScope(new InteractionScope(null, 1, 1));
+
+        var provider = new PromptProvider(configuration, new PromptTemplateCache());
 
         var enabled = await provider.RenderAsync(
             Dotto.Ai.DependencyInjection.ChatAssistantPromptKey,

@@ -1,8 +1,15 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Dotto.Ai.Prompts;
+using Dotto.Common.Configuration;
 
 namespace Dotto.Ai.Settings;
 
+/// <summary>
+/// Resolved per interaction, so every key below may be overridden at guild, channel, or user
+/// scope. <c>Ai:Sandbox</c> is its own section and stays startup-bound (infrastructure and
+/// egress settings must not vary by requester).
+/// </summary>
+[ConfigurationScopeSupport(ConfigurationScopeSupport.Any)]
 public class AiSettings
 {
     public required Uri BaseUrl { get; set; }
@@ -12,6 +19,27 @@ public class AiSettings
     public required string AssistantModel { get; set; }
 
     public Dictionary<string, PromptSource> Prompts { get; set; } = [];
+
+    /// <summary>
+    /// Finds a prompt by name, ignoring case. Configuration keys are case-insensitive, but the
+    /// binder writes a dictionary key with the casing of the provider that supplied it: an
+    /// override row is stored lowercase, so an override of the built-in prompt arrives as
+    /// <c>chatassistant</c> and an exact lookup would miss it. Callers must not depend on the
+    /// casing of a configured prompt name.
+    /// </summary>
+    public PromptSource? FindPrompt(string key)
+    {
+        if (Prompts.TryGetValue(key, out var exact))
+            return exact;
+
+        foreach (var prompt in Prompts)
+        {
+            if (prompt.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+                return prompt.Value;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Per-assistant overrides. Falls back to the top-level AiSettings values

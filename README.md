@@ -1,4 +1,4 @@
-## Dotto
+﻿## Dotto
 botto on dotnet.
 what, you don't know what botto is?
 
@@ -11,6 +11,8 @@ what, you don't know what botto is?
 - Set custom flags per-channel
   - **Reupload**: should the bot scan messages for certain URLs, download videos from them and re-upload them in chat?
   - **Recompression**: should the bot scan messages for attachments, then recompress and repost them via ffmpeg?
+- AI: an optional tiny harness with a sandboxed(-ish) container. Not 100% secure; only intended for friends.
+- The bot owner can override configuration from env vars/`appsettings.json` at runtime via `/config` (or `.config`)
 
 ## Getting started
 1. Download the deployment compose and the env template (no checkout needed):

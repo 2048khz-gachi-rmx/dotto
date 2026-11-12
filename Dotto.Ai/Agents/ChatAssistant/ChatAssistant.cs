@@ -2,9 +2,8 @@
 using Dotto.Ai.Prompts;
 using Dotto.Ai.Sandbox;
 using Dotto.Ai.Settings;
-using Microsoft.Agents.AI;
+using Dotto.Application.Configuration;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,17 +11,23 @@ namespace Dotto.Ai.Agents.ChatAssistant;
 
 public class ChatAssistant(
     ContextAccessor accessor,
+    IInteractionConfiguration configuration,
     IOptions<SandboxOptions> sandboxOptions,
     ILogger<ChatAssistant> logger,
     IPromptProvider promptProvider,
     ISandbox sandbox,
-    IServiceProvider serviceProvider)
+    IAiAgentFactory agentFactory)
 {
     private const string NoAnswerText =
         "The run stopped before producing an answer — it ran out of turns. Try a narrower request.";
 
-    public async Task<ChatAssistantResponse> Invoke(ChatAssistantContext context, CancellationToken cancellationToken)
+    public async Task<ChatAssistantResponse> Invoke(
+        ChatAssistantContext context, CancellationToken cancellationToken)
     {
+        // The boundary already set this interaction's scope, so this is the same cached
+        // snapshot the command handler resolved (no second query, no divergent values).
+        var settings = await configuration.GetCurrentAsync<AiSettings>(cancellationToken);
+
         context.SessionId = GenerateSessionId(context);
 
         accessor.Set(context);
@@ -47,7 +52,7 @@ public class ChatAssistant(
             if (systemPrompt != null)
                 context.Messages.Insert(0, new ChatMessage(ChatRole.System, systemPrompt));
 
-            var agent = serviceProvider.GetRequiredKeyedService<AIAgent>(DependencyInjection.AssistantKey);
+            var agent = agentFactory.CreateAgent(settings);
             var response = await agent.RunAsync(
                 context.Messages,
                 cancellationToken: cancellationToken);
@@ -112,7 +117,19 @@ public class ChatAssistant(
         ChatAssistantContext context, bool sandboxEnabled, CancellationToken ct)
     {
         var renderContext = BuildTemplateContext(context, sandboxEnabled);
-        return await promptProvider.RenderAsync(DependencyInjection.ChatAssistantPromptKey, renderContext, ct);
+        var prompt = await promptProvider.RenderAsync(
+            DependencyInjection.ChatAssistantPromptKey, renderContext, ct);
+
+        if (prompt == null)
+        {
+            // Running without instructions is rarely intended, and a casing or key-name
+            // mismatch used to be completely silent.
+            logger.LogWarning(
+                "No '{PromptKey}' prompt is configured under Ai:Prompts; running without a system prompt.",
+                DependencyInjection.ChatAssistantPromptKey);
+        }
+
+        return prompt;
     }
 
     internal static Dictionary<string, object> BuildTemplateContext(

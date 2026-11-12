@@ -1,14 +1,32 @@
+using System.Collections.Concurrent;
 using Dotto.Ai.Settings;
+using Dotto.Application.Configuration;
 using Fluid;
-using Microsoft.Extensions.Options;
 
 namespace Dotto.Ai.Prompts;
 
-internal sealed class PromptProvider(IOptions<AiSettings> options) : IPromptProvider
+/// <summary>
+/// Caches template sources across interactions. The provider itself is scoped, because which
+/// prompt a key points at is configurable per scope, but the file or embedded resource behind
+/// a <see cref="PromptSource"/> is the same for everyone, including its cache/mtime handling.
+/// </summary>
+internal sealed class PromptTemplateCache
+{
+    private readonly ConcurrentDictionary<(PromptType Type, string Path), PromptTemplate> _templates = new();
+
+    public PromptTemplate Get(PromptSource source)
+        => _templates.GetOrAdd((source.Type, source.Path), _ => new PromptTemplate(source));
+}
+
+/// <summary>
+/// Renders the prompt a key points at, using the interaction's effective
+/// <see cref="AiSettings"/> (prompt definitions are overridable per scope).
+/// </summary>
+internal sealed class PromptProvider(
+    IInteractionConfiguration configuration,
+    PromptTemplateCache templates) : IPromptProvider
 {
     private readonly FluidParser _parser = new();
-    private readonly Dictionary<string, PromptTemplate> _templates =
-        options.Value.Prompts.ToDictionary(kvp => kvp.Key, kvp => new PromptTemplate(kvp.Value));
 
     private static readonly TemplateOptions TemplateOptions = new()
     {
@@ -17,10 +35,15 @@ internal sealed class PromptProvider(IOptions<AiSettings> options) : IPromptProv
 
     public async Task<string?> RenderAsync(string key, object context, CancellationToken cancellationToken = default)
     {
-        if (!_templates.TryGetValue(key, out var template))
+        var settings = await configuration.GetCurrentAsync<AiSettings>(cancellationToken);
+
+        // Prompt names are configuration keys: an override stores them lowercased, so the
+        // lookup has to ignore case.
+        var source = settings.FindPrompt(key);
+        if (source == null)
             return null;
 
-        var raw = await template.GetAsync(cancellationToken);
+        var raw = await templates.Get(source).GetAsync(cancellationToken);
 
         if (!_parser.TryParse(raw, out var parsed, out var error))
             throw new InvalidOperationException($"Failed to parse prompt template '{key}': {error}");
