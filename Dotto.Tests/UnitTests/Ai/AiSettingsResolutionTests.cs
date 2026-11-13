@@ -51,16 +51,29 @@ public class AiSettingsResolutionTests
             => Task.FromResult(false);
     }
 
-    private static InteractionConfiguration Build(FakeStore store)
+    private static InteractionConfiguration Build(
+        FakeStore store,
+        Dictionary<string, string?>? extraConfiguration = null)
     {
+        var settings = new Dictionary<string, string?>
+        {
+            ["Ai:BaseUrl"] = "https://base.example/v1",
+            ["Ai:ApiKey"] = "base-key",
+            ["Ai:AssistantModel"] = "base-model",
+            ["Ai:ChatAssistant:Model"] = "base-assistant-model",
+            // The sandbox section exists in appsettings.json; without a key here the
+            // section is absent and SandboxOptions cannot bind at all.
+            ["Ai:Sandbox:Enabled"] = "true"
+        };
+
+        if (extraConfiguration != null)
+        {
+            foreach (var (key, value) in extraConfiguration)
+                settings[key] = value;
+        }
+
         var baseConfiguration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Ai:BaseUrl"] = "https://base.example/v1",
-                ["Ai:ApiKey"] = "base-key",
-                ["Ai:AssistantModel"] = "base-model",
-                ["Ai:ChatAssistant:Model"] = "base-assistant-model"
-            })
+            .AddInMemoryCollection(settings)
             .Build();
 
         var registry = new ConfigurationSchemaRegistry(
@@ -129,5 +142,30 @@ public class AiSettingsResolutionTests
         connection.Model.ShouldBe("guild-model");
         connection.ApiKey.ShouldBe("user-key");
         connection.BaseUrl!.ToString().ShouldBe("https://base.example/v1");
+    }
+
+    [Test]
+    public async Task SandboxIpcBasePath_DefaultsToThePlatformDirectory()
+    {
+        var configuration = Build(new FakeStore());
+
+        var sandbox = await configuration.GetAsync<SandboxOptions>(new InteractionScope(10, 20, 30));
+
+        sandbox.IpcBasePath.ShouldBe(new SandboxOptions().IpcBasePath);
+
+        if (!OperatingSystem.IsWindows())
+            sandbox.IpcBasePath.ShouldBe("/var/lib/dotto-sandbox-ipc");
+    }
+
+    [Test]
+    public async Task SandboxIpcBasePath_OverrideReachesTheEffectiveOptions()
+    {
+        var configuration = Build(
+            new FakeStore(),
+            new Dictionary<string, string?> { ["Ai:Sandbox:IpcBasePath"] = "/tmp/dotto-ipc-override" });
+
+        var sandbox = await configuration.GetAsync<SandboxOptions>(new InteractionScope(10, 20, 30));
+
+        sandbox.IpcBasePath.ShouldBe("/tmp/dotto-ipc-override");
     }
 }

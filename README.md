@@ -15,6 +15,9 @@ what, you don't know what botto is?
 - The bot owner can override configuration from env vars/`appsettings.json` at runtime via `/config` (or `.config`)
 
 ## Getting started
+
+Requirements: a Linux host with Docker Engine and Compose v2 (the sandbox is Linux-only).
+
 1. Download the deployment compose and the env template (no checkout needed):
 ```sh
 curl -O https://raw.githubusercontent.com/2048khz-gachi-rmx/dotto/master/docker-compose.yml
@@ -26,7 +29,26 @@ curl -O https://raw.githubusercontent.com/2048khz-gachi-rmx/dotto/master/.env.ex
 
 3. Edit the `.env` file: put your Discord token, change the PostgreSQL password, optionally add S3 details to Minio settings.
 
-4. `docker compose up -d`
+4. Choose the sandbox runtime. It defaults to gVisor and fails closed if `runsc` is missing.
+
+   **gVisor (recommended):** install it once on the Docker host, then restart Docker:
+
+   ```bash
+   ARCH=$(uname -m); VERSION=20261109.0
+   BASE=https://storage.googleapis.com/gvisor/releases/release/${VERSION}/${ARCH}
+   wget -q ${BASE}/runsc ${BASE}/runsc.sha512
+   sha512sum -c runsc.sha512
+   chmod a+rx runsc
+   sudo mv runsc /usr/local/bin/
+   sudo runsc install -- --host-uds=create
+   sudo systemctl restart docker
+   ```
+
+   Verify with `docker info --format '{{json .Runtimes}}' | grep -o runsc`.
+
+   **runc (easier, weaker isolation):** add `Ai__Sandbox__UseGVisorRuntime=false` to `.env`. No `runsc` install or Docker restart; sandboxes still use the Unix socket and network policy, but run on the daemon's default runtime.
+
+5. `docker compose up -d`
 
 `docker-compose.yml` is the deployment compose: the bot and Postgres, plus the AI
 sandbox plumbing (sandbox image pre-pull, Docker API proxy, sandbox network and
@@ -39,6 +61,15 @@ Docker containers, which the deployment compose above is already wired for,
 including the host path used for per-user storage (`/var/lib/dotto-sandbox`).
 How the sandbox works and is hardened is documented in
 `openspec/changes/ai-sandbox/`.
+
+Upgrading an existing deployment: `enable_icc` and the bridge name are network
+creation-time options. Recreate the sandbox network once:
+
+```bash
+docker compose down
+docker network rm sandbox
+docker compose up -d
+```
 
 ## Developing
 Want to set up the project locally?

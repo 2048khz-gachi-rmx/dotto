@@ -23,6 +23,12 @@ public class SandboxOptions
         ? Path.Combine(Path.GetTempPath(), "dotto-sandbox-storage")
         : "/var/lib/dotto-sandbox";
 
+    /// <summary>Host directory for per-session sockets; bot and daemon must resolve it identically.</summary>
+    [Required(AllowEmptyStrings = false)]
+    public string IpcBasePath { get; set; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? Path.Combine(Path.GetTempPath(), "dotto-sandbox-ipc")
+        : "/var/lib/dotto-sandbox-ipc";
+
     /// <summary>
     /// Per-caller /storage quota in MB (enforced inside the sandbox).
     /// </summary>
@@ -41,13 +47,18 @@ public class SandboxOptions
     [Range(typeof(TimeSpan), "00:02:00", "04:00:00")]
     public TimeSpan WallClockTimeout { get; set; } = TimeSpan.FromMinutes(15);
 
+    /// <summary>CPU quota; gVisor guests see <c>max(2, ceil(quota))</c> CPUs, runc sees all host CPUs.</summary>
     [Range(0, double.MaxValue)]
     public double CpuCount { get; set; } = 1.0;
 
     [Range(256, 32768)]
     public long MemoryMb { get; set; } = 1536;
 
-    public bool UseGVisorRuntime { get; set; } = false;
+    /// <summary>
+    /// Run on gVisor. Requires a registered <c>runsc</c> with <c>--host-uds=create</c>;
+    /// there is no automatic runc fallback.
+    /// </summary>
+    public bool UseGVisorRuntime { get; set; } = true;
 
     /// <summary>
     /// Sandbox resolvers; private ones are unreachable through the egress filter.

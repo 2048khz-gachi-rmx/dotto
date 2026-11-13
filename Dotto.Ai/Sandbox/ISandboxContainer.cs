@@ -6,7 +6,9 @@ namespace Dotto.Ai.Sandbox;
 public interface ISandboxContainer
 {
     string ContainerId { get; }
-    Uri ApiUrl { get; }
+
+    /// <summary>Network URI or per-session Unix socket path.</summary>
+    SandboxEndpoint Endpoint { get; }
 
     /// <summary>
     /// Polls <c>GET /ping</c>. Returns <c>true</c> when it responds with HTTP 200.

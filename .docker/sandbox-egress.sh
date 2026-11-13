@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
 #
-# Applies interface-scoped egress rules for the sandbox bridge; see design Decision 14.
-#
+# Internet-only egress for the sandbox bridge (ai-sandbox Decision 14).
 # Usage: sandbox-egress.sh [--apply|--remove|--status|--check|--serve]
 #   SANDBOX_BRIDGE   bridge interface to guard (default: br-sandbox)
-#   SANDBOX_IPTABLES iptables binary to use (default: iptables)
-#
-# Idempotent. Safe to run before the network exists: the rules are keyed by
-# interface name, not by network id.
+#   SANDBOX_IPTABLES iptables binary (default: iptables)
 set -euo pipefail
 
 BRIDGE="${SANDBOX_BRIDGE:-br-sandbox}"
-# Override for hosts whose docker daemon uses the legacy backend (Alpine only
-# ships the nft binary; on such hosts use the host script or a legacy image).
+# Alpine's nft binary needs iptables-legacy on legacy-backend hosts.
 IPT="${SANDBOX_IPTABLES:-iptables}"
 
-# RFC1918 / CGNAT / loopback / link-local / multicast / reserved. Anything
-# private or host-local a sandbox should not reach.
+# Private, loopback, link-local, multicast and reserved ranges.
 DESTINATIONS=(
     0.0.0.0/8
     10.0.0.0/8
@@ -40,8 +34,7 @@ require_root() {
 }
 
 validate_bridge() {
-    # Interface names are limited to 15 characters and this value is passed to
-    # iptables, so refuse anything that is not a plain interface name.
+    # The name is passed to iptables; allow only a plain interface name.
     if [[ ! ${BRIDGE} =~ ^[A-Za-z0-9_.-]{1,15}$ ]]; then
         log "invalid SANDBOX_BRIDGE: ${BRIDGE}"
         exit 1
@@ -63,9 +56,7 @@ wait_for_docker_chains() {
 }
 
 apply_rules() {
-    # Insert in reverse so the final order matches DESTINATIONS and the
-    # same-bridge RETURN stays first; DOCKER-USER may contain a trailing RETURN
-    # added by some Docker versions, and appending would land after it.
+    # Insert in reverse so order matches DESTINATIONS and the RETURN stays first.
     local i
     for ((i = ${#DESTINATIONS[@]} - 1; i >= 0; i--)); do
         local dest="${DESTINATIONS[i]}"
@@ -74,7 +65,7 @@ apply_rules() {
         fi
     done
 
-    # Same-bridge traffic must reach Docker's own "-i br-x -o br-x ACCEPT" rule.
+    # Must precede the private-range DROPs: Docker accepts intra-bridge traffic.
     if ! has_rule DOCKER-USER -i "${BRIDGE}" -o "${BRIDGE}" -j RETURN; then
         "${IPT}" -I DOCKER-USER 1 -i "${BRIDGE}" -o "${BRIDGE}" -j RETURN
     fi
@@ -130,7 +121,7 @@ case "${1:---apply}" in
         show_status
         ;;
     --check)
-        # Used as the sidecar healthcheck: exit 0 only if every rule is present.
+        # Sidecar healthcheck: exit 0 only if every rule is present.
         ok=0
         has_rule DOCKER-USER -i "${BRIDGE}" -o "${BRIDGE}" -j RETURN || ok=1
         for dest in "${DESTINATIONS[@]}"; do
@@ -145,8 +136,7 @@ case "${1:---apply}" in
         exit 1
         ;;
     --serve)
-        # Long-running mode for the compose sidecar: apply once, stay alive so
-        # `docker compose down` can remove the rules again.
+        # Apply once and stay alive so compose can remove the rules on down.
         trap 'remove_rules || true; log "stopped; rules removed"; exit 0' TERM INT
         if ! wait_for_docker_chains 30; then
             log "DOCKER-USER chain not found: is docker running, and is '${IPT}' the same backend as the daemon? Set SANDBOX_IPTABLES=iptables-legacy if the host uses legacy iptables."

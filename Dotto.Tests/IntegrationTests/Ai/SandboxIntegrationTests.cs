@@ -67,6 +67,9 @@ public class SandboxIntegrationTests
             WorkTmpfsMb = 256,
             CpuCount = 1.0,
             MemoryMb = 512,
+            // The explicit suite runs on whatever daemon the developer has; gVisor
+            // (the shipped default) is not registered everywhere.
+            UseGVisorRuntime = false,
         };
         var client = new DockerClientBuilder().Build();
         return new Sandbox(Options.Create(opts), NullLogger<Sandbox>.Instance, client);
@@ -90,6 +93,7 @@ public class SandboxIntegrationTests
         CpuCount = 1.0,
         MemoryMb = 512,
         StorageQuotaMb = QuotaMb,
+        UseGVisorRuntime = false,
     };
 
     private static void DeleteStorageBase(string? storageDir)
@@ -156,7 +160,7 @@ public class SandboxIntegrationTests
 
             // Assert
             container.ContainerId.ShouldNotBeNullOrEmpty();
-            container.ApiUrl.ShouldNotBeNull();
+            container.Endpoint.ApiUrl.ShouldNotBeNull();
 
             // The container should respond to /ping
             var ready = await container.PingAsync(CancellationToken.None);
@@ -429,7 +433,7 @@ public class SandboxIntegrationTests
             var container = await sandbox.EnsureStartedAsync(CancellationToken.None);
 
             using var http = new HttpClient();
-            using var response = await http.GetAsync(new Uri(container.ApiUrl, "/ping"));
+            using var response = await http.GetAsync(new Uri(container.Endpoint.ApiUrl, "/ping"));
 
             // Assert
             response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -579,6 +583,7 @@ public class SandboxIntegrationTests
             StorageBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-it-" + Guid.NewGuid().ToString("N")),
             WorkTmpfsMb = 256,
             MemoryMb = 512,
+            UseGVisorRuntime = false,
         };
 
         sandbox = CreateSandbox(options);
@@ -786,7 +791,7 @@ public class SandboxIntegrationTests
             // Wrong token. The unread body of a rejected PUT would be parsed as
             // the next request line on a kept-alive HTTP/1.1 socket, so the
             // rejection must close it.
-            using var wrongRequest = new HttpRequestMessage(HttpMethod.Get, new Uri(container.ApiUrl, "/ping"));
+            using var wrongRequest = new HttpRequestMessage(HttpMethod.Get, new Uri(container.Endpoint.ApiUrl, "/ping"));
             wrongRequest.Headers.Add("X-Sandbox-Token", "wrong-token");
             using (var wrongResponse = await http.SendAsync(wrongRequest))
             {
@@ -795,7 +800,7 @@ public class SandboxIntegrationTests
             }
 
             // Missing token.
-            using var missingResponse = await http.GetAsync(new Uri(container.ApiUrl, "/ping"));
+            using var missingResponse = await http.GetAsync(new Uri(container.Endpoint.ApiUrl, "/ping"));
             missingResponse.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
             missingResponse.Headers.ConnectionClose.ShouldBe(true);
         }

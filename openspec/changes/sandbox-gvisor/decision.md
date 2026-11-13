@@ -176,3 +176,21 @@ per-session IPC directories and unlink-before-bind.
 4. **`-threads` guidance for the runc fallback**: if gVisor is unavailable and the bot runs on
    `runc` with a fractional CPU quota, pass an explicit thread count to ffmpeg (or raise
    `CpuCount`) — the 16-thread oversubscription is a measurable loss independent of the runtime.
+
+## Environment caveat: running a second dockerd
+
+The benchmark harness started a throwaway rootful `dockerd` with `"bridge": "none"` and a separate
+`data-root`. On Docker 29.9.3 (build `70efc0e`) that **deletes the host's `docker0`**:
+`daemon/daemon_unix.go`, `configureNetworking`, calls `removeDefaultBridgeInterface()` on the
+`--bridge=none` path, which removes the interface by its hard-coded name (moby/moby#26071). With
+`docker0` gone, the harness's `docker network create bench` was allowed to allocate the now-free
+`172.17.0.0/16` pool. User-defined networks persist, so after the throwaway daemon stopped its
+`br-<id>` interface kept the gateway and every default-bridge container on the host failed with
+`adding interface ... to bridge docker0 failed: Device does not exist` until the leftover bridge
+was removed and `docker0` recreated manually.
+
+Two rootful daemons in one network namespace are unsupported. moby/moby#54134 covers the same
+collision for a user-managed `--bridge`, fixed in 29.10.0 by PR #54157, but `--bridge=none` keeps
+the deletion. Future benchmarks should use DinD/rootless/VM isolation, or a user-managed bridge
+with non-overlapping `default-address-pools`; do not use `--bridge=none` on a host that already
+runs a live Docker daemon.

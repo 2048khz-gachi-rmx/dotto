@@ -21,12 +21,26 @@ public class SandboxStartCleanupTests
     {
         Enabled = true,
         StorageBasePath = storageBase,
+        // Never use the production IPC path from a unit test.
+        IpcBasePath = IpcBase(storageBase),
         // Short enough to keep the timeout test fast; SandboxOptions validation
         // is not involved when options are constructed directly in a unit test.
         ContainerStartTimeout = TimeSpan.FromMilliseconds(300),
         // Production mode: no InspectContainerAsync host-port lookup needed.
         NetworkName = "test-network"
     };
+
+    private static string IpcBase(string storageBase) => storageBase + "-ipc";
+
+    private static string IpcSessionDir(string storageBase) => Path.Combine(IpcBase(storageBase), "session");
+
+    private static void Cleanup(string storageBase)
+    {
+        if (Directory.Exists(storageBase))
+            Directory.Delete(storageBase, true);
+        if (Directory.Exists(IpcBase(storageBase)))
+            Directory.Delete(IpcBase(storageBase), true);
+    }
 
     private static Sandbox CreateSandbox(
         IDockerClient client,
@@ -88,8 +102,7 @@ public class SandboxStartCleanupTests
         {
             await sandbox.DisposeAsync();
 
-            if (Directory.Exists(storageBase))
-                Directory.Delete(storageBase, true);
+            Cleanup(storageBase);
         }
     }
 
@@ -104,7 +117,7 @@ public class SandboxStartCleanupTests
             .Returns(true);
 
         var probe = Substitute.For<ISandboxContainer>();
-        probe.ApiUrl.Returns(new Uri("http://sandbox-never-ready:8080"));
+        probe.Endpoint.Returns(SandboxEndpoint.FromUri(new Uri("http://sandbox-never-ready:8080")));
         probe.PingAsync(Arg.Any<CancellationToken>()).Returns(false);
 
         var storageBase = NewStorageBase();
@@ -130,16 +143,79 @@ public class SandboxStartCleanupTests
         {
             await sandbox.DisposeAsync();
 
-            if (Directory.Exists(storageBase))
-                Directory.Delete(storageBase, true);
+            Cleanup(storageBase);
+        }
+    }
+
+    [Test]
+    public async Task EnsureStartedAsync_WhenStartFails_RemovesSessionIpcDirectory()
+    {
+        // Arrange — the created container never starts, so its socket dir has no user.
+        var client = ClientThatCreatesContainer();
+        client.Containers
+            .StartContainerAsync(
+                Arg.Any<string>(), Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("runsc is not a registered runtime"));
+
+        var storageBase = NewStorageBase();
+        var sandbox = CreateSandbox(client, storageBase);
+
+        try
+        {
+            await sandbox.InitializeAsync("session", 45, CancellationToken.None);
+
+            // Act
+            await Should.ThrowAsync<InvalidOperationException>(
+                () => sandbox.EnsureStartedAsync(CancellationToken.None));
+
+            // Assert — the failure path cleans the IPC directory before rethrowing.
+            Directory.Exists(IpcSessionDir(storageBase)).ShouldBeFalse();
+        }
+        finally
+        {
+            await sandbox.DisposeAsync();
+            Cleanup(storageBase);
+        }
+    }
+
+    [Test]
+    public async Task DisposeAsync_RemovesSessionIpcDirectory()
+    {
+        // Arrange — a ready container, so the IPC directory is in active use.
+        var client = ClientThatCreatesContainer();
+        client.Containers
+            .StartContainerAsync(
+                Arg.Any<string>(), Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var probe = Substitute.For<ISandboxContainer>();
+        probe.PingAsync(Arg.Any<CancellationToken>()).Returns(true);
+
+        var storageBase = NewStorageBase();
+        var sandbox = CreateSandbox(client, storageBase, probe);
+
+        try
+        {
+            await sandbox.InitializeAsync("session", 46, CancellationToken.None);
+            await sandbox.EnsureStartedAsync(CancellationToken.None);
+
+            Directory.Exists(IpcSessionDir(storageBase)).ShouldBeTrue();
+        }
+        finally
+        {
+            // Act
+            await sandbox.DisposeAsync();
+
+            // Assert
+            Directory.Exists(IpcSessionDir(storageBase)).ShouldBeFalse();
+            Cleanup(storageBase);
         }
     }
 
     [Test]
     public async Task DisposeAsync_WhenStartFailed_DoesNotThrow()
     {
-        // Arrange — cleanup already happened in EnsureStartedAsync; dispose is
-        // allowed to retry it, but must tolerate the container being gone.
+        // EnsureStartedAsync already cleaned up; dispose must tolerate a missing container.
         var client = ClientThatCreatesContainer();
         client.Containers
             .StartContainerAsync(
@@ -164,8 +240,7 @@ public class SandboxStartCleanupTests
             // Act + Assert
             await Should.NotThrowAsync(() => sandbox.DisposeAsync().AsTask());
 
-            if (Directory.Exists(storageBase))
-                Directory.Delete(storageBase, true);
+            Cleanup(storageBase);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Dotto.Ai.Settings;
@@ -20,6 +21,14 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     private const string ContainerLabelKey = "dotto-sandbox";
     private const string ContainerLabelValue = "true";
 
+    /// <summary>Mount point for the per-session socket directory.</summary>
+    private const string SocketMountPath = "/run/dotto";
+
+    private const string SocketFileName = "sandbox.sock";
+
+    /// <summary>AF_UNIX <c>sun_path</c> is 108 bytes including the NUL.</summary>
+    private const int MaxSocketPathBytes = 107;
+
     /// <summary>
     /// Serializes storage-directory creation per caller across concurrent sessions.
     /// </summary>
@@ -31,13 +40,17 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     private SandboxMetadata? _metadata;
     private string? _token;
     private string? _containerId;
+    private string? _ipcDir;
     private bool _disposed;
 
     /// <summary>
     /// Test seam for the readiness probe; production uses <see cref="SandboxContainer"/>.
     /// </summary>
-    internal Func<Uri, string, string, ISandboxContainer> ContainerFactory { get; init; }
-        = static (apiUrl, containerId, token) => new SandboxContainer(apiUrl, containerId, token);
+    internal Func<SandboxEndpoint, string, string, ISandboxContainer> ContainerFactory { get; init; }
+        = static (endpoint, containerId, token) => new SandboxContainer(endpoint, containerId, token);
+
+    /// <summary>Named network means per-session socket; otherwise loopback TCP.</summary>
+    private bool UseUnixSocket => !_options.NetworkName.IsNullOrWhitespace();
 
     public SandboxMetadata Metadata
     {
@@ -105,7 +118,24 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         var containerName = $"sandbox-{meta.SessionId}-{RandomHex(4)}";
         _token = RandomHex(32);
 
-        logger.LogInformation("Creating sandbox container {ContainerName}", containerName);
+        // Create the socket directory before the non-root sandbox user starts.
+        _ipcDir = UseUnixSocket ? PrepareIpcDirectory(meta.SessionId) : null;
+
+        var binds = new List<string> { $"{meta.HostStorageDir}:/storage" };
+        if (_ipcDir != null)
+            binds.Add($"{_ipcDir}:{SocketMountPath}");
+
+        var env = new List<string>
+        {
+            $"SANDBOX_TOKEN={_token}",
+            $"SANDBOX_STORAGE_QUOTA_MB={_options.StorageQuotaMb}"
+        };
+        if (_ipcDir != null)
+            env.Add($"SANDBOX_SOCKET={SocketMountPath}/{SocketFileName}");
+
+        logger.LogInformation(
+            "Creating sandbox container {ContainerName} ({Transport})",
+            containerName, _ipcDir == null ? "loopback TCP" : "unix socket");
 
         var createParams = new CreateContainerParameters
         {
@@ -127,11 +157,8 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
                 AutoRemove = true,
 
-                // The only host path the sandbox sees; the bot never opens files in it.
-                Binds =
-                [
-                    $"{meta.HostStorageDir}:/storage"
-                ],
+                // The only host paths the sandbox sees; the bot never opens files in them.
+                Binds = binds,
 
                 // Docker copies the image directory's owner/mode onto the tmpfs root and
                 // mounts tmpfs noexec by default. Without explicit options, `WORKDIR /work`
@@ -152,20 +179,17 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 [ContainerLabelKey] = ContainerLabelValue,
                 ["dotto-session-id"] = meta.SessionId
             },
-            Env = new List<string>
-            {
-                $"SANDBOX_TOKEN={_token}",
-                $"SANDBOX_STORAGE_QUOTA_MB={_options.StorageQuotaMb}"
-            },
+            Env = env,
             Cmd = new List<string> { "python3", "/server.py" },
-            ExposedPorts = new Dictionary<string, EmptyStruct>
-            {
-                ["8080/tcp"] = default
-            },
         };
 
-        if (_options.NetworkName.IsNullOrWhitespace())
+        if (_ipcDir == null)
         {
+            // Development: loopback-published TCP port (the network path).
+            createParams.ExposedPorts = new Dictionary<string, EmptyStruct>
+            {
+                ["8080/tcp"] = default
+            };
             createParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>
             {
                 ["8080/tcp"] = [new PortBinding { HostIP = "127.0.0.1", HostPort = "0" }]
@@ -176,17 +200,19 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         if (_options.UseGVisorRuntime)
             createParams.HostConfig.Runtime = "runsc";
 
-        var createResponse = await client.Containers.CreateContainerAsync(createParams, ct);
-
-        // Recorded before start/URL/readiness so disposal can stop a half-made container.
-        _containerId = createResponse.ID;
-
-        logger.LogInformation(
-            "Created sandbox container {ContainerId} for session {SessionId}",
-            createResponse.ID, meta.SessionId);
-
+        string? createdId = null;
         try
         {
+            var createResponse = await client.Containers.CreateContainerAsync(createParams, ct);
+            createdId = createResponse.ID;
+
+            // Recorded before start/endpoint/readiness so disposal can stop a half-made container.
+            _containerId = createResponse.ID;
+
+            logger.LogInformation(
+                "Created sandbox container {ContainerId} for session {SessionId}",
+                createResponse.ID, meta.SessionId);
+
             await client.Containers.StartContainerAsync(
                 createResponse.ID,
                 new ContainerStartParameters(),
@@ -195,32 +221,30 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             logger.LogInformation(
                 "Started sandbox container {ContainerId}", createResponse.ID);
 
-            // Inspect to find the sandbox API URL (network-resolved name or host port)
-            var apiUrl = await ResolveApiUrlAsync(createResponse.ID, containerName, ct);
+            var endpoint = await ResolveEndpointAsync(createResponse.ID, ct);
 
-            var container = ContainerFactory(apiUrl, createResponse.ID, _token);
+            var container = ContainerFactory(endpoint, createResponse.ID, _token);
             await WaitForReadyAsync(container, _options.ContainerStartTimeout, ct);
 
             Container = container;
 
             logger.LogInformation(
-                "Sandbox ready for session {SessionId} at {ApiUrl} (container: {ContainerId})",
-                meta.SessionId, apiUrl, createResponse.ID);
+                "Sandbox ready for session {SessionId} at {Endpoint} (container: {ContainerId})",
+                meta.SessionId, endpoint, createResponse.ID);
 
             return container;
         }
         catch
         {
             // Stop the container here: this path throws, so dispose may never run.
-            await TryStopContainerAsync(createResponse.ID);
+            if (createdId != null)
+                await TryStopContainerAsync(createdId);
+            RemoveIpcDirectory();
             throw;
         }
     }
 
-    /// <summary>
-    /// Stops (and, via AutoRemove, removes) the container if one was started.
-    /// Idempotent. Persistent storage is deliberately left alone.
-    /// </summary>
+    /// <summary>Stops the container and removes this session's IPC directory. Idempotent.</summary>
     public async ValueTask DisposeAsync()
     {
         await using var _ = await _lifecycleGate.CaptureWaitAsync();
@@ -231,17 +255,19 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         _disposed = true;
 
         var containerId = Container?.ContainerId ?? _containerId;
-        if (containerId == null)
-            return;
+        if (containerId != null)
+        {
+            try
+            {
+                await StopAndRemoveContainerAsync(containerId, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to stop sandbox container {ContainerId}", containerId);
+            }
+        }
 
-        try
-        {
-            await StopAndRemoveContainerAsync(containerId, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to stop sandbox container {ContainerId}", containerId);
-        }
+        RemoveIpcDirectory();
     }
 
     /// <summary>
@@ -256,6 +282,53 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     {
         if (!_options.Enabled)
             throw new SandboxDisabledException();
+    }
+
+    /// <summary>Creates the per-session IPC directory, mode 0777 for the non-root sandbox user.</summary>
+    private string PrepareIpcDirectory(string sessionId)
+    {
+        var dir = Path.Combine(_options.IpcBasePath, sessionId);
+        var socketPath = Path.Combine(dir, SocketFileName);
+
+        // Fail before create instead of getting ENAMETOOLONG inside the sandbox.
+        if (Encoding.UTF8.GetByteCount(socketPath) > MaxSocketPathBytes)
+        {
+            throw new InvalidOperationException(
+                $"Sandbox IPC socket path is too long for AF_UNIX ({socketPath}). " +
+                "Shorten Ai:Sandbox:IpcBasePath.");
+        }
+
+        Directory.CreateDirectory(dir);
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(dir,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+        }
+
+        return dir;
+    }
+
+    /// <summary>Removes the IPC directory; never throws.</summary>
+    private void RemoveIpcDirectory()
+    {
+        var dir = _ipcDir;
+        _ipcDir = null;
+
+        if (dir == null)
+            return;
+
+        try
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to remove sandbox IPC directory {Path}", dir);
+        }
     }
 
     /// <summary>
@@ -316,7 +389,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 if (await container.PingAsync(cts.Token))
                 {
                     logger.LogInformation(
-                        "Sandbox ready after {Attempts} attempts ({Url})", attempts, container.ApiUrl);
+                        "Sandbox ready after {Attempts} attempts ({Endpoint})", attempts, container.Endpoint);
                     return;
                 }
             }
@@ -331,40 +404,42 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         }
 
         throw new TimeoutException(
-            $"Sandbox at {container.ApiUrl} did not become ready within {timeout}.");
+            $"Sandbox at {container.Endpoint} did not become ready within {timeout}.");
     }
 
-    /// <summary>
-    /// Container name on the shared network, or the published loopback port in dev.
-    /// </summary>
-    private async Task<Uri> ResolveApiUrlAsync(string containerId, string containerName, CancellationToken ct)
+    /// <summary>Session socket path in production, or the loopback port in development.</summary>
+    private async Task<SandboxEndpoint> ResolveEndpointAsync(string containerId, CancellationToken ct)
     {
-        if (!_options.NetworkName.IsNullOrWhitespace())
+        if (_ipcDir != null)
         {
-            var url = new Uri($"http://{containerName}:8080");
+            var socketPath = Path.Combine(_ipcDir, SocketFileName);
             logger.LogInformation(
-                "Sandbox reachable at {Url} via network {Network} (container: {ContainerId})",
-                url, _options.NetworkName, containerId);
-            return url;
+                "Sandbox reachable at unix socket {SocketPath} via {MountPath} (container: {ContainerId})",
+                socketPath, SocketMountPath, containerId);
+            return SandboxEndpoint.FromSocketPath(socketPath);
         }
 
-        var inspect = await client.Containers.InspectContainerAsync(containerId, ct);
-
-        var hostPort = inspect.NetworkSettings?.Ports["8080/tcp"].FirstOrDefault()?.HostPort;
+        var hostPort = await ResolveHostPortAsync(containerId, ct);
 
         if (hostPort != null)
         {
             logger.LogInformation(
                 "Sandbox reachable at 127.0.0.1:{Port} (container: {ContainerId})",
                 hostPort, containerId);
-            return new Uri($"http://127.0.0.1:{hostPort}");
+            return SandboxEndpoint.FromUri(new Uri($"http://127.0.0.1:{hostPort}"));
         }
 
         // Unreachable in practice: 8080 is always published in dev.
         logger.LogWarning(
             "Could not find host port mapping for container {ContainerId}, using loopback fallback",
             containerId);
-        return new Uri("http://127.0.0.1:8080");
+        return SandboxEndpoint.FromUri(new Uri("http://127.0.0.1:8080"));
+    }
+
+    private async Task<string?> ResolveHostPortAsync(string containerId, CancellationToken ct)
+    {
+        var inspect = await client.Containers.InspectContainerAsync(containerId, ct);
+        return inspect.NetworkSettings?.Ports["8080/tcp"].FirstOrDefault()?.HostPort;
     }
 
     private static string RandomHex(int bytes)

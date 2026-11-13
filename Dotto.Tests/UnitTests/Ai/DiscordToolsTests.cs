@@ -542,7 +542,7 @@ public class DiscordToolsTests
     private sealed class FakeSandboxContainer(string root) : ISandboxContainer
     {
         public string ContainerId => "fake-container";
-        public Uri ApiUrl { get; } = new("http://127.0.0.1:1");
+        public SandboxEndpoint Endpoint { get; } = SandboxEndpoint.FromUri(new Uri("http://127.0.0.1:1"));
 
         public Task<bool> PingAsync(CancellationToken ct) => Task.FromResult(true);
 

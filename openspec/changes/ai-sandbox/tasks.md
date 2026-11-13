@@ -120,8 +120,8 @@
 - [ ] 10.2 GC for stale `{StorageBasePath}/{callerId}` directories
 - [ ] 10.3 Serialize concurrent invocations by the same caller on one storage volume (current gates cover provisioning only)
 - [ ] 10.4 Docker-backed CI job so the `[Explicit]` sandbox security tests run automatically
-- [ ] 10.5 Sibling-sandbox isolation on one bridge (needs per-session networks or an ICC alternative)
-- [ ] 10.6 gVisor benchmark — tracked separately in `sandbox-gvisor-benchmark`
+- [x] 10.5 Sibling-sandbox isolation on one bridge — resolved in `sandbox-gvisor`: the bot leaves the `sandbox` network, `enable_icc=false` is set on it, and the control channel moves to a per-session Unix socket.
+- [x] 10.6 gVisor benchmark — done in `sandbox-gvisor` (`decision.md`); gVisor (`runsc`) is now the default sandbox runtime.
 
 ## 11. Implementation Review Follow-ups
 

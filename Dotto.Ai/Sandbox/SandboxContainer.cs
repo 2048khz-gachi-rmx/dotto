@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,10 +8,10 @@ namespace Dotto.Ai.Sandbox;
 
 /// <summary>
 /// The lazily-started container segment of a sandbox session. Exposes the API
-/// URL, container ID, and the allowed operations on the underlying container
+/// endpoint, container ID, and the allowed operations on the underlying container
 /// (executing a command, health checks, and streaming file transfer).
 /// </summary>
-public sealed class SandboxContainer(Uri apiUrl, string containerId, string token) : ISandboxContainer
+public sealed class SandboxContainer(SandboxEndpoint endpoint, string containerId, string token) : ISandboxContainer
 {
     private const int ExecuteTimeoutSeconds = 310; // slightly above the "long" (300s) timeout tier
     private const int FileTimeoutSeconds = 900;
@@ -22,18 +23,29 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    private readonly HttpClient _http = CreateHttpClient(ExecuteTimeoutSeconds, MaxBufferedResponseBytes);
-    private readonly HttpClient _fileHttp = CreateHttpClient(FileTimeoutSeconds);
+    private readonly HttpClient _http = CreateHttpClient(endpoint, ExecuteTimeoutSeconds, MaxBufferedResponseBytes);
+    private readonly HttpClient _fileHttp = CreateHttpClient(endpoint, FileTimeoutSeconds);
 
-    private static HttpClient CreateHttpClient(int timeoutSeconds, long? maxBufferedResponseBytes = null)
+    private static HttpClient CreateHttpClient(
+        SandboxEndpoint endpoint,
+        int timeoutSeconds,
+        long? maxBufferedResponseBytes = null)
     {
-        var client = new HttpClient(
-            new SocketsHttpHandler
-            {
-                // Never let the sandbox redirect the bot (and its token header) elsewhere.
-                AllowAutoRedirect = false,
-                UseCookies = false,
-            })
+        var handler = new SocketsHttpHandler
+        {
+            // Never let the sandbox redirect the bot (and its token header) elsewhere.
+            AllowAutoRedirect = false,
+            UseCookies = false,
+
+            // An environment proxy would bypass ConnectCallback and leak the token.
+            UseProxy = false,
+        };
+
+        // Socket transport: synthetic URI, connection goes to the session socket.
+        if (endpoint.SocketPath is { } socketPath)
+            handler.ConnectCallback = (_, ct) => ConnectUnixSocketAsync(socketPath, ct);
+
+        var client = new HttpClient(handler)
         {
             Timeout = TimeSpan.FromSeconds(timeoutSeconds)
         };
@@ -44,8 +56,23 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
         return client;
     }
 
+    private static async ValueTask<Stream> ConnectUnixSocketAsync(string socketPath, CancellationToken ct)
+    {
+        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        try
+        {
+            await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), ct);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+
     public string ContainerId { get; } = containerId;
-    public Uri ApiUrl { get; } = apiUrl;
+    public SandboxEndpoint Endpoint { get; } = endpoint;
 
     /// <summary>
     /// Polls <c>GET /ping</c>. Returns <c>true</c> when it responds with HTTP 200.
@@ -143,7 +170,7 @@ public sealed class SandboxContainer(Uri apiUrl, string containerId, string toke
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path, HttpContent? content = null)
     {
-        var request = new HttpRequestMessage(method, new Uri(ApiUrl, path));
+        var request = new HttpRequestMessage(method, new Uri(Endpoint.ApiUrl, path));
         request.Headers.Add("X-Sandbox-Token", token);
         request.Content = content;
         return request;

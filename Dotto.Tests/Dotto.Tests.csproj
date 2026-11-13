@@ -56,4 +56,10 @@
       <None Include="..\Dotto.Ai\sandbox-image\server.py" Link="sandbox-server.py" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
+    <!-- The shipped configuration is part of the sandbox runtime contract. -->
+    <ItemGroup>
+      <None Include="..\Dotto.Bot\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="..\Dotto.Bot\appsettings.Development.json" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

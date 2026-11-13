@@ -9,22 +9,51 @@ using Shouldly;
 
 namespace Dotto.Tests.UnitTests.Ai;
 
-/// <summary>
-/// Fast (Docker-free) assertions on the container parameters the sandbox
-/// sends. The integration suite needs a real daemon and is [Explicit], so the
-/// mount options have no other guard.
-/// </summary>
+/// <summary>Docker-free assertions on container parameters and transport selection.</summary>
 public class SandboxContainerParametersTests
 {
+    private sealed class CapturedRun
+    {
+        public required CreateContainerParameters Parameters { get; init; }
+        public required SandboxEndpoint Endpoint { get; init; }
+        public required string StorageBase { get; init; }
+        public required string IpcBase { get; init; }
+
+        public void Cleanup()
+        {
+            DeleteIfExists(StorageBase);
+            DeleteIfExists(IpcBase);
+        }
+
+        private static void DeleteIfExists(string path)
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
+        }
+    }
+
     private static string[] TmpfsOptions(CreateContainerParameters parameters, string mount)
         => parameters.HostConfig!.Tmpfs![mount].Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-    [Test]
-    public async Task EnsureStartedAsync_MountsWorkAsWritableTmpfs()
+    private static SandboxOptions CreateOptions(Action<SandboxOptions>? configure = null)
     {
-        var storageBase = Path.Combine(
-            Path.GetTempPath(), "dotto-sandbox-params-" + Guid.NewGuid().ToString("N"));
+        var id = Guid.NewGuid().ToString("N");
+        var options = new SandboxOptions
+        {
+            ImageTag = "dotto-sandbox:latest",
+            NetworkName = "sandbox-test",
+            StorageBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-params-" + id),
+            IpcBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-ipc-" + id),
+            WorkTmpfsMb = 256,
+            MemoryMb = 512,
+        };
 
+        configure?.Invoke(options);
+        return options;
+    }
+
+    private static async Task<CapturedRun> StartAsync(SandboxOptions options)
+    {
         var client = Substitute.For<IDockerClient>();
         CreateContainerParameters? captured = null;
         client.Containers
@@ -32,23 +61,17 @@ public class SandboxContainerParametersTests
             .Returns(new CreateContainerResponse { ID = "container-id" });
 
         var container = Substitute.For<ISandboxContainer>();
-        container.ApiUrl.Returns(new Uri("http://127.0.0.1:8080"));
         container.ContainerId.Returns("container-id");
         container.PingAsync(Arg.Any<CancellationToken>()).Returns(true);
 
-        var sandbox = new Sandbox(
-            Options.Create(new SandboxOptions
-            {
-                ImageTag = "dotto-sandbox:latest",
-                NetworkName = "sandbox-test",
-                StorageBasePath = storageBase,
-                WorkTmpfsMb = 256,
-                MemoryMb = 512,
-            }),
-            NullLogger<Sandbox>.Instance,
-            client)
+        SandboxEndpoint? endpoint = null;
+        var sandbox = new Sandbox(Options.Create(options), NullLogger<Sandbox>.Instance, client)
         {
-            ContainerFactory = (_, _, _) => container
+            ContainerFactory = (e, _, _) =>
+            {
+                endpoint = e;
+                return container;
+            }
         };
 
         try
@@ -59,21 +82,100 @@ public class SandboxContainerParametersTests
         finally
         {
             await sandbox.DisposeAsync();
-
-            if (Directory.Exists(storageBase))
-                Directory.Delete(storageBase, true);
         }
 
         captured.ShouldNotBeNull();
+        endpoint.ShouldNotBeNull();
 
-        // Docker copies the image directory's owner/mode onto the tmpfs root and
-        // mounts tmpfs noexec by default. `WORKDIR /work` is root:root 2755, so
-        // without explicit options the non-root sandbox user cannot write there
-        // (this broke every DownloadMedia call and any command writing to /work).
-        var work = TmpfsOptions(captured!, "/work");
-        work.ShouldContain("size=256M");
-        work.ShouldContain("mode=1777");
-        work.ShouldContain("exec");
-        work.ShouldNotContain("noexec");
+        return new CapturedRun
+        {
+            Parameters = captured!,
+            Endpoint = endpoint!,
+            StorageBase = options.StorageBasePath,
+            IpcBase = options.IpcBasePath,
+        };
+    }
+
+    [Test]
+    public async Task EnsureStartedAsync_MountsWorkAsWritableTmpfs()
+    {
+        var run = await StartAsync(CreateOptions());
+
+        try
+        {
+            // Docker copies the image directory's owner/mode onto the tmpfs root and
+            // mounts tmpfs noexec by default. `WORKDIR /work` is root:root 2755, so
+            // without explicit options the non-root sandbox user cannot write there
+            // (this broke every DownloadMedia call and any command writing to /work).
+            var work = TmpfsOptions(run.Parameters, "/work");
+            work.ShouldContain("size=256M");
+            work.ShouldContain("mode=1777");
+            work.ShouldContain("exec");
+            work.ShouldNotContain("noexec");
+        }
+        finally
+        {
+            run.Cleanup();
+        }
+    }
+
+    [Test]
+    public async Task EnsureStartedAsync_DefaultsToGVisorRuntime()
+    {
+        var options = CreateOptions();
+
+        options.UseGVisorRuntime.ShouldBeTrue();
+
+        var run = await StartAsync(options);
+
+        try
+        {
+            run.Parameters.HostConfig!.Runtime.ShouldBe("runsc");
+        }
+        finally
+        {
+            run.Cleanup();
+        }
+    }
+
+    [Test]
+    public async Task EnsureStartedAsync_WithGVisorDisabled_UsesDaemonDefaultRuntime()
+    {
+        var run = await StartAsync(CreateOptions(options => options.UseGVisorRuntime = false));
+
+        try
+        {
+            // null = no explicit runtime, i.e. the daemon default (runc).
+            run.Parameters.HostConfig!.Runtime.ShouldBeNull();
+        }
+        finally
+        {
+            run.Cleanup();
+        }
+    }
+
+    [Test]
+    public async Task EnsureStartedAsync_WithNetworkName_UsesUnixSocketTransport()
+    {
+        var run = await StartAsync(CreateOptions());
+
+        try
+        {
+            var sessionDir = Path.Combine(run.IpcBase, "session");
+            var socketPath = Path.Combine(sessionDir, "sandbox.sock");
+
+            run.Parameters.HostConfig!.Binds.ShouldContain($"{sessionDir}:/run/dotto");
+            run.Parameters.Env.ShouldContain("SANDBOX_SOCKET=/run/dotto/sandbox.sock");
+
+            run.Parameters.HostConfig.PortBindings.ShouldBeNull();
+            run.Parameters.ExposedPorts.ShouldBeNull();
+
+            run.Endpoint.IsUnixSocket.ShouldBeTrue();
+            run.Endpoint.SocketPath.ShouldBe(socketPath);
+        }
+        finally
+        {
+            run.Cleanup();
+        }
     }
 }

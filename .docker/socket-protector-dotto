@@ -1,6 +1,7 @@
-# Dotto bot: container lifecycle endpoints only.
+# Dotto bot: lifecycle endpoints, plus /info for the runtime probe.
 
 # Method Path
+GET /(v\d+\.\d+/)?info(\?.*)?
 POST /(v\d+\.\d+/)?containers/create(\?.*)?
 POST /(v\d+\.\d+/)?containers/[0-9a-fA-F]+/start(\?.*)?
 GET /(v\d+\.\d+/)?containers/[0-9a-fA-F]+/json(\?.*)?

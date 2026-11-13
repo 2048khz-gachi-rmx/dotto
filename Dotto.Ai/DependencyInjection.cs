@@ -56,6 +56,8 @@ public static class DependencyInjection
         services.AddSingleton<IDockerClient>(_ => new DockerClientBuilder().Build());
 
         services.AddScoped<ISandbox, Sandbox.Sandbox>();
+        services.AddHostedService<SandboxIpcSweeper>();
+        services.AddHostedService<SandboxRuntimeProbe>();
         services.AddHostedService<SandboxReaper>();
     }
 

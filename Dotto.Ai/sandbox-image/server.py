@@ -4,6 +4,7 @@ import json
 import os
 import select
 import signal
+import socketserver
 import subprocess
 import sys
 import threading
@@ -12,6 +13,9 @@ from urllib.parse import urlparse, parse_qs
 
 
 PORT = int(os.environ.get("PORT", "8080"))
+
+# Production: bind this Unix socket instead of TCP.
+SANDBOX_SOCKET = os.environ.get("SANDBOX_SOCKET", "")
 
 # Per-container API token; unset means every request is refused.
 TOKEN = os.environ.get("SANDBOX_TOKEN", "")
@@ -37,6 +41,8 @@ MAX_OUTPUT_BYTES = 4 * MAX_OUTPUT_CHARS
 DRAIN_TIMEOUT = 5
 
 CHUNK_SIZE = 64 * 1024
+# 1 MiB is the transfer knee under gVisor; exec pumps keep CHUNK_SIZE.
+FILE_CHUNK_SIZE = 1024 * 1024
 
 # Minimum per-file quota charge, so tiny files are not free.
 MIN_FILE_CHARGE_BYTES = 256 * 1024
@@ -180,6 +186,12 @@ def _unique_path(full: str) -> str:
 class SandboxHandler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def address_string(self):
+        # AF_UNIX has an empty client_address; the base class would index it.
+        if not self.client_address:
+            return "unix"
+        return super().address_string()
+
     def log_message(self, format, *args):
         sys.stderr.write(f"[sandbox] {self.address_string()} {args[0]}\n")
 
@@ -294,7 +306,7 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
         try:
             with open(full, "rb") as source:
                 while True:
-                    chunk = source.read(CHUNK_SIZE)
+                    chunk = source.read(FILE_CHUNK_SIZE)
                     if not chunk:
                         break
                     self.wfile.write(chunk)
@@ -338,7 +350,7 @@ class SandboxHandler(http.server.BaseHTTPRequestHandler):
             remaining = length
             with open(temporary, "wb") as sink:
                 while remaining > 0:
-                    chunk = self.rfile.read(min(CHUNK_SIZE, remaining))
+                    chunk = self.rfile.read(min(FILE_CHUNK_SIZE, remaining))
                     if not chunk:
                         raise OSError("client closed the connection before sending the declared body")
                     sink.write(chunk)
@@ -474,7 +486,27 @@ class SandboxServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = True
 
 
+class SandboxUnixServer(socketserver.ThreadingUnixStreamServer):
+    daemon_threads = True
+
+
 def main():
+    if SANDBOX_SOCKET:
+        # A leftover socket from a previous container run would make bind() fail.
+        try:
+            os.unlink(SANDBOX_SOCKET)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(os.path.dirname(SANDBOX_SOCKET) or ".", exist_ok=True)
+        server = SandboxUnixServer(SANDBOX_SOCKET, SandboxHandler)
+        # The bot runs as a different uid than the sandbox user.
+        os.chmod(SANDBOX_SOCKET, 0o666)
+        sys.stderr.write(f"[sandbox] listening on unix:{SANDBOX_SOCKET}\n")
+        sys.stderr.flush()
+        server.serve_forever()
+        return
+
     server = SandboxServer(("0.0.0.0", PORT), SandboxHandler)
     sys.stderr.write(f"[sandbox] listening on 0.0.0.0:{PORT}\n")
     sys.stderr.flush()
