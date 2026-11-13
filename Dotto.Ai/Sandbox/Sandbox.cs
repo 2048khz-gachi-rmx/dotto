@@ -346,7 +346,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         // attempts:2 against two resolvers caps a dead-resolver stall at ~8s; glibc's
         // defaults (5s x 2 attempts per server) can take 20s or more.
-        lines.Add("options timeout:2 attempts:2");
+        lines.Add("options timeout:2 attempts:2 edns0 trust-ad");
         var content = string.Join('\n', lines) + "\n";
 
         lock (ResolvConfLock)

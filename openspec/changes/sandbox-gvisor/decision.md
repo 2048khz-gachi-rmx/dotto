@@ -206,8 +206,10 @@ google/gvisor#7469). `--dns` alone does not help: Docker only uses those address
 for the embedded resolver and still writes `127.0.0.11` into the file. The bot therefore writes one
 shared `resolv.conf` from `Ai:Sandbox:DnsServers` into the IPC base directory (outside the
 per-session mounts) and bind-mounts it at `/etc/resolv.conf:ro`. The file deduplicates the
-nameserver list and adds `options timeout:2 attempts:2`, so a dead resolver costs seconds rather
-than glibc's default ~20s. Internal/LAN names remain intentionally unavailable: the sandbox is
+nameserver list and adds `options timeout:2 attempts:2 edns0 trust-ad`, so a dead resolver costs
+seconds rather than glibc's default ~20s, and `getaddrinfo` callers can still see validated (AD)
+answers. Egress is IPv4-only: `gai.conf` stops v6-first sorting, but v6-only destinations remain
+unreachable without an IPv6 route. Internal/LAN names remain intentionally unavailable: the sandbox is
 supposed to reach only the internet, and public resolvers cannot answer those names anyway.
 
 A shared `/etc/gai.conf` (`precedence ::ffff:0:0/96 100`) prefers IPv4, because the sandbox has no

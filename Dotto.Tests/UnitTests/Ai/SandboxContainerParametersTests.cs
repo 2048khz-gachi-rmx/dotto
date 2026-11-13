@@ -181,7 +181,7 @@ public class SandboxContainerParametersTests
             run.Parameters.HostConfig.Binds.ShouldContain($"{gaiConf}:/etc/gai.conf:ro");
             run.ResolvConf.ShouldNotBeNull();
             run.ResolvConf.ShouldContain("nameserver 1.1.1.1");
-            run.ResolvConf.ShouldContain("options timeout:2 attempts:2");
+            run.ResolvConf.ShouldContain("options timeout:2 attempts:2 edns0 trust-ad");
             run.ResolvConf.Split('\n', StringSplitOptions.RemoveEmptyEntries)
                 .Count(line => line.StartsWith("nameserver ", StringComparison.Ordinal))
                 .ShouldBe(2);
