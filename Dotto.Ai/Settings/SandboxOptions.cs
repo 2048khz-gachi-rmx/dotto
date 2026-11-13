@@ -61,7 +61,8 @@ public class SandboxOptions
     public bool UseGVisorRuntime { get; set; } = true;
 
     /// <summary>
-    /// Sandbox resolvers; private ones are unreachable through the egress filter.
+    /// Sandbox resolvers; empty falls back to 1.1.1.1/8.8.8.8. Private resolvers are
+    /// unreachable through the egress filter.
     /// </summary>
-    public List<string> DnsServers { get; set; } = ["1.1.1.1", "8.8.8.8"];
+    public List<string> DnsServers { get; set; } = [];
 }

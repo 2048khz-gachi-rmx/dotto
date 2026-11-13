@@ -500,8 +500,8 @@ def main():
 
         os.makedirs(os.path.dirname(SANDBOX_SOCKET) or ".", exist_ok=True)
         server = SandboxUnixServer(SANDBOX_SOCKET, SandboxHandler)
-        # The bot runs as a different uid than the sandbox user.
-        os.chmod(SANDBOX_SOCKET, 0o666)
+        # The host bot runs as root; do not expose the control socket to other host users.
+        os.chmod(SANDBOX_SOCKET, 0o600)
         sys.stderr.write(f"[sandbox] listening on unix:{SANDBOX_SOCKET}\n")
         sys.stderr.flush()
         server.serve_forever()

@@ -39,6 +39,14 @@ public static class DependencyInjection
     {
         services.AddOptions<SandboxOptions>()
             .BindConfiguration("Ai:Sandbox")
+            // The binder appends to a pre-populated list, so keep the property empty and
+            // apply defaults here; this also makes a configured list replace the defaults.
+            .PostConfigure(o =>
+            {
+                o.DnsServers = o.DnsServers.Count == 0
+                    ? ["1.1.1.1", "8.8.8.8"]
+                    : o.DnsServers.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            })
             .ValidateDataAnnotations()
             .Validate(
                 o => o.MemoryMb > o.WorkTmpfsMb,

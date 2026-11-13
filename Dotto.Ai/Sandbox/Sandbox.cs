@@ -28,6 +28,8 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
     private const string ResolvConfFileName = "resolv.conf";
 
+    private const string GaiConfFileName = "gai.conf";
+
     /// <summary>Serializes writes to the shared resolver file across sessions.</summary>
     private static readonly object ResolvConfLock = new();
 
@@ -135,7 +137,10 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
             // which gVisor's isolated network stack cannot reach. Bind one shared
             // static file instead (gVisor FAQ: Docker user-defined bridge DNS).
             if (_options.DnsServers.Count > 0)
+            {
                 binds.Add($"{EnsureSharedResolvConf()}:/etc/resolv.conf:ro");
+                binds.Add($"{EnsureSharedGaiConf()}:/etc/gai.conf:ro");
+            }
         }
 
         var env = new List<string>
@@ -166,7 +171,7 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
                 CapDrop = new List<string> { "ALL" },
                 SecurityOpt = new List<string> { "no-new-privileges:true" },
 
-                DNS = _options.DnsServers,
+                DNS = _options.DnsServers.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
 
                 AutoRemove = true,
 
@@ -332,9 +337,38 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
     {
         var path = Path.Combine(_options.IpcBasePath, ResolvConfFileName);
         var lines = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var server in _options.DnsServers)
-            lines.Add($"nameserver {server}");
+        {
+            if (seen.Add(server))
+                lines.Add($"nameserver {server}");
+        }
+
+        // attempts:2 against two resolvers caps a dead-resolver stall at ~8s; glibc's
+        // defaults (5s x 2 attempts per server) can take 20s or more.
+        lines.Add("options timeout:2 attempts:2");
         var content = string.Join('\n', lines) + "\n";
+
+        lock (ResolvConfLock)
+        {
+            Directory.CreateDirectory(_options.IpcBasePath);
+            if (!File.Exists(path) || File.ReadAllText(path) != content)
+                File.WriteAllText(path, content);
+        }
+
+        return path;
+    }
+
+    /// <summary>
+    /// The sandbox has no IPv6 route, but public DNS returns AAAA records and glibc
+    /// prefers them. Prefer IPv4 so scripts taking the first getaddrinfo result work.
+    /// </summary>
+    private string EnsureSharedGaiConf()
+    {
+        var path = Path.Combine(_options.IpcBasePath, GaiConfFileName);
+        const string content =
+            "# Prefer IPv4: the sandbox has no IPv6 route.\n" +
+            "precedence ::ffff:0:0/96  100\n";
 
         lock (ResolvConfLock)
         {

@@ -45,6 +45,7 @@ public class SandboxContainerParametersTests
             NetworkName = "sandbox-test",
             StorageBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-params-" + id),
             IpcBasePath = Path.Combine(Path.GetTempPath(), "dotto-sandbox-ipc-" + id),
+            DnsServers = ["1.1.1.1", "8.8.8.8"],
             WorkTmpfsMb = 256,
             MemoryMb = 512,
         };
@@ -175,9 +176,15 @@ public class SandboxContainerParametersTests
 
             // Docker writes 127.0.0.11 for user-defined networks; gVisor needs a static file.
             var resolvConf = Path.Combine(run.IpcBase, "resolv.conf");
+            var gaiConf = Path.Combine(run.IpcBase, "gai.conf");
             run.Parameters.HostConfig.Binds.ShouldContain($"{resolvConf}:/etc/resolv.conf:ro");
+            run.Parameters.HostConfig.Binds.ShouldContain($"{gaiConf}:/etc/gai.conf:ro");
             run.ResolvConf.ShouldNotBeNull();
             run.ResolvConf.ShouldContain("nameserver 1.1.1.1");
+            run.ResolvConf.ShouldContain("options timeout:2 attempts:2");
+            run.ResolvConf.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Count(line => line.StartsWith("nameserver ", StringComparison.Ordinal))
+                .ShouldBe(2);
             run.ResolvConf.ShouldContain("nameserver 8.8.8.8");
 
             run.Parameters.HostConfig.PortBindings.ShouldBeNull();
