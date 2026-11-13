@@ -34,12 +34,14 @@ curl -O https://raw.githubusercontent.com/2048khz-gachi-rmx/dotto/master/.env.ex
    **gVisor (recommended):** install it once on the Docker host, then restart Docker:
 
    ```bash
-   ARCH=$(uname -m); VERSION=20261109.0
+   ARCH=$(uname -m)    # x86_64 or aarch64
+   VERSION=20261109.0
    BASE=https://storage.googleapis.com/gvisor/releases/release/${VERSION}/${ARCH}
-   wget -q ${BASE}/runsc ${BASE}/runsc.sha512
-   sha512sum -c runsc.sha512
-   chmod a+rx runsc
-   sudo mv runsc /usr/local/bin/
+
+   curl -fsSLO ${BASE}/gvisor.tar.bz2
+   curl -fsSLO ${BASE}/gvisor.tar.bz2.sha512
+   sha512sum -c gvisor.tar.bz2.sha512
+   sudo tar -xjf gvisor.tar.bz2 -C /usr/local/bin
    sudo runsc install -- --host-uds=create
    sudo systemctl restart docker
    ```
