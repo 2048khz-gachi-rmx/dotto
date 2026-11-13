@@ -18,6 +18,7 @@ public class SandboxContainerParametersTests
         public required SandboxEndpoint Endpoint { get; init; }
         public required string StorageBase { get; init; }
         public required string IpcBase { get; init; }
+        public string? ResolvConf { get; init; }
 
         public void Cleanup()
         {
@@ -65,11 +66,15 @@ public class SandboxContainerParametersTests
         container.PingAsync(Arg.Any<CancellationToken>()).Returns(true);
 
         SandboxEndpoint? endpoint = null;
+        string? resolvConf = null;
         var sandbox = new Sandbox(Options.Create(options), NullLogger<Sandbox>.Instance, client)
         {
             ContainerFactory = (e, _, _) =>
             {
                 endpoint = e;
+                var path = Path.Combine(options.IpcBasePath, "resolv.conf");
+                if (File.Exists(path))
+                    resolvConf = File.ReadAllText(path);
                 return container;
             }
         };
@@ -93,6 +98,7 @@ public class SandboxContainerParametersTests
             Endpoint = endpoint!,
             StorageBase = options.StorageBasePath,
             IpcBase = options.IpcBasePath,
+            ResolvConf = resolvConf,
         };
     }
 
@@ -166,6 +172,13 @@ public class SandboxContainerParametersTests
 
             run.Parameters.HostConfig!.Binds.ShouldContain($"{sessionDir}:/run/dotto");
             run.Parameters.Env.ShouldContain("SANDBOX_SOCKET=/run/dotto/sandbox.sock");
+
+            // Docker writes 127.0.0.11 for user-defined networks; gVisor needs a static file.
+            var resolvConf = Path.Combine(run.IpcBase, "resolv.conf");
+            run.Parameters.HostConfig.Binds.ShouldContain($"{resolvConf}:/etc/resolv.conf:ro");
+            run.ResolvConf.ShouldNotBeNull();
+            run.ResolvConf.ShouldContain("nameserver 1.1.1.1");
+            run.ResolvConf.ShouldContain("nameserver 8.8.8.8");
 
             run.Parameters.HostConfig.PortBindings.ShouldBeNull();
             run.Parameters.ExposedPorts.ShouldBeNull();

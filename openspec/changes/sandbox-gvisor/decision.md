@@ -161,6 +161,8 @@ per-session IPC directories and unlink-before-bind.
 - gVisor ran on the default `systrap` platform. KVM is present on the host but was not used;
   `--platform=kvm` would likely narrow the syscall gap and was deliberately not evaluated here.
 - Results are tied to gVisor release-20261109.0.
+- gVisor synthesizes `/proc/cpuinfo`: the model name is masked, but vendor feature flags still
+  leak the host microarchitecture. Masking needs a custom `runsc` CPUID config; accepted here.
 
 ## Follow-ups
 
@@ -194,3 +196,14 @@ collision for a user-managed `--bridge`, fixed in 29.10.0 by PR #54157, but `--b
 the deletion. Future benchmarks should use DinD/rootless/VM isolation, or a user-managed bridge
 with non-overlapping `default-address-pools`; do not use `--bridge=none` on a host that already
 runs a live Docker daemon.
+
+## Docker DNS under gVisor
+
+Docker user-defined networks point the container's `/etc/resolv.conf` at the embedded
+resolver on `127.0.0.11`. That resolver is a host-side listener; gVisor's isolated network stack
+cannot reach it, so `getaddrinfo` fails even though direct-IP egress works (gVisor FAQ,
+google/gvisor#7469). `--dns` alone does not help: Docker only uses those addresses as upstreams
+for the embedded resolver and still writes `127.0.0.11` into the file. The bot therefore writes one
+shared `resolv.conf` from `Ai:Sandbox:DnsServers` into the IPC base directory (outside the
+per-session mounts) and bind-mounts it at `/etc/resolv.conf:ro`. Container-name resolution is
+intentionally unavailable.

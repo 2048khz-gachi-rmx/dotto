@@ -26,6 +26,11 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
     private const string SocketFileName = "sandbox.sock";
 
+    private const string ResolvConfFileName = "resolv.conf";
+
+    /// <summary>Serializes writes to the shared resolver file across sessions.</summary>
+    private static readonly object ResolvConfLock = new();
+
     /// <summary>AF_UNIX <c>sun_path</c> is 108 bytes including the NUL.</summary>
     private const int MaxSocketPathBytes = 107;
 
@@ -123,7 +128,15 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
 
         var binds = new List<string> { $"{meta.HostStorageDir}:/storage" };
         if (_ipcDir != null)
+        {
             binds.Add($"{_ipcDir}:{SocketMountPath}");
+
+            // Docker user-defined networks point /etc/resolv.conf at 127.0.0.11,
+            // which gVisor's isolated network stack cannot reach. Bind one shared
+            // static file instead (gVisor FAQ: Docker user-defined bridge DNS).
+            if (_options.DnsServers.Count > 0)
+                binds.Add($"{EnsureSharedResolvConf()}:/etc/resolv.conf:ro");
+        }
 
         var env = new List<string>
         {
@@ -309,6 +322,28 @@ internal sealed class Sandbox(IOptions<SandboxOptions> options,
         }
 
         return dir;
+    }
+
+    /// <summary>
+    /// Writes the shared resolver file outside the per-session directories, so the
+    /// sandbox can read it but not rewrite it through the /run/dotto mount.
+    /// </summary>
+    private string EnsureSharedResolvConf()
+    {
+        var path = Path.Combine(_options.IpcBasePath, ResolvConfFileName);
+        var lines = new List<string>();
+        foreach (var server in _options.DnsServers)
+            lines.Add($"nameserver {server}");
+        var content = string.Join('\n', lines) + "\n";
+
+        lock (ResolvConfLock)
+        {
+            Directory.CreateDirectory(_options.IpcBasePath);
+            if (!File.Exists(path) || File.ReadAllText(path) != content)
+                File.WriteAllText(path, content);
+        }
+
+        return path;
     }
 
     /// <summary>Removes the IPC directory; never throws.</summary>
