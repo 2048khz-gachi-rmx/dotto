@@ -32,9 +32,9 @@ See `proposal.md` — Why and `decision.md` for the measurements behind them. Th
 
 ### Decision 2: Per-session Unix socket, TCP only for development
 
-In production the sandbox binds `/run/dotto/sandbox.sock`, backed by a host directory `<IpcBasePath>/<sessionId>` bind-mounted into the container. The bot connects to the same host path. `IpcBasePath` defaults next to storage (`/var/lib/dotto-sandbox-ipc` on Linux, a temp dir on Windows) and the compose file mounts it into the bot container. TCP on `127.0.0.1` remains the fallback when no `NetworkName` is configured, which is the Windows/Podman development path.
+In production the sandbox binds `/run/dotto/sandbox.sock`, backed by a host directory `<IpcBasePath>/<sessionId>` bind-mounted into the container. The bot connects to the same host path. `IpcBasePath` defaults next to storage (`/var/lib/dotto-sandbox-ipc` on Linux, a temp dir on Windows) and the compose file mounts it into the bot container. The transport is derived rather than separately configured: a configured `NetworkName` selects the socket, and an unset one selects the `127.0.0.1` TCP path used by Windows/Podman development. This mirrors the existing `ResolveApiUrlAsync` split and avoids a switch that could put production back on a network-reachable API.
 
-The Python server gains a `SANDBOX_SOCKET` mode: a `socketserver.ThreadingUnixStreamServer` with `BaseHTTPRequestHandler`, `protocol_version = "HTTP/1.1"`, unlink-before-bind, and the same token check. `ThreadingUnixStreamServer` is used rather than subclassing `HTTPServer`, whose `server_bind` assumes an `(host, port)` tuple.
+The Python server gains a `SANDBOX_SOCKET` mode: a `socketserver.ThreadingUnixStreamServer` with `BaseHTTPRequestHandler`, `protocol_version = "HTTP/1.1"`, unlink-before-bind, `chmod 0666` on the socket, and the same token check. `ThreadingUnixStreamServer` is used rather than subclassing `HTTPServer`, whose `server_bind` assumes an `(host, port)` tuple. The handler must override `address_string` (AF_UNIX `client_address` is an empty string, so the base implementation's `client_address[0]` raises and the connection aborts).
 
 On the .NET side, `SandboxContainer` receives an endpoint (URI or socket path). For a socket, `SocketsHttpHandler.ConnectCallback` opens a `UnixDomainSocketEndPoint`; the request base URI is a synthetic `http://sandbox/` because no network resolution is involved. `AllowAutoRedirect = false` and `UseCookies = false` stay, so the token cannot be redirected. Timeouts and response buffering are unchanged.
 
@@ -67,16 +67,17 @@ The bot creates `<IpcBasePath>/<sessionId>` before container start (mode `0777`,
 - **Hosts without `runsc` lose all sandbox tools after upgrade** → startup logs the exact fix; `.docker/README.md` documents the prerequisite; rollback is one setting (`UseGVisorRuntime=false`).
 - **`enable_icc=false` also cuts the sandbox off from Docker's embedded DNS (`127.0.0.11`)** → the sandbox pins public resolvers (`1.1.1.1`, `8.8.8.8`), so name resolution should be unaffected; verify `dig` during rollout. If a path still needs embedded DNS, allow `127.0.0.11` explicitly rather than re-enabling ICC.
 - **Socket directory leaks on SIGKILL** → startup sweep keyed on directory mtime.
+- **AF_UNIX `sun_path` is limited to ~108 bytes** → session directories are short and the host rejects an over-long socket path with a clear startup error instead of a raw `ENAMETOOLONG`.
 - **`--host-uds=create` lets the sandbox bind sockets on writable gofer mounts** (`/storage`, the IPC dir) → host never connects to an unexpected path; per-session directories and the token remain the trust boundary. `open`/`all` are explicitly not used.
 - **gVisor bulk-transfer regression** → 1MiB chunk fix in the same change; the residual 3–5x versus `runc` only affects very large files.
 - **Compose network recreation** → `docker compose down` + `docker network rm sandbox` + `up -d`; documented so an in-place `up -d` is not mistaken for a complete rollout.
-- **Windows/Podman development** → UDS is disabled by default when `NetworkName` is unset; the loopback TCP path is unchanged.
+- **Windows/Podman development** → UDS is selected only when `NetworkName` is configured; the unset case keeps the loopback TCP path unchanged.
 
 ## Migration Plan
 
 1. Host: install the pinned gVisor release and register `runsc` with runtime args `--host-uds=create`; restart Docker; confirm `docker info` lists `runsc`.
 2. Rebuild/publish `dotto-sandbox:latest` (server.py changes) and pull it on the host.
-3. Update compose: add the IPC bind mount to the bot, set `Ai__Sandbox__UseUnixSocket=true`, remove `sandbox` from the bot's networks, add `enable_icc=false`.
+3. Update compose: add the IPC bind mount to the bot, remove `sandbox` from the bot's networks, add `enable_icc=false`.
 4. `docker compose down`, `docker network rm sandbox`, `docker compose up -d`; then verify: `docker info` runtimes, `/ping` over the socket, `curl` to a public host, `nc` to a sibling sandbox (blocked), `curl` to a LAN address (blocked), 100MiB `PUT`/`GET`.
 5. Rollback: `Ai__Sandbox__UseGVisorRuntime=false` for the runtime alone; revert the compose commit for the transport (TCP requires the bot back on the bridge).
 
